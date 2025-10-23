@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>luckybet Bingo - Play</title>
+<style>
+:root{
+  --bg:#101418; --panel:#1b2128; --accent:#b2640c; --text:#e7edf3; 
+  --muted:#9aa7b2; --primary:#2d89ff; --border:#2a333d;
+}
+/* Splash overlay */
+.splash{
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  /* Repeating diamond/lines pattern only (uniform across screen) */
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><rect width='120' height='120' fill='transparent'/><g stroke='%237c3aed' stroke-width='2' fill='none' opacity='0.65'><polygon points='60,28 80,46 60,92 40,46'/><polyline points='48,46 60,28 72,46 48,46'/></g><g stroke='%237c3aed' stroke-width='2' opacity='0.45'><line x1='8' y1='8' x2='32' y2='32'/><line x1='88' y1='88' x2='112' y2='112'/><line x1='8' y1='112' x2='32' y2='88'/><line x1='88' y1='32' x2='112' y2='8'/></g><g fill='%237c3aed' opacity='0.45'><circle cx='20' cy='60' r='3'/><circle cx='100' cy='60' r='3'/></g></svg>");
+  background-color: #0f1115;
+  background-size: 120px 120px;
+  background-repeat: repeat;
+  background-position: 0 0;
+  color: #cfd8e3; font-weight: 800; font-size: 16px; letter-spacing:.3px;
+  transition: opacity .25s ease, visibility .25s ease;
+}
+.splash.hide{ opacity: 0; visibility: hidden; }
+.splash .loader{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+.splash .dot-row{ display:flex; gap:6px; }
+.splash .dot{ width:8px; height:8px; border-radius:999px; background:#7c3aed; opacity:.85; animation: pulse 1.2s infinite ease-in-out; }
+.splash .dot:nth-child(2){ animation-delay:.15s }
+.splash .dot:nth-child(3){ animation-delay:.3s }
+@keyframes pulse{ 0%,80%,100%{ transform:scale(.6); opacity:.6 } 40%{ transform:scale(1); opacity:1 } }
+
+.cell.taken{
+  background:#6b7280;
+  border-color:#6b7280;
+  color:#cbd5e1;
+  cursor:not-allowed;
+  pointer-events:none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+}
+
+.container {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 600px;  
+  overflow: hidden; 
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 8px 0 8px;
+  background: linear-gradient(180deg, rgba(64, 24, 92, .8), rgba(64, 24, 92, 0));
+}
+
+.badge {
+  background: #2a0e46;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.badge.secondary { background: #3a2c7a; }
+.badge .icon { opacity: .85; }
+
+.header {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  padding: 12px;
+ 
+  border-bottom: 1px solid var(--border);
+}
+
+.header > * { flex-shrink: 1; min-width: 0; }
+
+.pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #12181f;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  min-width: 0;
+ 
+  flex-shrink: 0;
+  background-color: purple;
+  white-space: nowrap;
+}
+
+.pill .label { font-size: 10px; color: var(--muted); }
+.pill .value { font-weight: 700; margin-top: 2px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+  padding: 12px;
+  overflow-y: auto;   
+  flex-grow: 1;   
+}
+
+.cell {
+  background: var(--accent);
+  color: hsl(0, 9%, 70%);
+  font-weight: 700;
+  border-radius: 8px;
+  aspect-ratio: 1/1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid #e27400;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+.cell:hover { text-decoration: none; }
+a.cell:link, a.cell:visited { color: hsl(0, 9%, 70%); }
+
+.footer {
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+}
+
+.btn {
+  background: var(--primary);
+  border: 1px solid #1d6fe6;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.copy {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 12px;
+}
+
+/* Modal Styles */
+.modal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(8px); /* <-- blur the background */
+}
+
+.modal{
+  width: 360px;
+  max-width: 95vw;
+  background: linear-gradient(180deg,#f6a623,#d8890b);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  padding: 14px;
+}
+
+.modal-inner{
+  background: #ffffff;
+  color: #000000;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.modal-title{
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffcc33;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px auto;
+  font-weight: 800;
+  color: #7a4b00;
+  border: 2px solid #f0b000;
+}
+
+.bingo-head{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:6px;
+  margin-bottom:6px;
+}
+
+.bingo-head div{
+  color:#fff;
+  font-weight:800;
+  text-align:center;
+  padding:6px 0;
+  border-radius:6px;
+}
+
+.B{background:#2ecc71} /* green */
+.I{background:#e74c3c} /* red */
+.N{background:#f39c12} /* orange */
+.G{background:#2d89ff} /* blue */
+.O{background:#d81b60} /* magenta */
+
+.card-grid{
+  background:#0f1115;
+  border-radius:10px;
+  padding:10px;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:8px;
+}
+
+.card-cell{
+  background:#1b1f26;
+  border:1px solid #444;
+  border-radius:8px;
+  color:#f0f3f7;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:44px;
+  font-weight:700;
+}
+
+.card-cell.free{
+  background:#173e1f;
+  border-color:#2a7a3b;
+  position:relative;
+}
+.card-cell.free::after{ content:"⭐"; font-size:20px; }
+
+/* Modal-specific overrides: make preview card white with black numbers */
+.modal-inner .card-grid{ background:#ffffff; }
+.modal-inner .card-cell{ background:#ffffff; color:#000000; border:1px solid #ccc; }
+.modal-inner .card-cell.free{ background:#173e1f; color:#ffffff; border-color:#2a7a3b; }
+
+.modal-actions{
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  margin-top:10px;
+}
+
+.btn-accept{
+  background:#2ecc71;
+  border:none;
+  color:#04120a;
+  padding:10px 16px;
+  border-radius:999px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.btn-cancel{
+  background:#b0b6bf;
+  border:none;
+  color:#111;
+  padding:10px 16px;
+  border-radius:999px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* Insufficient balance dialog */
+.insufficient-dialog{
+  width: 360px;
+  max-width: 90vw;
+  background: #fff;
+  color: #111;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  padding: 16px;
+}
+.insufficient-body{ font-size:16px; line-height:1.4; margin-bottom:12px; }
+.insufficient-close{
+  background:#d8890b; color:#fff; border:none; border-radius:8px;
+  padding:8px 14px; font-weight:700; cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- 2s Loading Splash -->
+<div id="splash" class="splash" role="status" aria-live="polite">
+  <div class="loader">
+    <div class="dot-row"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div>Loading...</div>
+  </div>
+  
+</div>
+
+<div class="container">
+  <div class="card">
+    <div id="topbar" class="topbar" style="display:none;">
+      <div class="badge" id="derash-badge">
+        <span class="icon">💸</span>
+        <span>Derash <span id="derash-amount">0</span> ETB</span>
+      </div>
+ 
+      <div class="badge secondary">
+        <span>Starting On <span id="countdown-top">-</span></span>
+      </div>
+    </div>
+
+    <div class="header" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;margin:8px auto;gap:8px;flex-wrap:wrap;padding:0 12px;width:100%;box-sizing:border-box;">
+      <div class="pill" style="flex:1;text-align:center;">
+        <div class="label">Game</div>
+        <div class="value"><span id="game-number">-</span></div>
+      </div>
+      <div class="pill" style="flex:1;text-align:center;">
+        <div class="label">Bet</div>
+        <div class="value">{{ stake }} ETB</div>
+      </div>
+      <div class="pill" style="flex:1;text-align:center;">
+        <div class="label">Players</div>
+        <div class="value"><span id="active-count">0</span></div>
+      </div>
+      <div class="pill" style="flex:1;text-align:center;">
+        <div class="label">Wallet</div>
+        <div class="value">{{ wallet|floatformat:2 }} ETB</div>
+      </div>
+    </div>
+
+    
+
+    <div class="grid">
+      {% for n in numbers %}
+        <a class="cell" href="{% url 'card' n %}?stake={{ stake }}&tid={{ tid }}">{{ n }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="footer">
+      <button class="btn" onclick="location.reload()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="copy">Copyright &copy; luckybet Bingo 2025</div>
+</div>
+
+<div id="modal-backdrop" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-title" id="modal-card-index">1</div>
+    <div class="modal-inner">
+      <div class="bingo-head">
+        <div class="B">B</div>
+        <div class="I">I</div>
+        <div class="N">N</div>
+        <div class="G">G</div>
+        <div class="O">O</div>
+      </div>
+      <div id="card-grid" class="card-grid"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="btn-accept" class="btn-accept">Accept</button>
+      <button id="btn-cancel" class="btn-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Insufficient balance dialog backdrop -->
+<div id="insufficient-backdrop" class="modal-backdrop" style="display:none;">
+  <div class="insufficient-dialog">
+    <div class="insufficient-body">Your balance is insufficient to complete this transaction.</div>
+    <button id="btn-insuff-close" class="insufficient-close">Close</button>
+  </div>
+  
+</div>
+
+<script>
+const STAKE = parseInt('{{ stake }}',10) || 10;
+const TID = '{{ tid|default:"" }}';
+const WALLET = parseFloat('{{ wallet|default:"0" }}') || 0;
+let SELECTED_INDEX = null;
+let countdownTimer = null;
+// Track first page load to optionally auto-abandon stale selection
+window.__firstLoad = true;
+const RANGES = [[1,15],[16,30],[31,45],[46,60],[61,75]];
+
+function mulberry32(seed){
+  return function(){
+    seed |= 0;
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+}
+
+function shuffleArray(arr, seed){
+  const prng = mulberry32(seed);
+  const result = arr.slice();
+  for(let i=result.length-1;i>0;i--){
+    const j = Math.floor(prng() * (i+1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function buildCardFromSeed(seed){
+  const columns = RANGES.map(([start,end], idx)=>{
+    const arr = Array.from({length:end-start+1}, (_,i)=>start+i);
+    const shuffled = shuffleArray(arr, seed + idx*1000);
+    return shuffled.slice(0,5);
+  });
+  return Array.from({length:5}, (_,r)=>
+    Array.from({length:5}, (_,c)=> (r===2 && c===2 ? 'FREE' : columns[c][r]))
+  );
+}
+
+function renderCard(rows){
+  const grid = document.getElementById('card-grid');
+  grid.innerHTML = '';
+  rows.forEach(row=>{
+    row.forEach(val=>{
+      const div = document.createElement('div');
+      div.className = 'card-cell' + (val==='FREE' ? ' free' : '');
+      if(val!=='FREE') div.textContent = val;
+      grid.appendChild(div);
+    });
+  });
+}
+
+function openModal(index){
+  const idx = Math.min(200, Math.max(1, parseInt(index,10) || 1));
+  document.getElementById('modal-card-index').textContent = idx;
+  renderCard(buildCardFromSeed(idx));
+  document.getElementById('modal-backdrop').style.display = 'flex';
+  SELECTED_INDEX = idx;
+}
+
+function closeModal(){ document.getElementById('modal-backdrop').style.display = 'none'; }
+
+document.getElementById('btn-cancel').addEventListener('click', async ()=>{
+  // Optionally notify server to clear preview (kept minimal)
+  closeModal();
+});
+document.getElementById('btn-accept').addEventListener('click', async ()=>{
+  if(!TID || !SELECTED_INDEX) { closeModal(); return; }
+  if(Number.isFinite(STAKE) && WALLET < STAKE){
+    closeModal();
+    const ib = document.getElementById('insufficient-backdrop');
+    if(ib){ ib.style.display = 'flex'; }
+    return;
+  }
+  const form = new URLSearchParams();
+  form.set('tid', TID);
+  form.set('stake', String(STAKE));
+  form.set('index', String(SELECTED_INDEX));
+  form.set('action', 'accept');
+  const res = await fetch('/api/select', { method:'POST', body: form });
+  if(res.ok){
+    const data = await res.json();
+    // Game number is updated via refreshState() using total finished games
+    markTaken(data.taken);
+    updateAcceptedCount(data.accepted_count);
+    updateDerash(data.accepted_count);
+    // Seed lastPlayState so abandon can fire even before next poll
+    window.__lastPlayState = Object.assign({}, window.__lastPlayState || {}, {
+      my_index: SELECTED_INDEX,
+      countdown_started_at: data.countdown_started_at || null,
+      started: false,
+      taken: data.taken || [],
+      accepted_count: data.accepted_count || 0,
+      total_games: (window.__lastPlayState && window.__lastPlayState.total_games) || undefined,
+    });
+    // From this point in the session, never auto-abandon on refresh
+    window.__firstLoad = false;
+    if(data.countdown_started_at){ startCountdownFrom(data.countdown_started_at); }
+    // Immediately fetch latest game_state so my_index and counts reflect on-page
+    await refreshState();
+  } else if(res.status === 409){
+    alert('This card has just been taken by another player.');
+    await refreshState();
+  }
+  closeModal();
+});
+
+document.querySelectorAll('.grid .cell').forEach(cell=>{
+  cell.addEventListener('click', e=>{
+    e.preventDefault();
+    if(cell.classList.contains('taken')) return;
+    openModal(cell.textContent.trim());
+  });
+});
+
+async function refreshState(){
+  try{
+    const res = await fetch(`/api/game_state?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+    if(!res.ok) return;
+    const data = await res.json();
+    // cache last known state for exit handling
+    window.__lastPlayState = data;
+    // On first load only: if a lingering selection exists but countdown hasn't begun, auto-abandon it
+    if(window.__firstLoad && (typeof data.my_index !== 'undefined' && data.my_index !== null) && !data.countdown_started_at && !data.started){
+      try{
+        const payloadStr = `tid=${encodeURIComponent(TID)}&stake=${encodeURIComponent(String(STAKE))}`;
+        await fetch('/api/abandon', { method: 'POST', body: payloadStr, headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' } });
+        window.__firstLoad = false;
+        // Refresh state after abandoning
+        return await refreshState();
+      }catch(_){ /* best-effort */ }
+    }
+    window.__firstLoad = false;
+    // If game not started yet, ensure UI is reset to waiting state
+    if(!(data && data.accepted_count >= 2)){
+      if(countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
+      const elTop = document.getElementById('countdown-top'); if(elTop) elTop.textContent = '-';
+      toggleTopbar(0);
+    }
+    // Set total games count in the Game pill
+    const gameNum = document.getElementById('game-number');
+    if(gameNum) gameNum.textContent = String(data.total_games ?? '-');
+    markTaken(data.taken || []);
+    updateAcceptedCount(data.accepted_count || 0);
+    updateDerash(data.accepted_count || 0);
+    toggleTopbar(data.accepted_count || 0);
+    if(data.countdown_started_at){ startCountdownFrom(data.countdown_started_at); }
+
+    // Redirect to game page when started
+    if(data.started){
+      window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
+      return;
+    }
+  }catch(_){/* noop */}
+}
+
+function markTaken(indices){
+  const set = new Set((indices||[]).map(String));
+  document.querySelectorAll('.grid .cell').forEach(cell=>{
+    const n = cell.textContent.trim();
+    if(set.has(n)) cell.classList.add('taken'); else cell.classList.remove('taken');
+  });
+}
+
+function updateAcceptedCount(n){
+  const el = document.getElementById('active-count');
+  if(el) el.textContent = String(n);
+}
+
+function startCountdownFrom(iso){
+  const start = new Date(iso).getTime();
+  const DURATION = 30; // seconds
+  if(countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(()=>{
+    const now = Date.now();
+    const elapsed = Math.floor((now - start)/1000);
+    const remaining = Math.max(0, DURATION - elapsed);
+    const elTop = document.getElementById('countdown-top');
+    if(elTop) elTop.textContent = remaining;
+    if(remaining <= 0){
+      clearInterval(countdownTimer);
+      // Safety redirect if server has flipped to started
+      window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
+    }
+  }, 500);
+}
+
+// Initial load and polling: reset UI then poll server
+(function resetOnArrival(){
+  if(countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
+  const elTop = document.getElementById('countdown-top'); if(elTop) elTop.textContent = '-';
+  updateAcceptedCount(0);
+  updateDerash(0);
+  toggleTopbar(0);
+})();
+refreshState();
+let __poll = setInterval(refreshState, 2000);
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden'){
+    if(__poll){ clearInterval(__poll); __poll = null; }
+  }else{
+    if(!__poll){ refreshState(); __poll = setInterval(refreshState, 2000); }
+  }
+});
+
+function updateDerash(acceptedCount){
+  const pot = Math.max(0, Number(acceptedCount||0) * STAKE * 0.8);
+  const el = document.getElementById('derash-amount');
+  if(el) el.textContent = pot.toFixed(0);
+}
+
+function toggleTopbar(acceptedCount){
+  const tb = document.getElementById('topbar');
+  if(!tb) return;
+  tb.style.display = (Number(acceptedCount) >= 2) ? 'flex' : 'none';
+}
+
+// helper used earlier, no longer needed
+function setText(id, v){ const el=document.getElementById(id); if(el) el.textContent = String(v); }
+
+// Insufficient balance dialog: attach close handlers
+(function attachInsufficientHandlers(){
+  const ib = document.getElementById('insufficient-backdrop');
+  const btn = document.getElementById('btn-insuff-close');
+  if(btn && ib){
+    btn.addEventListener('click', ()=>{ ib.style.display = 'none'; });
+    ib.addEventListener('click', (e)=>{ if(e.target === ib) ib.style.display = 'none'; });
+  }
+})();
+
+// Release accepted selection if user exits before countdown starts
+(function setupAbandonBeforeCountdown(){
+  let abandoned = false;
+  async function sendAbandonIfNeeded(){
+    if(abandoned) return;
+    const s = window.__lastPlayState || {};
+    const hasMy = typeof s.my_index !== 'undefined' && s.my_index !== null;
+    const canAbandon = hasMy && !s.countdown_started_at && !s.started;
+    if(!canAbandon) return;
+    // Build urlencoded payload string (works with sendBeacon as Blob)
+    const payloadStr = `tid=${encodeURIComponent(TID)}&stake=${encodeURIComponent(String(STAKE))}`;
+    const blob = new Blob([payloadStr], { type: 'application/x-www-form-urlencoded;charset=UTF-8' });
+    try{
+      // Try keepalive fetch first (works on most webviews)
+      await fetch('/api/abandon', { method: 'POST', body: payloadStr, keepalive: true, headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' } });
+      abandoned = true;
+    }catch(_){
+      try{
+        // Fallback to sendBeacon
+        navigator.sendBeacon('/api/abandon', blob);
+        abandoned = true;
+      }catch(__){ /* ignore */ }
+    }
+  }
+  // Fire only when the page is actually being unloaded
+  let timer = null;
+  const debounced = ()=>{ if(timer) return; timer = setTimeout(()=>{ timer=null; sendAbandonIfNeeded(); }, 0); };
+  window.addEventListener('beforeunload', debounced);
+})();
+
+// Hide splash after 2 seconds or once first state arrives, whichever is earlier
+(function splashController(){
+  const splash = document.getElementById('splash');
+  if(!splash) return;
+  let hidden = false;
+  function hide(){ if(hidden) return; hidden=true; splash.classList.add('hide'); setTimeout(()=>{ try{ splash.remove(); }catch(_){ } }, 300); }
+  const timer = setTimeout(hide, 2000);
+  // Also hide on first successful game state
+  const origRefresh = refreshState;
+  window.refreshState = async function(){
+    try{ await origRefresh.apply(this, arguments); } finally { hide(); }
+  };
+})();
+</script>
+
+</body>
+</html>
