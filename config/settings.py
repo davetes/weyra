@@ -26,13 +26,9 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = 'django-insecure-3aydodbk+r$*q1n+nyqjowjz!w)^58-n!2y^bysdrdqx4v4-2o'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = [
-    '.trycloudflare.com',
-    '127.0.0.1',
-    'localhost',
-]
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '.trycloudflare.com,127.0.0.1,localhost').split(',')
 
 
 # Application definition
