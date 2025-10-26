@@ -197,7 +197,7 @@ function updateBoardCurrent(){
     const curStr = String(data.current_call);
     if(!called.map(String).includes(curStr)) called.push(data.current_call);
   }
-  const currentForBoard = data.current_call;
+  const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
   markBoard(called, currentForBoard);
 }
 function playNextFromQueue(){
@@ -225,7 +225,10 @@ function playNextFromQueue(){
   const startAudio = ()=>{
     audioPlaying = true;
     lastAudioCall = num;
-    // Do not drive UI by audio; UI follows server timeline via refresh/tick
+    // Update the UI to the number we're about to speak
+    setCurrentBall(num);
+    // Update board current to match voice timing
+    updateBoardCurrent();
     autoPickIfOn(num);
     callAudio.src = `/static/audio/${num}.mp3`;
     callAudio.currentTime = 0;
@@ -267,16 +270,21 @@ function scheduleTickRefresh(){
 }
 function enqueueCallsFromRecent(recent, current){
   if(window.suppressCalls){ audioQueue = []; return; }
+  if(!Array.isArray(recent)) recent = [];
   const cur = Number(current);
-  if(!Number.isFinite(cur) || cur < 1 || cur > 75){ return; }
-  const curStr = String(cur);
-  // If we're already playing this number or have just spoken it, don't enqueue again
-  if(audioPlaying || (lastAudioCall != null && String(lastAudioCall) === curStr)){
-    audioQueue = [];
-    return;
+  const recentStr = recent.map(x=>String(x));
+  const lastStr = lastAudioCall == null ? null : String(lastAudioCall);
+  let toAdd = [];
+  if(lastStr && recentStr.includes(lastStr)){
+    const idx = recentStr.lastIndexOf(lastStr);
+    if(idx < recentStr.length - 1){
+      toAdd = recentStr.slice(idx+1);
+    }
+  } else if(cur){
+    toAdd = [String(cur)];
   }
-  // Only speak the current call: clear any backlog and enqueue just the current
-  audioQueue = [curStr];
+  // de-duplicate against items already queued
+  toAdd.forEach(n=>{ if(!audioQueue.includes(n)){ audioQueue.push(n); } });
   playNextFromQueue();
 }
 document.getElementById('audio-toggle')?.addEventListener('click', ()=>{
@@ -289,16 +297,21 @@ document.getElementById('audio-toggle')?.addEventListener('click', ()=>{
   localStorage.setItem('audioOn', String(audioOn));
   if(!audioOn){
     stopCallAudio(); // also resets lastAudioCall
-    // UI is driven by server tick regardless of audio state
+    // When audio is OFF, drive UI by exact tick boundaries
+    try{ if(tickTimer){ clearTimeout(tickTimer); tickTimer = null; } }catch(_){ }
+    scheduleTickRefresh();
   }else{
-    lastAudioCall = null;
+    lastAudioCall = null; // wait for new audio start to set green
+    // Clear tick scheduler when audio resumes to avoid duplicate cadence
+    try{ if(tickTimer){ clearTimeout(tickTimer); tickTimer = null; } }catch(_){ }
     // Immediate refresh to rebuild audio queue from server anchors
     refresh();
     playNextFromQueue();
   }
   renderAudio();
-  // Re-render board current follows server; no audio-timed UI
-  updateBoardCurrent();
+  // Re-render board current only when audio resumes; when muted, let scheduler drive updates
+  if(audioOn){ updateBoardCurrent(); }
+  if(!audioOn){ /* scheduler already set above; no immediate UI jump */ }
 });
 renderAudio();
 
@@ -446,7 +459,7 @@ async function refresh(){
   if(wrap){
     wrap.innerHTML='';
     const base = Array.isArray(data.recent_calls) ? data.recent_calls.slice() : [];
-    const anchor = data.current_call;
+    const anchor = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
     let recent = [];
     if(Array.isArray(data.called_numbers) && anchor != null){
       const idxMap = {};
@@ -482,11 +495,11 @@ async function refresh(){
   // Keep a set of called numbers for winner coloring inference
   window.lastCalledSet = new Set(called.map(v=>String(v)));
   setText('stat-call', (typeof data.call_count === 'number') ? data.call_count : called.length);
-  // Use server current for the green current dot so all clients stay in sync
-  const currentForBoard = data.current_call;
+  // Use lastAudioCall for the green current dot so the board waits for audio/UI
+  const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
   markBoard(called, currentForBoard);
-  // Always keep the big current ball in sync with server
-  if(data.current_call){ setCurrentBall(data.current_call); }
+  // If audio is OFF or hasn't started yet, keep the big current ball in sync with server
+  if(!audioOn && data.current_call){ setCurrentBall(data.current_call); }
   // Auto-pick only the current call (and next ones), do not retro-pick past calls
   try{
     if(autoPickOn){
@@ -551,8 +564,6 @@ document.getElementById('btn-bingo').addEventListener('click', async ()=>{
 
 buildBoard();
 refresh();
-// Keep server-aligned tick running in all cases
-scheduleTickRefresh();
 setInterval(refresh, 2000);
 
 // WebSocket realtime (Channels)
