@@ -67,6 +67,17 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
  #audio-toggle{position:absolute;right:18px;}
 .btn{background:#d4a017;border:1px solid #b8850c;color:#1a1306;padding:10px 16px;border-radius:999px;font-weight:700;cursor:pointer}
 
+/* Audio icon images (speaker on/off) */
+#audio-toggle .icon{ display:inline-block; width:22px; height:22px; background-repeat:no-repeat; background-position:center; background-size:contain; }
+/* Speaker ON: icon with waves */
+#audio-toggle .icon.spk-on{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M11 5l-4 4H4v6h3l4 4V5z'/><path d='M16 10a4 4 0 0 1 0 4'/><path d='M20 8a7 7 0 0 1 0 8'/></svg>");
+}
+/* Speaker OFF: icon with x */
+#audio-toggle .icon.spk-off{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M11 5l-4 4H4v6h3l4 4V5z'/><path d='M22 9l-6 6'/><path d='M16 9l6 6'/></svg>");
+}
+
 /* Winner modal */
 .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999}
 .modal{background:#ede3f6;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);padding:12px;max-width:520px;width:95vw}
@@ -167,7 +178,11 @@ function setCurrentBall(n){
 function renderAudio(){
   const icon = document.getElementById('audio-icon');
   const tg = document.getElementById('audio-toggle');
-  if(icon) icon.textContent = audioOn ? '🔊' : '🔇';
+  if(icon){
+    try{ icon.textContent = ''; }catch(_){ }
+    icon.classList.toggle('spk-on', !!audioOn);
+    icon.classList.toggle('spk-off', !audioOn);
+  }
   if(tg) tg.setAttribute('aria-pressed', String(audioOn));
 }
 function renderAuto(){
