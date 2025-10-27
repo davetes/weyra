@@ -70,10 +70,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         pass
 
     if img_url:
-        await context.bot.send_photo(chat_id=chat_id, photo=img_url,caption="🎉 Welcome To kana Bingo! 🎉")
+        await context.bot.send_photo(chat_id=chat_id, photo=img_url,caption="🎉 Welcome To roha Bingo! 🎉")
     elif img_path and os.path.exists(img_path):
         with open(img_path, "rb") as f:
-            await context.bot.send_photo(chat_id=chat_id, photo=f,caption="🎉 Welcome To kana Bingo! 🎉")
+            await context.bot.send_photo(chat_id=chat_id, photo=f,caption="🎉 Welcome To roha Bingo! 🎉")
 
     keyboard = InlineKeyboardMarkup(BUTTON_ROWS)
     await context.bot.send_message(chat_id=chat_id, text="🕹️ Every Square Counts – Grab Your roha, Join the Game, and Let the Fun Begin!", reply_markup=keyboard,parse_mode=ParseMode.HTML)
@@ -151,12 +151,12 @@ async def invite_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def contact_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.effective_message.reply_text(
-        "Telegram - @Rohabingosupport\nPhone - +251 98 195 9155"
+        "Telegram - @Rohabingosupport\nPhone - +251981959155"
     )
 
 async def instruction_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.effective_message.reply_text(
-        "እንኮን ወደ ቃና ቢንጎ መጡ\n\n"
+        "እንኮን ወደ ሮሃ ቢንጎ መጡ\n\n"
         "1 ለመጫወት ወደቦቱ ሲገቡ register የሚለውን በመንካት ስልክ ቁጥሮትን ያጋሩ\n\n"
         "2 menu ውስጥ በመግባት deposit fund የሚለውን በመንካት በሚፈልጉት የባንክ አካውንት ገንዘብ ገቢ ያድርጉ \n\n"
         "3 menu ውስጥ በመግባት start play የሚለውን በመንካት መወራረድ የሚፈልጉበትን የብር መጠን ይምረጡ።\n\n\n"
@@ -355,9 +355,9 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     responses = {
         "play_now": "Starting a new game...",
         "check_balance": "Your balance is currently 0.",
-        "support": "Telegram - @Rohabingosupport\nPhone - +251 98 195 9155",
+        "support": "Telegram - @Rohabingosupport\nPhone - +251981959155",
         "instructions": (
-            "እንኮን ወደ ካርቴላ ቢንጎ መጡ\n\n"
+            "እንኮን ወደ ሮሃ ቢንጎ መጡ\n\n"
             "1 ለመጫወት ወደቦቱ ሲገቡ register የሚለውን በመንካት ስልክ ቁጥሮትን ያጋሩ\n\n"
             "2 menu ውስጥ በመግባት deposit fund የሚለውን በመንካት በሚፈልጉት የባንክ አካውንት ገንዘብ ገቢ ያድርጉ \n\n"
             "3 menu ውስጥ በመግባት start play የሚለውን በመንካት መወራረድ የሚፈልጉበትን የብር መጠን ይምረጡ።\n\n\n"
