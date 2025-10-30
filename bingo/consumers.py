@@ -3,6 +3,7 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
 from .models import Game, Selection, Player
+from .models import Transaction
 from .utils import get_card
 import random
 from django.db import transaction
@@ -154,10 +155,19 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             accepted = g.selections.filter(accepted=True).count()
             charged = g.charged_count if getattr(g, 'stakes_charged', False) else accepted
             pot = (Decimal(charged) * Decimal(g.stake)) * Decimal('0.80')
-            # credit winner
+            # credit winner and increment wins
             p = Player.objects.select_for_update().get(id=player.id)
             p.wallet = (p.wallet or Decimal('0')) + pot
-            p.save(update_fields=["wallet"]) 
+            try:
+                p.wins = (p.wins or 0) + 1
+            except Exception:
+                p.wins = (getattr(p, 'wins', 0) or 0) + 1
+            p.save(update_fields=["wallet", "wins"]) 
+            # record win payout transaction for reporting
+            try:
+                Transaction.objects.create(player=p, kind='other', amount=pot, note=f"Win pot for game {g.id}")
+            except Exception:
+                pass
             # deduct from losers only if not already charged at countdown
             if not getattr(g, 'stakes_charged', False):
                 loser_ids = list(

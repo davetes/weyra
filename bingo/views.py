@@ -462,7 +462,16 @@ def api_claim_bingo(request: HttpRequest):
             # credit winner wallet
             p = Player.objects.select_for_update().get(id=player_obj.id)
             p.wallet = (p.wallet or Decimal('0')) + pot
-            p.save(update_fields=["wallet"]) 
+            try:
+                p.wins = (p.wins or 0) + 1
+            except Exception:
+                p.wins = (getattr(p, 'wins', 0) or 0) + 1
+            p.save(update_fields=["wallet", "wins"]) 
+            # record win payout transaction for reporting
+            try:
+                Transaction.objects.create(player=p, kind='other', amount=pot, note=f"Win pot for game {g.id}")
+            except Exception:
+                pass
             # deduct stake from losers if not previously charged at countdown
             if not g.stakes_charged:
                 loser_ids = list(
