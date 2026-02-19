@@ -202,23 +202,23 @@ async def on_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         obj.phone = phone
         obj.username = user.username or ""
         if first_phone:
-            obj.wallet = (obj.wallet or Decimal("0")) + Decimal("20.00")
+            obj.wallet = (obj.wallet or Decimal("0")) + Decimal("10.00")
         obj.save()
         return first_phone, obj.wallet
     first_time, balance = await sync_to_async(upsert)()
     if first_time:
         await update.message.reply_text(
-            f"Registration completed. You received 20 ETB. Wallet: {balance}",
+            f"Registration completed. You received 10 ETB. Wallet: {balance}",
             reply_markup=ReplyKeyboardRemove(),
         )
-        # Reward referrer (if any) with 20 ETB
+        # Reward referrer (if any) with 10 ETB
         ref_tid = context.user_data.get("referrer_tid")
         if ref_tid and ref_tid != user.id:
             def reward_referrer():
                 ref = Player.objects.filter(telegram_id=ref_tid).first()
                 if not ref:
                     return None
-                ref.wallet = (ref.wallet or Decimal("0")) + Decimal("20.00")
+                ref.wallet = (ref.wallet or Decimal("0")) + Decimal("10.00")
                 ref.save(update_fields=["wallet"])
                 return ref.wallet
             try:
@@ -229,7 +229,7 @@ async def on_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                             chat_id=ref_tid,
                             text=(
                                 "🎉 Referral bonus received!\n"
-                                f"A new player joined using your link. +20.00 ETB\n"
+                                f"A new player joined using your link. +10.00 ETB\n"
                                 f"New Wallet: {Decimal(new_ref_balance):.2f} ETB"
                             ),
                             parse_mode=ParseMode.HTML,
