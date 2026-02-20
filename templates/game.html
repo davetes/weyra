@@ -976,10 +976,10 @@
       markBoard(called, currentForBoard);
       // Update the big ball display:
       // - When audio is OFF: always use server's current_call
-      // - When audio is ON and actively playing: let the audio queue drive the ball (it calls setCurrentBall itself)
-      // - When audio is ON but blocked/empty queue: use server's current_call as fallback
+      // - When audio is ON, unlocked, and actively playing: let the audio queue drive the ball
+      // - When audio is ON but blocked (not unlocked) or queue empty: use server's current_call
       if (data.current_call != null) {
-        const audioIsActive = audioOn && (audioPlaying || audioQueue.length > 0);
+        const audioIsActive = audioOn && audioUnlocked && (audioPlaying || audioQueue.length > 0);
         if (!audioIsActive) {
           setCurrentBall(data.current_call);
         }
