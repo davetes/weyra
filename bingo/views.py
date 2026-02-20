@@ -222,12 +222,17 @@ def api_game_state(request: HttpRequest):
 
     if game.started_at:
         started = True
-        # Determine current call based on time progression (every 3s)
+        # Determine current call based on time progression (every 5s, with 2s initial delay)
         elapsed = int((timezone.now() - game.started_at).total_seconds())
-        step = max(0, elapsed // 3)
+        INITIAL_DELAY = 2  # 2s before first call — gives players time to settle and audio to unlock
+        if elapsed < INITIAL_DELAY:
+            step = -1  # no call yet
+        else:
+            step = (elapsed - INITIAL_DELAY) // 5
         seq = [int(x) for x in game.sequence.split(",") if x]
-        step = min(step, max(0, len(seq) - 1)) if seq else 0
-        if seq:
+        if step >= 0:
+            step = min(step, max(0, len(seq) - 1)) if seq else 0
+        if seq and step >= 0:
             current_call = seq[step]
             recent_calls = seq[max(0, step-4):step+1]
             call_count = min(step + 1, len(seq))

@@ -551,7 +551,7 @@
     let lastSilentCall = null;
     // When true, stop any new audio and queue processing (set on winner for all clients)
     window.suppressCalls = false;
-    const CALL_INTERVAL_MS = 3000; // enforce ~3s cadence between call starts
+    const CALL_INTERVAL_MS = 5000; // enforce ~5s cadence between call starts
     const POST_END_GAP_MS = 300;   // small gap after audio ends
     const MAX_AUDIO_MS = 3000;     // hard cap audio playback to 3s
     function setCurrentBall(n) {
@@ -774,15 +774,36 @@
     document.addEventListener('click', unlockAudioOnce, { passive: true });
     document.addEventListener('touchstart', unlockAudioOnce, { passive: true });
 
-    // Try silent unlock on page load (works in some WebViews like Telegram)
-    (function tryAutoUnlock() {
+    // Try silent unlock on page load and KEEP RETRYING until audio works
+    // Telegram WebView usually allows audio after the first user gesture (opening the Mini App)
+    let _autoUnlockTimer = null;
+    function tryAutoUnlock() {
+      if (audioUnlocked) { if (_autoUnlockTimer) { clearInterval(_autoUnlockTimer); _autoUnlockTimer = null; } return; }
       try {
+        // Method 1: AudioContext resume (most reliable in WebViews)
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.resume().then(() => {
+          if (ctx.state === 'running') {
+            audioUnlocked = true;
+            playNextFromQueue();
+            if (_autoUnlockTimer) { clearInterval(_autoUnlockTimer); _autoUnlockTimer = null; }
+          }
+          ctx.close().catch(() => { });
+        }).catch(() => { });
+        // Method 2: Silent audio play
         const silent = new Audio();
         silent.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAABYYoSQnkAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=';
-        silent.volume = 0;
-        silent.play().then(() => { audioUnlocked = true; silent.pause(); }).catch(() => { });
+        silent.volume = 0.01;
+        silent.play().then(() => {
+          audioUnlocked = true;
+          silent.pause();
+          playNextFromQueue();
+          if (_autoUnlockTimer) { clearInterval(_autoUnlockTimer); _autoUnlockTimer = null; }
+        }).catch(() => { });
       } catch (_) { }
-    })();
+    }
+    tryAutoUnlock();
+    _autoUnlockTimer = setInterval(tryAutoUnlock, 2000); // keep trying every 2s
 
     // Preload first 15 audio files so they play instantly
     (function preloadAudio() {
