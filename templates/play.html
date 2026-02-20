@@ -564,6 +564,10 @@ async function refreshState(){
           elTop.textContent = 'Starting...';
           ensureStartCheck();
           scheduleStartRedirect();
+          if((data.accepted_count || 0) >= 2){
+            window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
+            return;
+          }
         }else{
           elTop.textContent = String(data.countdown_remaining);
         }
