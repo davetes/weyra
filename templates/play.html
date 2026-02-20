@@ -752,23 +752,25 @@
     }
 
     function scheduleStartRedirect() {
-      if (startRedirectTimer) return;
-      startRedirectTimer = setTimeout(() => {
-        window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
-      }, 2000);
+      // Disabled: redirects are now handled by the poll-based check in refreshState
+      // when data.started === true. This prevents the black page from premature redirect.
     }
 
     function ensureStartCheck() {
       if (fastPollTimer) return;
+      // STOP the regular 3s poll to avoid overlapping requests that overload the server
+      if (__poll) { clearInterval(__poll); __poll = null; }
       let attempts = 0;
       fastPollTimer = setInterval(async () => {
         attempts += 1;
         await refreshState();
-        if (attempts >= 10) {
+        if (attempts >= 6) {
           clearInterval(fastPollTimer);
           fastPollTimer = null;
+          // Resume regular polling if we still haven't redirected
+          if (!__poll) { __poll = setInterval(refreshState, 3000); }
         }
-      }, 1000);
+      }, 1500);
     }
 
     // Initial load and polling: reset UI then poll server
