@@ -561,13 +561,10 @@ async function refreshState(){
       const elTop = document.getElementById('countdown-top');
       if(elTop){
         if(data.countdown_remaining <= 0 && !data.started){
+          // Don't redirect yet! Server hasn't promoted the game to started.
+          // Show "Starting..." and let the poll loop handle redirect when data.started===true
           elTop.textContent = 'Starting...';
           ensureStartCheck();
-          scheduleStartRedirect();
-          if((data.accepted_count || 0) >= 2){
-            window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
-            return;
-          }
         }else{
           elTop.textContent = String(data.countdown_remaining);
         }
@@ -648,12 +645,12 @@ function ensureStartCheck(){
   toggleTopbar(0);
 })();
 refreshState();
-let __poll = setInterval(refreshState, 2000);
+let __poll = setInterval(refreshState, 3000);
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState === 'hidden'){
     if(__poll){ clearInterval(__poll); __poll = null; }
   }else{
-    if(!__poll){ refreshState(); __poll = setInterval(refreshState, 2000); }
+    if(!__poll){ refreshState(); __poll = setInterval(refreshState, 3000); }
     if(lastStateAt && (Date.now() - lastStateAt) > 5000){ refreshState(); }
   }
 });

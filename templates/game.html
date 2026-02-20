@@ -1,829 +1,1228 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bingo - Game</title>
-<style>
-:root{ --bg:#101418; --panel:#1b2128; --text:#e7edf3; --muted:#9aa7b2; --primary:#2d89ff; --border:#2a333d; }
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,Cantarell,"Noto Sans",sans-serif}
-.container{max-width:480px;margin:0 auto;padding:12px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.25);padding:10px}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bingo - Game</title>
+  <style>
+    :root {
+      --bg: #101418;
+      --panel: #1b2128;
+      --text: #e7edf3;
+      --muted: #9aa7b2;
+      --primary: #2d89ff;
+      --border: #2a333d;
+    }
 
-/* Badges */
-.badges{display:flex;flex-direction:column;gap:2px;margin-bottom:10px;font-size: 12px;}
-.badge-row{display:flex;gap:10px}
-.badge{background:#2a0e46;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:6px 14px;font-weight:800;display:inline-flex;align-items:center;gap:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);margin-bottom: 4px;}
-.badge.secondary{background:#3a2c7a}
-.badge[role="button"]{ cursor:pointer; }
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif
+    }
 
-/* Other styles remain the same */
-/* Toggle switch (iOS-like) */
-.toggle{width:44px;height:24px;border-radius:999px;background:#e5e7eb;position:relative;box-shadow:inset 0 0 0 2px rgba(0,0,0,.08);transition:background .2s ease}
-.toggle .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s ease}
-.toggle.on{background:#7c3aed}
-.toggle.on .knob{left:22px}
-.top-board{background:#141824;border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:10px;margin-left: -10px;}
-.top-board-grid{display:grid;grid-template-columns:24px repeat(15,1fr);gap:2px;align-items:center;margin-left: -10px;}
-.dot{height:20px;width:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:#2a3441;color:#cbd5e1}
-.dot.hit{background:#c0392b;color:#fff}
-.dot.current{background:#2ecc71;color:#0b3018}
-.row-label{width:24px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#e2e8f0; margin-left:-4px;}
-.row-label.b{color:#2ecc71}
-.row-label.i{color:#e74c3c}
-.row-label.n{color:#f39c12}
-.row-label.g{color:#2d89ff}
-.row-label.o{color:#d81b60}
-.center-call{display:flex;align-items:center;gap:8px;margin:10px 0; justify-content:flex-start;}
-#current-call{display:flex;align-items:center;justify-content:center}
-#recent-calls{display:flex;gap:10px;flex-wrap:nowrap;justify-content:center}
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 12px
+    }
 
-/* Bingo balls */
-.ball{display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35);border:3px solid rgba(255,255,255,.9)}
-.ball.lg{width:88px;height:88px}
-.ball.sm{width:36px;height:36px;border-width:2px}
-.ball .wrap{display:flex;flex-direction:column;align-items:center;line-height:1}
-.ball .letter{font-size:12px;font-weight:800;opacity:.95;margin-top:-2px}
-.ball .number{font-size:28px;font-weight:900;margin-top:2px}
-.ball.sm .letter{font-size:10px;margin-top:-1px}
-.ball.sm .number{font-size:14px;margin-top:1px}
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+      padding: 10px
+    }
 
-/* Colors by letter */
-.ball.b{background:#2ecc71}
-.ball.i{background:#e74c3c}
-.ball.n{background:#f39c12}
-.ball.g{background:#2d89ff}
-.ball.o{background:#d81b60}
-.card-head{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0}
-.B,.I,.N,.G,.O{color:#fff;font-weight:800;text-align:center;padding:6px 0;border-radius:6px}
-.B{background:#2ecc71}.I{background:#e74c3c}.N{background:#f39c12}.G{background:#2d89ff}.O{background:#d81b60}
-.card-grid{background:#ffffff;border-radius:10px;padding:10px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-.card-cell{background:#ffffff;border:1px solid #ccc;border-radius:8px;color:#000000;display:flex;align-items:center;justify-content:center;height:44px;font-weight:800;font-size:16px;}
-.card-cell.free{background:#173e1f;border-color:#2a7a3b;position:relative;color:#ffffff}
-.card-cell.free::after{content:"⭐";font-size:20px}
-/* Player board override: FREE cell should be purple on my card only */
-#my-card .card-cell.free{ background:#970cf4; border-color:#6a00b8; color:#ffffff }
-.actions{display:flex;justify-content:center;margin-top:12px}
- #audio-toggle{position:absolute;right:18px;}
-.btn{background:#d4a017;border:1px solid #b8850c;color:#1a1306;padding:10px 16px;border-radius:999px;font-weight:700;cursor:pointer}
+    /* Badges */
+    .badges {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
 
-/* Audio icon images (speaker on/off) */
-#audio-toggle .icon{ display:inline-block; width:22px; height:22px; background-repeat:no-repeat; background-position:center; background-size:contain; }
-/* Speaker ON: icon with waves */
-#audio-toggle .icon.spk-on{
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M11 5l-4 4H4v6h3l4 4V5z'/><path d='M16 10a4 4 0 0 1 0 4'/><path d='M20 8a7 7 0 0 1 0 8'/></svg>");
-}
-/* Speaker OFF: icon with x */
-#audio-toggle .icon.spk-off{
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M11 5l-4 4H4v6h3l4 4V5z'/><path d='M22 9l-6 6'/><path d='M16 9l6 6'/></svg>");
-}
+    .badge-row {
+      display: flex;
+      gap: 10px
+    }
 
-/* Winner modal */
-.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999}
-.modal{background:#ede3f6;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);padding:12px;max-width:520px;width:95vw}
-.modal .title{background:#f38a06;color:#fff;font-weight:900;text-align:center;border-radius:10px;padding:10px;margin-bottom:10px}
-.modal .who{display:flex;align-items:center;gap:8px;justify-content:center;margin:8px 0}
-.modal .who .name{background:#2ecc71;color:#0b3018;font-weight:800;border-radius:8px;padding:2px 8px}
-.modal .board{background:#d8c9ef;border-radius:12px;padding:8px;margin:8px 0}
-.modal .footer{background:#f38a06;color:#fff;text-align:center;font-weight:900;border-radius:10px;padding:10px;margin-top:8px}
-</style>
+    .badge {
+      background: #2a0e46;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+      margin-bottom: 4px;
+    }
+
+    .badge.secondary {
+      background: #3a2c7a
+    }
+
+    .badge[role="button"] {
+      cursor: pointer;
+    }
+
+    /* Other styles remain the same */
+    /* Toggle switch (iOS-like) */
+    .toggle {
+      width: 44px;
+      height: 24px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      position: relative;
+      box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .08);
+      transition: background .2s ease
+    }
+
+    .toggle .knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+      transition: left .2s ease
+    }
+
+    .toggle.on {
+      background: #7c3aed
+    }
+
+    .toggle.on .knob {
+      left: 22px
+    }
+
+    .top-board {
+      background: #141824;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      margin-bottom: 10px;
+      margin-left: -10px;
+    }
+
+    .top-board-grid {
+      display: grid;
+      grid-template-columns: 24px repeat(15, 1fr);
+      gap: 2px;
+      align-items: center;
+      margin-left: -10px;
+    }
+
+    .dot {
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: #2a3441;
+      color: #cbd5e1
+    }
+
+    .dot.hit {
+      background: #c0392b;
+      color: #fff
+    }
+
+    .dot.current {
+      background: #2ecc71;
+      color: #0b3018
+    }
+
+    .row-label {
+      width: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #e2e8f0;
+      margin-left: -4px;
+    }
+
+    .row-label.b {
+      color: #2ecc71
+    }
+
+    .row-label.i {
+      color: #e74c3c
+    }
+
+    .row-label.n {
+      color: #f39c12
+    }
+
+    .row-label.g {
+      color: #2d89ff
+    }
+
+    .row-label.o {
+      color: #d81b60
+    }
+
+    .center-call {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0;
+      justify-content: flex-start;
+    }
+
+    #current-call {
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    #recent-calls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: nowrap;
+      justify-content: center
+    }
+
+    /* Bingo balls */
+    .ball {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+      border: 3px solid rgba(255, 255, 255, .9)
+    }
+
+    .ball.lg {
+      width: 88px;
+      height: 88px
+    }
+
+    .ball.sm {
+      width: 36px;
+      height: 36px;
+      border-width: 2px
+    }
+
+    .ball .wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1
+    }
+
+    .ball .letter {
+      font-size: 12px;
+      font-weight: 800;
+      opacity: .95;
+      margin-top: -2px
+    }
+
+    .ball .number {
+      font-size: 28px;
+      font-weight: 900;
+      margin-top: 2px
+    }
+
+    .ball.sm .letter {
+      font-size: 10px;
+      margin-top: -1px
+    }
+
+    .ball.sm .number {
+      font-size: 14px;
+      margin-top: 1px
+    }
+
+    /* Colors by letter */
+    .ball.b {
+      background: #2ecc71
+    }
+
+    .ball.i {
+      background: #e74c3c
+    }
+
+    .ball.n {
+      background: #f39c12
+    }
+
+    .ball.g {
+      background: #2d89ff
+    }
+
+    .ball.o {
+      background: #d81b60
+    }
+
+    .card-head {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin: 8px 0
+    }
+
+    .B,
+    .I,
+    .N,
+    .G,
+    .O {
+      color: #fff;
+      font-weight: 800;
+      text-align: center;
+      padding: 6px 0;
+      border-radius: 6px
+    }
+
+    .B {
+      background: #2ecc71
+    }
+
+    .I {
+      background: #e74c3c
+    }
+
+    .N {
+      background: #f39c12
+    }
+
+    .G {
+      background: #2d89ff
+    }
+
+    .O {
+      background: #d81b60
+    }
+
+    .card-grid {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px
+    }
+
+    .card-cell {
+      background: #ffffff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      color: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 44px;
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .card-cell.free {
+      background: #173e1f;
+      border-color: #2a7a3b;
+      position: relative;
+      color: #ffffff
+    }
+
+    .card-cell.free::after {
+      content: "⭐";
+      font-size: 20px
+    }
+
+    /* Player board override: FREE cell should be purple on my card only */
+    #my-card .card-cell.free {
+      background: #970cf4;
+      border-color: #6a00b8;
+      color: #ffffff
+    }
+
+    .actions {
+      display: flex;
+      justify-content: center;
+      margin-top: 12px
+    }
+
+    #audio-toggle {
+      position: absolute;
+      right: 18px;
+    }
+
+    .btn {
+      background: #d4a017;
+      border: 1px solid #b8850c;
+      color: #1a1306;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer
+    }
+
+    /* Audio icon images (speaker on/off) */
+    #audio-toggle .icon {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+    }
+
+    /* Speaker ON: icon with waves */
+    #audio-toggle .icon.spk-on {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M11 5l-4 4H4v6h3l4 4V5z'/><path d='M16 10a4 4 0 0 1 0 4'/><path d='M20 8a7 7 0 0 1 0 8'/></svg>");
+    }
+
+    /* Speaker OFF: icon with x */
+    #audio-toggle .icon.spk-off {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M11 5l-4 4H4v6h3l4 4V5z'/><path d='M22 9l-6 6'/><path d='M16 9l6 6'/></svg>");
+    }
+
+    /* Winner modal */
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999
+    }
+
+    .modal {
+      background: #ede3f6;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
+      padding: 12px;
+      max-width: 520px;
+      width: 95vw
+    }
+
+    .modal .title {
+      background: #f38a06;
+      color: #fff;
+      font-weight: 900;
+      text-align: center;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px
+    }
+
+    .modal .who {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      margin: 8px 0
+    }
+
+    .modal .who .name {
+      background: #2ecc71;
+      color: #0b3018;
+      font-weight: 800;
+      border-radius: 8px;
+      padding: 2px 8px
+    }
+
+    .modal .board {
+      background: #d8c9ef;
+      border-radius: 12px;
+      padding: 8px;
+      margin: 8px 0
+    }
+
+    .modal .footer {
+      background: #f38a06;
+      color: #fff;
+      text-align: center;
+      font-weight: 900;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 8px
+    }
+  </style>
 </head>
+
 <body>
-<div class="container">
-  <div class="card">
-    <div class="badges">
-      <div class="badge-row">
-        <div class="badge">Call <span id="stat-call">-</span></div>
-        <div class="badge">Players <span id="stat-players">0</span></div>
-        <div class="badge">Stake <span id="stat-stake"></span></div>
-        <div class="badge">Derash <span id="stat-derash">0</span></div>
-      </div>
-      <div class="badge-row">
-        <div class="badge secondary">Game <span id="stat-totalgames">-</span></div>
-        <div class="badge secondary" id="auto-toggle" role="button" aria-pressed="false" title="Auto pick called numbers for me">
-          <span style="margin-right:6px;">Auto</span>
-          <div class="toggle" id="auto-switch" aria-hidden="true"><span class="knob"></span></div>
+  <div class="container">
+    <div class="card">
+      <div class="badges">
+        <div class="badge-row">
+          <div class="badge">Call <span id="stat-call">-</span></div>
+          <div class="badge">Players <span id="stat-players">0</span></div>
+          <div class="badge">Stake <span id="stat-stake"></span></div>
+          <div class="badge">Derash <span id="stat-derash">0</span></div>
         </div>
-        <div class="badge secondary" id="audio-toggle" role="button" aria-pressed="false" title="Toggle sound">
-          <span id="audio-icon" class="icon">🔊</span>
+        <div class="badge-row">
+          <div class="badge secondary">Game <span id="stat-totalgames">-</span></div>
+          <div class="badge secondary" id="auto-toggle" role="button" aria-pressed="false"
+            title="Auto pick called numbers for me">
+            <span style="margin-right:6px;">Auto</span>
+            <div class="toggle" id="auto-switch" aria-hidden="true"><span class="knob"></span></div>
+          </div>
+          <div class="badge secondary" id="audio-toggle" role="button" aria-pressed="false" title="Toggle sound">
+            <span id="audio-icon" class="icon">🔊</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="top-board">
-      <div class="top-board-grid" id="board-grid"></div>
-    </div>
+      <div class="top-board">
+        <div class="top-board-grid" id="board-grid"></div>
+      </div>
 
-    <div class="center-call">
-      <div id="current-call">-</div>
-      <div id="recent-calls"></div>
-    </div>
+      <div class="center-call">
+        <div id="current-call">-</div>
+        <div id="recent-calls"></div>
+      </div>
 
-    <!-- Audio element for number calls -->
-    <audio id="call-audio" preload="auto"></audio>
+      <!-- Audio element for number calls -->
+      <audio id="call-audio" preload="auto"></audio>
 
-    <div class="card-head"><div class="B">B</div><div class="I">I</div><div class="N">N</div><div class="G">G</div><div class="O">O</div></div>
-    <div id="my-card" class="card-grid"></div>
+      <div class="card-head">
+        <div class="B">B</div>
+        <div class="I">I</div>
+        <div class="N">N</div>
+        <div class="G">G</div>
+        <div class="O">O</div>
+      </div>
+      <div id="my-card" class="card-grid"></div>
 
-    <div class="actions">
-      <button id="btn-bingo" class="btn">BINGO</button>
+      <div class="actions">
+        <button id="btn-bingo" class="btn">BINGO</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Winner Modal -->
-<div id="win-backdrop" class="backdrop">
-  <div class="modal">
-    <div class="title">BINGO!</div>
-    <div class="who title" ><span id="win-name" class="name">Player</span><span>has won the game</span></div>
-    <div class="board">
-      <div class="card-head"><div class="B">B</div><div class="I">I</div><div class="N">N</div><div class="G">G</div><div class="O">O</div></div>
-      <div id="win-card" class="card-grid"></div>
-      <div style="text-align:center;margin-top:6px;font-weight:700;">Board number <span id="win-index">-</span></div>
+  <!-- Winner Modal -->
+  <div id="win-backdrop" class="backdrop">
+    <div class="modal">
+      <div class="title">BINGO!</div>
+      <div class="who title"><span id="win-name" class="name">Player</span><span>has won the game</span></div>
+      <div class="board">
+        <div class="card-head">
+          <div class="B">B</div>
+          <div class="I">I</div>
+          <div class="N">N</div>
+          <div class="G">G</div>
+          <div class="O">O</div>
+        </div>
+        <div id="win-card" class="card-grid"></div>
+        <div style="text-align:center;margin-top:6px;font-weight:700;">Board number <span id="win-index">-</span></div>
+      </div>
+      <div class="footer" id="win-countdown">5</div>
     </div>
-    <div class="footer" id="win-countdown">5</div>
-  </div>
   </div>
 
-<script>
+  <script>
 
-const STAKE = parseInt(new URLSearchParams(location.search).get('stake')||'10',10);
-// Track if winner modal is currently displayed to defer immediate redirects
-window.winnerShown = false;
-// Prevent duplicate auto-claims per game
-window.autoClaimedForGame = false;
-const TID = new URLSearchParams(location.search).get('tid') || '{{ tid|default:"" }}';
-document.getElementById('stat-stake').textContent = STAKE;
+    const STAKE = parseInt(new URLSearchParams(location.search).get('stake') || '10', 10);
+    // Track if winner modal is currently displayed to defer immediate redirects
+    window.winnerShown = false;
+    // Prevent duplicate auto-claims per game
+    window.autoClaimedForGame = false;
+    const TID = new URLSearchParams(location.search).get('tid') || '{{ tid|default:"" }}';
+    document.getElementById('stat-stake').textContent = STAKE;
 
-// Audio control state
-let audioOn = (localStorage.getItem('audioOn') ?? 'true') !== 'false';
-let autoPickOn = (localStorage.getItem('autoPickOn') ?? 'false') === 'true';
-let autoClaimOn = false;
-let tickTimer = null; // drives exact UI updates when audio is OFF
-const callAudio = document.getElementById('call-audio');
-let lastAudioCall = null; // last number we started playing
-let audioQueue = [];
-let audioPlaying = false;
-let audioUnlocked = false;
-let silentQueue = [];
-let silentPlaying = false;
-let lastSilentCall = null;
-// When true, stop any new audio and queue processing (set on winner for all clients)
-window.suppressCalls = false;
-const CALL_INTERVAL_MS = 3000; // enforce ~3s cadence between call starts
-const POST_END_GAP_MS = 300;   // small gap after audio ends
-const MAX_AUDIO_MS = 3000;     // hard cap audio playback to 3s
-function setCurrentBall(n){
-  const cur = document.getElementById('current-call');
-  if(!cur) return;
-  cur.innerHTML = '';
-  if(n){ cur.appendChild(makeBall(n,'lg')); }
-}
-function renderAudio(){
-  const icon = document.getElementById('audio-icon');
-  const tg = document.getElementById('audio-toggle');
-  if(icon){
-    try{ icon.textContent = ''; }catch(_){ }
-    icon.classList.toggle('spk-on', !!audioOn);
-    icon.classList.toggle('spk-off', !audioOn);
-  }
-  if(tg) tg.setAttribute('aria-pressed', String(audioOn));
-}
-function renderAuto(){
-  const tg = document.getElementById('auto-toggle');
-  if(tg) tg.setAttribute('aria-pressed', String(autoPickOn));
-  const sw = document.getElementById('auto-switch');
-  if(sw) sw.classList.toggle('on', !!autoPickOn);
-}
-function autoPickIfOn(n){
-  if(!autoPickOn) return;
-  if(n==null) return;
-  const val = String(n);
-  if(!window.myPicks) window.myPicks = new Set();
-  if(window.myPicks.has(val)) return;
-  document.querySelectorAll('#my-card .card-cell').forEach(cell=>{
-    if(cell.dataset && cell.dataset.value === val){ window.myPicks.add(val); }
-  });
-  applyPicks();
-  savePicks();
-}
-function stopCallAudio(){ try{ callAudio?.pause(); if(callAudio) callAudio.currentTime = 0; audioPlaying=false; lastAudioCall = null; }catch(_){} }
-function updateBoardCurrent(){
-  const data = window.lastGameData || {};
-  // rebuild called list same as refresh
-  let called = Array.isArray(data.called_numbers) ? data.called_numbers.slice() : (data.recent_calls||[]);
-  if(data.current_call != null){
-    const curStr = String(data.current_call);
-    if(!called.map(String).includes(curStr)) called.push(data.current_call);
-  }
-  const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
-  markBoard(called, currentForBoard);
-}
-function playNextFromQueue(){
-  if(window.suppressCalls){
-    try{ callAudio.pause(); }catch(_){ }
-    audioQueue = [];
-    return;
-  }
-  if(audioPlaying) return;
-  if(!audioOn) { audioQueue = []; return; }
-  if(!audioUnlocked) return;
-  const next = audioQueue.shift();
-  if(!next) return;
-  const num = Number(next);
-  if(!Number.isFinite(num) || num < 1 || num > 75) { playNextFromQueue(); return; }
-  // If we have server sync anchors, align this call's start time to the shared cadence
-  const idx = window.__callIndex && window.__callIndex[String(num)];
-  const startedAtMs = window.__startedAtMs;
-  const offset = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : 0;
-  const nowSynced = Date.now() + offset;
-  let delayMs = 0;
-  if(Number.isInteger(idx) && startedAtMs){
-    const desiredStart = startedAtMs + (idx * CALL_INTERVAL_MS);
-    delayMs = Math.max(0, desiredStart - nowSynced);
-  }
-  const startAudio = ()=>{
-    audioPlaying = true;
-    lastAudioCall = num;
-    // Update the UI to the number we're about to speak
-    setCurrentBall(num);
-    // Update board current to match voice timing
-    updateBoardCurrent();
-    autoPickIfOn(num);
-    callAudio.src = `/static/audio/${num}.mp3`;
-    callAudio.currentTime = 0;
-    const startedAt = Date.now();
-    let scheduled = false;
-    const scheduleNext = ()=>{
-      if(scheduled) return; // avoid double scheduling on error+ended
-      scheduled = true;
-      try{ clearTimeout(hardStopT); }catch(_){ }
-      const elapsed = Date.now() - startedAt; // how long this call has been playing
-      const waitCadence = Math.max(0, CALL_INTERVAL_MS - elapsed);
-      const waitGap = POST_END_GAP_MS;
-      const wait = Math.max(waitCadence, waitGap);
-      setTimeout(()=>{ audioPlaying=false; playNextFromQueue(); }, wait);
-    };
-    // Safety timer to stop audio at 3s AND advance the queue
-    let hardStopT = setTimeout(()=>{ try{ callAudio.pause(); }catch(_){}; try{ scheduleNext(); }catch(_){} }, MAX_AUDIO_MS);
-    callAudio.onended = scheduleNext;
-    callAudio.onerror = scheduleNext;
-    callAudio.play().catch(()=>{
-      // Autoplay blocked or audio error: stop advancing to avoid jumps
-      audioPlaying = false;
-      audioUnlocked = false;
-    });
-  };
-  if(delayMs > 5){ setTimeout(startAudio, delayMs); } else { startAudio(); }
-}
-
-function playNextSilentFromQueue(){
-  if(window.suppressCalls){ silentQueue = []; return; }
-  if(silentPlaying) return;
-  if(audioOn) { silentQueue = []; return; }
-  const next = silentQueue.shift();
-  if(!next) return;
-  const num = Number(next);
-  if(!Number.isFinite(num) || num < 1 || num > 75) { playNextSilentFromQueue(); return; }
-  silentPlaying = true;
-  lastSilentCall = num;
-  setCurrentBall(num);
-  updateBoardCurrent();
-  autoPickIfOn(num);
-  setTimeout(()=>{ silentPlaying = false; playNextSilentFromQueue(); }, CALL_INTERVAL_MS);
-}
-// Align refresh() calls to the shared server timeline when audio is OFF
-function scheduleTickRefresh(){
-  try{ if(tickTimer){ clearTimeout(tickTimer); tickTimer = null; } }catch(_){ }
-  const offset = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : 0;
-  const startedAtMs = window.__startedAtMs;
-  const nowSynced = Date.now() + offset;
-  if(!startedAtMs){
-    tickTimer = setTimeout(()=>{ refresh(); scheduleTickRefresh(); }, CALL_INTERVAL_MS);
-    return;
-  }
-  const elapsed = Math.max(0, nowSynced - startedAtMs);
-  const untilNext = CALL_INTERVAL_MS - (elapsed % CALL_INTERVAL_MS);
-  // Align exactly to the next 3s boundary
-  const wait = Math.max(5, untilNext);
-  tickTimer = setTimeout(()=>{ refresh(); scheduleTickRefresh(); }, wait);
-}
-function enqueueCallsFromRecent(recent, current){
-  if(window.suppressCalls){ audioQueue = []; return; }
-  if(!Array.isArray(recent)) recent = [];
-  const cur = Number(current);
-  const recentStr = recent.map(x=>String(x));
-  const lastStr = (audioOn ? lastAudioCall : lastSilentCall);
-  let toAdd = [];
-  if(lastStr && recentStr.includes(lastStr)){
-    const idx = recentStr.lastIndexOf(lastStr);
-    if(idx < recentStr.length - 1){
-      toAdd = recentStr.slice(idx+1);
+    // Audio control state
+    let audioOn = (localStorage.getItem('audioOn') ?? 'true') !== 'false';
+    let autoPickOn = (localStorage.getItem('autoPickOn') ?? 'false') === 'true';
+    let autoClaimOn = false;
+    let tickTimer = null; // drives exact UI updates when audio is OFF
+    const callAudio = document.getElementById('call-audio');
+    let lastAudioCall = null; // last number we started playing
+    let audioQueue = [];
+    let audioPlaying = false;
+    let audioUnlocked = false;
+    let silentQueue = [];
+    let silentPlaying = false;
+    let lastSilentCall = null;
+    // When true, stop any new audio and queue processing (set on winner for all clients)
+    window.suppressCalls = false;
+    const CALL_INTERVAL_MS = 3000; // enforce ~3s cadence between call starts
+    const POST_END_GAP_MS = 300;   // small gap after audio ends
+    const MAX_AUDIO_MS = 3000;     // hard cap audio playback to 3s
+    function setCurrentBall(n) {
+      const cur = document.getElementById('current-call');
+      if (!cur) return;
+      cur.innerHTML = '';
+      if (n) { cur.appendChild(makeBall(n, 'lg')); }
     }
-  } else if(cur){
-    toAdd = [String(cur)];
-  }
-  // de-duplicate against items already queued
-  if(audioOn){
-    toAdd.forEach(n=>{ if(!audioQueue.includes(n)){ audioQueue.push(n); } });
-    playNextFromQueue();
-  }else{
-    toAdd.forEach(n=>{ if(!silentQueue.includes(n)){ silentQueue.push(n); } });
-    playNextSilentFromQueue();
-  }
-}
-document.getElementById('audio-toggle')?.addEventListener('click', ()=>{
-  if(window.winnerShown || window.suppressCalls){
-    // Ignore attempts to re-enable audio after winner
-    audioOn = false; localStorage.setItem('audioOn','false'); renderAudio();
-    return;
-  }
-  audioOn = !audioOn;
-  localStorage.setItem('audioOn', String(audioOn));
-  if(audioOn){ audioUnlocked = true; }
-  if(!audioOn){
-    stopCallAudio(); // also resets lastAudioCall
-    silentQueue = [];
-    silentPlaying = false;
-    // When audio is OFF, drive UI by exact tick boundaries
-    try{ if(tickTimer){ clearTimeout(tickTimer); tickTimer = null; } }catch(_){ }
-    scheduleTickRefresh();
-  }else{
-    lastAudioCall = null; // wait for new audio start to set green
-    lastSilentCall = null;
-    silentQueue = [];
-    silentPlaying = false;
-    // Clear tick scheduler when audio resumes to avoid duplicate cadence
-    try{ if(tickTimer){ clearTimeout(tickTimer); tickTimer = null; } }catch(_){ }
-    // Immediate refresh to rebuild audio queue from server anchors
-    refresh();
-    playNextFromQueue();
-  }
-  renderAudio();
-  // Re-render board current only when audio resumes; when muted, let scheduler drive updates
-  if(audioOn){ updateBoardCurrent(); }
-  if(!audioOn){ /* scheduler already set above; no immediate UI jump */ }
-});
-renderAudio();
-
-// Unlock audio on first user interaction (mobile/webview autoplay policy)
-function unlockAudioOnce(){
-  audioUnlocked = true;
-  playNextFromQueue();
-  document.removeEventListener('click', unlockAudioOnce);
-  document.removeEventListener('touchstart', unlockAudioOnce);
-}
-document.addEventListener('click', unlockAudioOnce, { passive: true });
-document.addEventListener('touchstart', unlockAudioOnce, { passive: true });
-
-// Auto toggle: clicking makes it ON if currently OFF; clicking again turns it OFF
-document.getElementById('auto-toggle')?.addEventListener('click', ()=>{
-  if(!autoPickOn){
-    autoPickOn = true;
-    const cur = window.lastGameData && window.lastGameData.current_call;
-    if(cur != null) autoPickIfOn(cur);
-  } else {
-    autoPickOn = false;
-  }
-  localStorage.setItem('autoPickOn', String(autoPickOn));
-  renderAuto();
-});
-// Inner switch also responds and stops event bubbling
-document.getElementById('auto-switch')?.addEventListener('click', (e)=>{
-  e.preventDefault(); e.stopPropagation();
-  if(!autoPickOn){
-    autoPickOn = true;
-    const cur = window.lastGameData && window.lastGameData.current_call;
-    if(cur != null) autoPickIfOn(cur);
-  } else {
-    autoPickOn = false;
-  }
-  localStorage.setItem('autoPickOn', String(autoPickOn));
-  renderAuto();
-});
-renderAuto();
-
-function buildBoard(){
-  const g=document.getElementById('board-grid');
-  if(!g) return; g.innerHTML='';
-  const letters=['B','I','N','G','O'];
-  for(let r=0;r<5;r++){
-    const start = r*15 + 1; // 1,16,31,46,61
-    const lbl=document.createElement('div');
-    lbl.className='row-label ' + letters[r].toLowerCase();
-    lbl.textContent = letters[r];
-    g.appendChild(lbl);
-    for(let n=start;n<start+15;n++){
-      const d=document.createElement('div');
-      d.className='dot'; d.textContent=n; d.dataset.n=String(n);
-      g.appendChild(d);
-    }
-  }
-}
-function markBoard(called, current){
-  const set=new Set((called||[]).map(String));
-  const curStr = current != null ? String(current) : null;
-  document.querySelectorAll('#board-grid .dot').forEach(dot=>{
-    const n = dot.dataset.n;
-    const isCurrent = curStr !== null && n === curStr;
-    // Current is green
-    dot.classList.toggle('current', isCurrent);
-    // All called are red, except the current which stays green
-    const isCalled = set.has(n) && !isCurrent;
-    dot.classList.toggle('hit', isCalled);
-  });
-}
-function letterFor(n){ n=Number(n); if(n>=1&&n<=15) return 'B'; if(n<=30) return 'I'; if(n<=45) return 'N'; if(n<=60) return 'G'; return 'O'; }
-function makeBall(num, size){
-  const ltr = letterFor(num);
-  const d=document.createElement('div');
-  d.className = 'ball ' + (size==='sm'?'sm':'lg') + ' ' + ltr.toLowerCase();
-  const wrap=document.createElement('div'); wrap.className='wrap';
-  const a=document.createElement('div'); a.className='letter'; a.textContent=ltr;
-  const b=document.createElement('div'); b.className='number'; b.textContent=String(num);
-  wrap.appendChild(a); wrap.appendChild(b); d.appendChild(wrap);
-  return d;
-}
-function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=String(v); }
-
-// (removed duplicate simple renderCard; the full version with click binding appears below)
-// Player picks store (persist across refresh renders) with localStorage per stake/index
-window.myPicks = window.myPicks || new Set();
-function picksKey(){ const idx = window.lastMyIndex; return `bingo_picks_${STAKE}_${idx ?? 'na'}`; }
-function loadPicks(){ try{ const raw = localStorage.getItem(picksKey()); if(raw){ const arr = JSON.parse(raw); if(Array.isArray(arr)) window.myPicks = new Set(arr.map(String)); } }catch(_){} }
-function savePicks(){ try{ localStorage.setItem(picksKey(), JSON.stringify(Array.from(window.myPicks))); }catch(_){} }
-function applyPicks(){
-  document.querySelectorAll('#my-card .card-cell').forEach(cell=>{
-    const v = cell.dataset.value;
-    if(v && v !== 'FREE'){
-      if(window.myPicks.has(v)){
-        cell.style.background = '#970cf4';
-        cell.style.borderColor = '#2a7a3b';
-        cell.style.color = '#ffffff';
+    function renderAudio() {
+      const icon = document.getElementById('audio-icon');
+      const tg = document.getElementById('audio-toggle');
+      if (icon) {
+        try { icon.textContent = ''; } catch (_) { }
+        icon.classList.toggle('spk-on', !!audioOn);
+        icon.classList.toggle('spk-off', !audioOn);
       }
+      if (tg) tg.setAttribute('aria-pressed', String(audioOn));
     }
-  });
-}
-function onCardClick(e){
-  const cell = e.target.closest('.card-cell');
-  if(!cell) return;
-  const v = cell.dataset.value;
-  if(!v || v === 'FREE') return;
-  if(window.myPicks.has(v)) window.myPicks.delete(v); else window.myPicks.add(v);
-  applyPicks();
-  savePicks();
-}
-function renderCard(rows){ const grid=document.getElementById('my-card'); if(!grid) return; grid.innerHTML=''; rows.forEach(row=>row.forEach(val=>{ const div=document.createElement('div'); div.className='card-cell'+(val==='FREE'?' free':''); div.dataset.value=(val==='FREE'?'FREE':String(val)); if(val!=='FREE') div.textContent=val; grid.appendChild(div);})); if(!grid.dataset.clickBound){ grid.addEventListener('click', onCardClick); grid.dataset.clickBound='1'; } applyPicks(); }
-function highlightCard(called){
-  // Clear previous styles
-  document.querySelectorAll('#my-card .card-cell').forEach(cell=>{
-    cell.style.background = '';
-    cell.style.borderColor = '';
-    cell.style.color = '';
-  });
-  // Do NOT auto-select called numbers when toggle is OFF.
-  // We rely on picks only; when Auto is ON, autoPickIfOn adds picks for called numbers that exist on the card.
-  applyPicks();
-}
-
-// Deterministic card by index (same as selection view)
-function mulberry32(seed){ return function(){ seed|=0; seed=(seed+0x6D2B79F5)|0; let t=Math.imul(seed ^ (seed>>>15), 1|seed); t=(t+Math.imul(t ^ (t>>>7),61|t)) ^ t; return ((t ^ (t>>>14))>>>0)/4294967296; } }
-function shuffleArray(arr, seed){ const prng=mulberry32(seed); const r=arr.slice(); for(let i=r.length-1;i>0;i--){ const j=Math.floor(prng()*(i+1)); [r[i],r[j]]=[r[j],r[i]]; } return r; }
-function buildCardFromSeed(seed){ const ranges=[[1,15],[16,30],[31,45],[46,60],[61,75]]; const cols=ranges.map(([s,e],idx)=>{ const a=Array.from({length:e-s+1},(_,i)=>s+i); const sh=shuffleArray(a, seed+idx*1000); return sh.slice(0,5); }); return Array.from({length:5},(_,r)=>Array.from({length:5},(_,c)=> (r===2 && c===2 ? 'FREE' : cols[c][r]))); }
-function renderCardTo(elId, rows){ const grid=document.getElementById(elId); if(!grid) return; grid.innerHTML=''; rows.forEach(row=>row.forEach(val=>{ const div=document.createElement('div'); div.className='card-cell'+(val==='FREE'?' free':''); if(val!=='FREE') div.textContent=val; grid.appendChild(div);})); }
-
-async function refresh(){
-  const res = await fetch(`/api/game_state?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
-  if(!res.ok) return; const data = await res.json();
-  // cache last payload for UI sync on audio toggle
-  window.lastGameData = data;
-  const derash = Math.max(0, Number(data.players||0)*STAKE*0.8);
-  setText('stat-players', data.players ?? 0);
-  setText('stat-derash', Math.round(derash));
-  setText('stat-totalgames', data.total_games ?? '-');
-  // Current big ball is driven by audio start via setCurrentBall()
-  // Enqueue audio using recent_calls to avoid skipping when a refresh misses a call
-  // Store sync anchors for cross-player audio alignment
-  try{
-    if(typeof data.server_time === 'number'){
-      window.__serverOffsetMs = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : (data.server_time - Date.now());
+    function renderAuto() {
+      const tg = document.getElementById('auto-toggle');
+      if (tg) tg.setAttribute('aria-pressed', String(autoPickOn));
+      const sw = document.getElementById('auto-switch');
+      if (sw) sw.classList.toggle('on', !!autoPickOn);
     }
-    window.__startedAtMs = data.started_at ? Date.parse(data.started_at) : null;
-    // Build index map for numbers to their call slot (0-based)
-    if(Array.isArray(data.called_numbers)){
-      window.__callIndex = {};
-      data.called_numbers.forEach((n, i)=>{ window.__callIndex[String(n)] = i; });
+    function autoPickIfOn(n) {
+      if (!autoPickOn) return;
+      if (n == null) return;
+      const val = String(n);
+      if (!window.myPicks) window.myPicks = new Set();
+      if (window.myPicks.has(val)) return;
+      document.querySelectorAll('#my-card .card-cell').forEach(cell => {
+        if (cell.dataset && cell.dataset.value === val) { window.myPicks.add(val); }
+      });
+      applyPicks();
+      savePicks();
     }
-  }catch(_){ /* ignore */ }
-  enqueueCallsFromRecent(data.recent_calls || [], data.current_call);
-  const wrap = document.getElementById('recent-calls');
-  if(wrap){
-    wrap.innerHTML='';
-    const base = Array.isArray(data.recent_calls) ? data.recent_calls.slice() : [];
-    const anchor = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
-    let recent = [];
-    if(Array.isArray(data.called_numbers) && anchor != null){
-      const idxMap = {};
-      data.called_numbers.forEach((n,i)=>{ idxMap[String(n)] = i; });
-      const aIdx = idxMap[String(anchor)];
-      if(Number.isInteger(aIdx)){
-        recent = data.called_numbers.slice(Math.max(0, aIdx-4), aIdx);
-      } else {
-        const i = base.lastIndexOf(anchor);
-        const end = i>0?i:base.length;
-        recent = base.slice(Math.max(0,end-4), end);
+    function stopCallAudio() { try { callAudio?.pause(); if (callAudio) callAudio.currentTime = 0; audioPlaying = false; lastAudioCall = null; } catch (_) { } }
+    function updateBoardCurrent() {
+      const data = window.lastGameData || {};
+      // rebuild called list same as refresh
+      let called = Array.isArray(data.called_numbers) ? data.called_numbers.slice() : (data.recent_calls || []);
+      if (data.current_call != null) {
+        const curStr = String(data.current_call);
+        if (!called.map(String).includes(curStr)) called.push(data.current_call);
       }
-    } else if(anchor != null){
-      const i = base.lastIndexOf(anchor);
-      const end = i>0?i:base.length;
-      recent = base.slice(Math.max(0,end-4), end);
-    } else {
-      recent = base.slice(-4);
+      const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
+      markBoard(called, currentForBoard);
     }
-    // Ensure we never include the current (anchor) number in the recent display
-    if(anchor != null){
-      const aStr = String(anchor);
-      recent = recent.filter(n => String(n) !== aStr);
-    }
-    // Render newest on the left, older to the right
-    recent.slice().reverse().forEach(n=>wrap.appendChild(makeBall(n,'sm')));
-  }
-  let called = Array.isArray(data.called_numbers) ? data.called_numbers.slice() : (data.recent_calls||[]);
-  if(data.current_call != null){
-    const curStr = String(data.current_call);
-    if(!called.map(String).includes(curStr)) called.push(data.current_call);
-  }
-  // Keep a set of called numbers for winner coloring inference
-  window.lastCalledSet = new Set(called.map(v=>String(v)));
-  setText('stat-call', (typeof data.call_count === 'number') ? data.call_count : called.length);
-  // Use lastAudioCall for the green current dot so the board waits for audio/UI
-  const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
-  markBoard(called, currentForBoard);
-  // If audio is OFF or hasn't started yet, keep the big current ball in sync with server
-  if(!audioOn && data.current_call){ setCurrentBall(data.current_call); }
-  // Auto-pick only the current call (and next ones), do not retro-pick past calls
-  try{
-    if(autoPickOn){
-      const anchorNow = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
-      if(anchorNow != null) autoPickIfOn(anchorNow);
-    }
-  }catch(_){ /* ignore */ }
-  const btn = document.getElementById('btn-bingo');
-  // Store my_index for fallback modal rendering and load picks when index changes
-  const prevIndex = window.lastMyIndex;
-  window.lastMyIndex = data.my_index ?? window.lastMyIndex;
-  if(window.lastMyIndex !== prevIndex && typeof window.lastMyIndex !== 'undefined'){
-    loadPicks();
-  }
-  if(Array.isArray(data.my_card)){
-    renderCard(data.my_card);
-    highlightCard(called);
-    if(btn){ btn.disabled = false; btn.title = ''; btn.style.opacity = '1'; }
-    // Auto-claim when Auto is ON and a winning pattern is satisfied
-    try{
-      if(autoPickOn && autoClaimOn && !window.autoClaimedForGame){
-        const winInfo = inferWinPatternFromCalled(data.my_card);
-        if(winInfo){
-          window.autoClaimedForGame = true;
-          // Send primary WS claim
-          sendClaimViaWS();
-          // Silent HTTP fallback
-          try{
-            const form=new URLSearchParams(); form.set('tid',TID); form.set('stake', String(STAKE)); form.set('picks', JSON.stringify(currentPicksArray()));
-            fetch('/api/claim_bingo',{method:'POST', body: form}).catch(()=>{});
-          }catch(_){ /* ignore */ }
-        }
-      }
-    }catch(_){ /* ignore */ }
-  }else{
-    // No joined card for this player/session
-    if(btn){ btn.disabled = true; btn.title = 'Join a card first in the Play screen'; btn.style.opacity = '.6'; }
-  }
-}
-
-document.getElementById('btn-bingo').addEventListener('click', async ()=>{
-  // Send claim via WebSocket (primary path). Backend will broadcast 'winner' to everyone.
-  sendClaimViaWS();
-  // Silent HTTP fallback (no alerts); server may validate or ignore.
-  try{
-    const form=new URLSearchParams(); form.set('tid',TID); form.set('stake', String(STAKE)); form.set('picks', JSON.stringify(currentPicksArray()));
-    const res = await fetch('/api/claim_bingo',{method:'POST', body: form});
-    const data = await res.json().catch(()=>({}));
-    // If server says OK via HTTP and we didn't get WS yet, show local winner modal with details
-    if(res.ok && data && data.ok && typeof window.lastMyIndex !== 'undefined'){
-      showWinner('You', window.lastMyIndex, { pattern: data.pattern, row: data.row, col: data.col, picks: currentPicksArray() });
-    } else if(data && data.disqualified){
-      // Invalid claim: disable Bingo and clear my_index until next game
-      const btn=document.getElementById('btn-bingo');
-      if(btn){ btn.disabled = true; btn.title = 'Invalid claim. Please wait for the next game.'; btn.style.opacity = '.6'; }
-      window.lastMyIndex = null;
-      // Optionally prompt the user unobtrusively
-      try{ console.warn('Invalid Bingo claim. Please wait for the next game.'); }catch(_){ }
-    }
-  }catch(_){ /* ignore */ }
-});
-
-buildBoard();
-refresh();
-setInterval(refresh, 2000);
-
-// WebSocket realtime (Channels)
-let ws; let pendingClaim = false; let wsPingTimer = null;
-function wsUrl(){ const proto = location.protocol === 'https:' ? 'wss' : 'ws'; return `${proto}://${location.host}/ws/game/${STAKE}/`; }
-function wsConnect(){ try{ ws = new WebSocket(wsUrl()); }catch(_){ return; }
-  ws.onopen = ()=>{ /* ready */
-    if(wsPingTimer){ try{ clearInterval(wsPingTimer); }catch(_){} wsPingTimer = null; }
-    wsPingTimer = setInterval(()=>{ try{ if(ws && ws.readyState===1){ ws.send(JSON.stringify({action:'ping'})); } }catch(_){ } }, 25000);
-    if(pendingClaim){ try{ ws.send(JSON.stringify({action:'claim_bingo', tid: TID, picks: currentPicksArray()})); }catch(_){ } pendingClaim=false; }
-  };
-  ws.onmessage = (ev)=>{
-    let msg; try{ msg = JSON.parse(ev.data); }catch(_){ return; }
-    if(msg.type === 'winner'){
-      // Stop audio and further queueing globally when a winner is announced
-      try{
-        window.suppressCalls = true;
+    function playNextFromQueue() {
+      if (window.suppressCalls) {
+        try { callAudio.pause(); } catch (_) { }
         audioQueue = [];
+        return;
+      }
+      if (audioPlaying) return;
+      if (!audioOn) { audioQueue = []; return; }
+      if (!audioUnlocked) return;
+      const next = audioQueue.shift();
+      if (!next) return;
+      const num = Number(next);
+      if (!Number.isFinite(num) || num < 1 || num > 75) { playNextFromQueue(); return; }
+      // If we have server sync anchors, align this call's start time to the shared cadence
+      const idx = window.__callIndex && window.__callIndex[String(num)];
+      const startedAtMs = window.__startedAtMs;
+      const offset = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : 0;
+      const nowSynced = Date.now() + offset;
+      let delayMs = 0;
+      if (Number.isInteger(idx) && startedAtMs) {
+        const desiredStart = startedAtMs + (idx * CALL_INTERVAL_MS);
+        delayMs = Math.max(0, desiredStart - nowSynced);
+      }
+      const startAudio = () => {
+        audioPlaying = true;
+        lastAudioCall = num;
+        // Update the UI to the number we're about to speak
+        setCurrentBall(num);
+        // Update board current to match voice timing
+        updateBoardCurrent();
+        autoPickIfOn(num);
+        callAudio.src = `/static/audio/${num}.mp3`;
+        callAudio.currentTime = 0;
+        const startedAt = Date.now();
+        let scheduled = false;
+        const scheduleNext = () => {
+          if (scheduled) return; // avoid double scheduling on error+ended
+          scheduled = true;
+          try { clearTimeout(hardStopT); } catch (_) { }
+          const elapsed = Date.now() - startedAt; // how long this call has been playing
+          const waitCadence = Math.max(0, CALL_INTERVAL_MS - elapsed);
+          const waitGap = POST_END_GAP_MS;
+          const wait = Math.max(waitCadence, waitGap);
+          setTimeout(() => { audioPlaying = false; playNextFromQueue(); }, wait);
+        };
+        // Safety timer to stop audio at 3s AND advance the queue
+        let hardStopT = setTimeout(() => { try { callAudio.pause(); } catch (_) { }; try { scheduleNext(); } catch (_) { } }, MAX_AUDIO_MS);
+        callAudio.onended = scheduleNext;
+        callAudio.onerror = scheduleNext;
+        callAudio.play().catch(() => {
+          // Autoplay blocked or audio error: stop advancing to avoid jumps
+          audioPlaying = false;
+          audioUnlocked = false;
+        });
+      };
+      if (delayMs > 5) { setTimeout(startAudio, delayMs); } else { startAudio(); }
+    }
+
+    function playNextSilentFromQueue() {
+      if (window.suppressCalls) { silentQueue = []; return; }
+      if (silentPlaying) return;
+      if (audioOn) { silentQueue = []; return; }
+      const next = silentQueue.shift();
+      if (!next) return;
+      const num = Number(next);
+      if (!Number.isFinite(num) || num < 1 || num > 75) { playNextSilentFromQueue(); return; }
+      silentPlaying = true;
+      lastSilentCall = num;
+      setCurrentBall(num);
+      updateBoardCurrent();
+      autoPickIfOn(num);
+      setTimeout(() => { silentPlaying = false; playNextSilentFromQueue(); }, CALL_INTERVAL_MS);
+    }
+    // Align refresh() calls to the shared server timeline when audio is OFF
+    function scheduleTickRefresh() {
+      try { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } } catch (_) { }
+      const offset = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : 0;
+      const startedAtMs = window.__startedAtMs;
+      const nowSynced = Date.now() + offset;
+      if (!startedAtMs) {
+        tickTimer = setTimeout(() => { refresh(); scheduleTickRefresh(); }, CALL_INTERVAL_MS);
+        return;
+      }
+      const elapsed = Math.max(0, nowSynced - startedAtMs);
+      const untilNext = CALL_INTERVAL_MS - (elapsed % CALL_INTERVAL_MS);
+      // Align exactly to the next 3s boundary
+      const wait = Math.max(5, untilNext);
+      tickTimer = setTimeout(() => { refresh(); scheduleTickRefresh(); }, wait);
+    }
+    function enqueueCallsFromRecent(recent, current) {
+      if (window.suppressCalls) { audioQueue = []; return; }
+      if (!Array.isArray(recent)) recent = [];
+      const cur = Number(current);
+      const recentStr = recent.map(x => String(x));
+      const lastStr = (audioOn ? lastAudioCall : lastSilentCall);
+      let toAdd = [];
+      if (lastStr && recentStr.includes(lastStr)) {
+        const idx = recentStr.lastIndexOf(lastStr);
+        if (idx < recentStr.length - 1) {
+          toAdd = recentStr.slice(idx + 1);
+        }
+      } else if (cur) {
+        toAdd = [String(cur)];
+      }
+      // de-duplicate against items already queued
+      if (audioOn) {
+        toAdd.forEach(n => { if (!audioQueue.includes(n)) { audioQueue.push(n); } });
+        playNextFromQueue();
+      } else {
+        toAdd.forEach(n => { if (!silentQueue.includes(n)) { silentQueue.push(n); } });
+        playNextSilentFromQueue();
+      }
+    }
+    document.getElementById('audio-toggle')?.addEventListener('click', () => {
+      if (window.winnerShown || window.suppressCalls) {
+        // Ignore attempts to re-enable audio after winner
+        audioOn = false; localStorage.setItem('audioOn', 'false'); renderAudio();
+        return;
+      }
+      audioOn = !audioOn;
+      localStorage.setItem('audioOn', String(audioOn));
+      if (audioOn) { audioUnlocked = true; }
+      if (!audioOn) {
+        stopCallAudio(); // also resets lastAudioCall
         silentQueue = [];
         silentPlaying = false;
-        // Hard stop audio now and prevent any further playback
-        try{ callAudio.onended = null; callAudio.onerror = null; }catch(_){ }
+        // When audio is OFF, drive UI by exact tick boundaries
+        try { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } } catch (_) { }
+        scheduleTickRefresh();
+      } else {
+        lastAudioCall = null; // wait for new audio start to set green
+        lastSilentCall = null;
+        silentQueue = [];
+        silentPlaying = false;
+        // Clear tick scheduler when audio resumes to avoid duplicate cadence
+        try { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } } catch (_) { }
+        // Immediate refresh to rebuild audio queue from server anchors
+        refresh();
+        playNextFromQueue();
+      }
+      renderAudio();
+      // Re-render board current only when audio resumes; when muted, let scheduler drive updates
+      if (audioOn) { updateBoardCurrent(); }
+      if (!audioOn) { /* scheduler already set above; no immediate UI jump */ }
+    });
+    renderAudio();
+
+    // Unlock audio on first user interaction (mobile/webview autoplay policy)
+    function unlockAudioOnce() {
+      audioUnlocked = true;
+      playNextFromQueue();
+      document.removeEventListener('click', unlockAudioOnce);
+      document.removeEventListener('touchstart', unlockAudioOnce);
+    }
+    document.addEventListener('click', unlockAudioOnce, { passive: true });
+    document.addEventListener('touchstart', unlockAudioOnce, { passive: true });
+
+    // Try silent unlock on page load (works in some WebViews like Telegram)
+    (function tryAutoUnlock() {
+      try {
+        const silent = new Audio();
+        silent.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAABYYoSQnkAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=';
+        silent.volume = 0;
+        silent.play().then(() => { audioUnlocked = true; silent.pause(); }).catch(() => { });
+      } catch (_) { }
+    })();
+
+    // Preload first 15 audio files so they play instantly
+    (function preloadAudio() {
+      for (let i = 1; i <= 15; i++) {
+        try { const a = new Audio(); a.preload = 'auto'; a.src = `/static/audio/${i}.mp3`; } catch (_) { }
+      }
+    })();
+
+    // Auto toggle: clicking makes it ON if currently OFF; clicking again turns it OFF
+    document.getElementById('auto-toggle')?.addEventListener('click', () => {
+      if (!autoPickOn) {
+        autoPickOn = true;
+        const cur = window.lastGameData && window.lastGameData.current_call;
+        if (cur != null) autoPickIfOn(cur);
+      } else {
+        autoPickOn = false;
+      }
+      localStorage.setItem('autoPickOn', String(autoPickOn));
+      renderAuto();
+    });
+    // Inner switch also responds and stops event bubbling
+    document.getElementById('auto-switch')?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (!autoPickOn) {
+        autoPickOn = true;
+        const cur = window.lastGameData && window.lastGameData.current_call;
+        if (cur != null) autoPickIfOn(cur);
+      } else {
+        autoPickOn = false;
+      }
+      localStorage.setItem('autoPickOn', String(autoPickOn));
+      renderAuto();
+    });
+    renderAuto();
+
+    function buildBoard() {
+      const g = document.getElementById('board-grid');
+      if (!g) return; g.innerHTML = '';
+      const letters = ['B', 'I', 'N', 'G', 'O'];
+      for (let r = 0; r < 5; r++) {
+        const start = r * 15 + 1; // 1,16,31,46,61
+        const lbl = document.createElement('div');
+        lbl.className = 'row-label ' + letters[r].toLowerCase();
+        lbl.textContent = letters[r];
+        g.appendChild(lbl);
+        for (let n = start; n < start + 15; n++) {
+          const d = document.createElement('div');
+          d.className = 'dot'; d.textContent = n; d.dataset.n = String(n);
+          g.appendChild(d);
+        }
+      }
+    }
+    function markBoard(called, current) {
+      const set = new Set((called || []).map(String));
+      const curStr = current != null ? String(current) : null;
+      document.querySelectorAll('#board-grid .dot').forEach(dot => {
+        const n = dot.dataset.n;
+        const isCurrent = curStr !== null && n === curStr;
+        // Current is green
+        dot.classList.toggle('current', isCurrent);
+        // All called are red, except the current which stays green
+        const isCalled = set.has(n) && !isCurrent;
+        dot.classList.toggle('hit', isCalled);
+      });
+    }
+    function letterFor(n) { n = Number(n); if (n >= 1 && n <= 15) return 'B'; if (n <= 30) return 'I'; if (n <= 45) return 'N'; if (n <= 60) return 'G'; return 'O'; }
+    function makeBall(num, size) {
+      const ltr = letterFor(num);
+      const d = document.createElement('div');
+      d.className = 'ball ' + (size === 'sm' ? 'sm' : 'lg') + ' ' + ltr.toLowerCase();
+      const wrap = document.createElement('div'); wrap.className = 'wrap';
+      const a = document.createElement('div'); a.className = 'letter'; a.textContent = ltr;
+      const b = document.createElement('div'); b.className = 'number'; b.textContent = String(num);
+      wrap.appendChild(a); wrap.appendChild(b); d.appendChild(wrap);
+      return d;
+    }
+    function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = String(v); }
+
+    // (removed duplicate simple renderCard; the full version with click binding appears below)
+    // Player picks store (persist across refresh renders) with localStorage per stake/index
+    window.myPicks = window.myPicks || new Set();
+    function picksKey() { const idx = window.lastMyIndex; return `bingo_picks_${STAKE}_${idx ?? 'na'}`; }
+    function loadPicks() { try { const raw = localStorage.getItem(picksKey()); if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) window.myPicks = new Set(arr.map(String)); } } catch (_) { } }
+    function savePicks() { try { localStorage.setItem(picksKey(), JSON.stringify(Array.from(window.myPicks))); } catch (_) { } }
+    function applyPicks() {
+      document.querySelectorAll('#my-card .card-cell').forEach(cell => {
+        const v = cell.dataset.value;
+        if (v && v !== 'FREE') {
+          if (window.myPicks.has(v)) {
+            cell.style.background = '#970cf4';
+            cell.style.borderColor = '#2a7a3b';
+            cell.style.color = '#ffffff';
+          }
+        }
+      });
+    }
+    function onCardClick(e) {
+      const cell = e.target.closest('.card-cell');
+      if (!cell) return;
+      const v = cell.dataset.value;
+      if (!v || v === 'FREE') return;
+      if (window.myPicks.has(v)) window.myPicks.delete(v); else window.myPicks.add(v);
+      applyPicks();
+      savePicks();
+    }
+    function renderCard(rows) { const grid = document.getElementById('my-card'); if (!grid) return; grid.innerHTML = ''; rows.forEach(row => row.forEach(val => { const div = document.createElement('div'); div.className = 'card-cell' + (val === 'FREE' ? ' free' : ''); div.dataset.value = (val === 'FREE' ? 'FREE' : String(val)); if (val !== 'FREE') div.textContent = val; grid.appendChild(div); })); if (!grid.dataset.clickBound) { grid.addEventListener('click', onCardClick); grid.dataset.clickBound = '1'; } applyPicks(); }
+    function highlightCard(called) {
+      // Clear previous styles
+      document.querySelectorAll('#my-card .card-cell').forEach(cell => {
+        cell.style.background = '';
+        cell.style.borderColor = '';
+        cell.style.color = '';
+      });
+      // Do NOT auto-select called numbers when toggle is OFF.
+      // We rely on picks only; when Auto is ON, autoPickIfOn adds picks for called numbers that exist on the card.
+      applyPicks();
+    }
+
+    // Deterministic card by index (same as selection view)
+    function mulberry32(seed) { return function () { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } }
+    function shuffleArray(arr, seed) { const prng = mulberry32(seed); const r = arr.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(prng() * (i + 1));[r[i], r[j]] = [r[j], r[i]]; } return r; }
+    function buildCardFromSeed(seed) { const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]]; const cols = ranges.map(([s, e], idx) => { const a = Array.from({ length: e - s + 1 }, (_, i) => s + i); const sh = shuffleArray(a, seed + idx * 1000); return sh.slice(0, 5); }); return Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => (r === 2 && c === 2 ? 'FREE' : cols[c][r]))); }
+    function renderCardTo(elId, rows) { const grid = document.getElementById(elId); if (!grid) return; grid.innerHTML = ''; rows.forEach(row => row.forEach(val => { const div = document.createElement('div'); div.className = 'card-cell' + (val === 'FREE' ? ' free' : ''); if (val !== 'FREE') div.textContent = val; grid.appendChild(div); })); }
+
+    async function refresh() {
+      const res = await fetch(`/api/game_state?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+      if (!res.ok) return; const data = await res.json();
+      // cache last payload for UI sync on audio toggle
+      window.lastGameData = data;
+      const derash = Math.max(0, Number(data.players || 0) * STAKE * 0.8);
+      setText('stat-players', data.players ?? 0);
+      setText('stat-derash', Math.round(derash));
+      setText('stat-totalgames', data.total_games ?? '-');
+      // Current big ball is driven by audio start via setCurrentBall()
+      // Enqueue audio using recent_calls to avoid skipping when a refresh misses a call
+      // Store sync anchors for cross-player audio alignment
+      try {
+        if (typeof data.server_time === 'number') {
+          window.__serverOffsetMs = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : (data.server_time - Date.now());
+        }
+        window.__startedAtMs = data.started_at ? Date.parse(data.started_at) : null;
+        // Build index map for numbers to their call slot (0-based)
+        if (Array.isArray(data.called_numbers)) {
+          window.__callIndex = {};
+          data.called_numbers.forEach((n, i) => { window.__callIndex[String(n)] = i; });
+        }
+      } catch (_) { /* ignore */ }
+      enqueueCallsFromRecent(data.recent_calls || [], data.current_call);
+      const wrap = document.getElementById('recent-calls');
+      if (wrap) {
+        wrap.innerHTML = '';
+        const base = Array.isArray(data.recent_calls) ? data.recent_calls.slice() : [];
+        const anchor = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
+        let recent = [];
+        if (Array.isArray(data.called_numbers) && anchor != null) {
+          const idxMap = {};
+          data.called_numbers.forEach((n, i) => { idxMap[String(n)] = i; });
+          const aIdx = idxMap[String(anchor)];
+          if (Number.isInteger(aIdx)) {
+            recent = data.called_numbers.slice(Math.max(0, aIdx - 4), aIdx);
+          } else {
+            const i = base.lastIndexOf(anchor);
+            const end = i > 0 ? i : base.length;
+            recent = base.slice(Math.max(0, end - 4), end);
+          }
+        } else if (anchor != null) {
+          const i = base.lastIndexOf(anchor);
+          const end = i > 0 ? i : base.length;
+          recent = base.slice(Math.max(0, end - 4), end);
+        } else {
+          recent = base.slice(-4);
+        }
+        // Ensure we never include the current (anchor) number in the recent display
+        if (anchor != null) {
+          const aStr = String(anchor);
+          recent = recent.filter(n => String(n) !== aStr);
+        }
+        // Render newest on the left, older to the right
+        recent.slice().reverse().forEach(n => wrap.appendChild(makeBall(n, 'sm')));
+      }
+      let called = Array.isArray(data.called_numbers) ? data.called_numbers.slice() : (data.recent_calls || []);
+      if (data.current_call != null) {
+        const curStr = String(data.current_call);
+        if (!called.map(String).includes(curStr)) called.push(data.current_call);
+      }
+      // Keep a set of called numbers for winner coloring inference
+      window.lastCalledSet = new Set(called.map(v => String(v)));
+      setText('stat-call', (typeof data.call_count === 'number') ? data.call_count : called.length);
+      // Use lastAudioCall for the green current dot so the board waits for audio/UI
+      const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
+      markBoard(called, currentForBoard);
+      // If audio is OFF or hasn't started yet, keep the big current ball in sync with server
+      if (!audioOn && data.current_call) { setCurrentBall(data.current_call); }
+      // Auto-pick only the current call (and next ones), do not retro-pick past calls
+      try {
+        if (autoPickOn) {
+          const anchorNow = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
+          if (anchorNow != null) autoPickIfOn(anchorNow);
+        }
+      } catch (_) { /* ignore */ }
+      const btn = document.getElementById('btn-bingo');
+      // Store my_index for fallback modal rendering and load picks when index changes
+      const prevIndex = window.lastMyIndex;
+      window.lastMyIndex = data.my_index ?? window.lastMyIndex;
+      if (window.lastMyIndex !== prevIndex && typeof window.lastMyIndex !== 'undefined') {
+        loadPicks();
+      }
+      if (Array.isArray(data.my_card)) {
+        renderCard(data.my_card);
+        highlightCard(called);
+        if (btn) { btn.disabled = false; btn.title = ''; btn.style.opacity = '1'; }
+        // Auto-claim when Auto is ON and a winning pattern is satisfied
+        try {
+          if (autoPickOn && autoClaimOn && !window.autoClaimedForGame) {
+            const winInfo = inferWinPatternFromCalled(data.my_card);
+            if (winInfo) {
+              window.autoClaimedForGame = true;
+              // Send primary WS claim
+              sendClaimViaWS();
+              // Silent HTTP fallback
+              try {
+                const form = new URLSearchParams(); form.set('tid', TID); form.set('stake', String(STAKE)); form.set('picks', JSON.stringify(currentPicksArray()));
+                fetch('/api/claim_bingo', { method: 'POST', body: form }).catch(() => { });
+              } catch (_) { /* ignore */ }
+            }
+          }
+        } catch (_) { /* ignore */ }
+      } else {
+        // No joined card for this player/session
+        if (btn) { btn.disabled = true; btn.title = 'Join a card first in the Play screen'; btn.style.opacity = '.6'; }
+      }
+    }
+
+    document.getElementById('btn-bingo').addEventListener('click', async () => {
+      // Send claim via WebSocket (primary path). Backend will broadcast 'winner' to everyone.
+      sendClaimViaWS();
+      // Silent HTTP fallback (no alerts); server may validate or ignore.
+      try {
+        const form = new URLSearchParams(); form.set('tid', TID); form.set('stake', String(STAKE)); form.set('picks', JSON.stringify(currentPicksArray()));
+        const res = await fetch('/api/claim_bingo', { method: 'POST', body: form });
+        const data = await res.json().catch(() => ({}));
+        // If server says OK via HTTP and we didn't get WS yet, show local winner modal with details
+        if (res.ok && data && data.ok && typeof window.lastMyIndex !== 'undefined') {
+          showWinner('You', window.lastMyIndex, { pattern: data.pattern, row: data.row, col: data.col, picks: currentPicksArray() });
+        } else if (data && data.disqualified) {
+          // Invalid claim: disable Bingo and clear my_index until next game
+          const btn = document.getElementById('btn-bingo');
+          if (btn) { btn.disabled = true; btn.title = 'Invalid claim. Please wait for the next game.'; btn.style.opacity = '.6'; }
+          window.lastMyIndex = null;
+          // Optionally prompt the user unobtrusively
+          try { console.warn('Invalid Bingo claim. Please wait for the next game.'); } catch (_) { }
+        }
+      } catch (_) { /* ignore */ }
+    });
+
+    buildBoard();
+    refresh();
+    setInterval(refresh, 3000);
+
+    // WebSocket realtime (Channels)
+    let ws; let pendingClaim = false; let wsPingTimer = null;
+    function wsUrl() { const proto = location.protocol === 'https:' ? 'wss' : 'ws'; return `${proto}://${location.host}/ws/game/${STAKE}/`; }
+    function wsConnect() {
+      try { ws = new WebSocket(wsUrl()); } catch (_) { return; }
+      ws.onopen = () => { /* ready */
+        if (wsPingTimer) { try { clearInterval(wsPingTimer); } catch (_) { } wsPingTimer = null; }
+        wsPingTimer = setInterval(() => { try { if (ws && ws.readyState === 1) { ws.send(JSON.stringify({ action: 'ping' })); } } catch (_) { } }, 25000);
+        if (pendingClaim) { try { ws.send(JSON.stringify({ action: 'claim_bingo', tid: TID, picks: currentPicksArray() })); } catch (_) { } pendingClaim = false; }
+      };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
+        if (msg.type === 'winner') {
+          // Stop audio and further queueing globally when a winner is announced
+          try {
+            window.suppressCalls = true;
+            audioQueue = [];
+            silentQueue = [];
+            silentPlaying = false;
+            // Hard stop audio now and prevent any further playback
+            try { callAudio.onended = null; callAudio.onerror = null; } catch (_) { }
+            stopCallAudio();
+            try { callAudio.muted = true; } catch (_) { }
+            try { callAudio.removeAttribute('src'); callAudio.load(); } catch (_) { }
+            try { document.querySelectorAll('audio').forEach(a => { try { a.onended = null; a.onerror = null; } catch (_) { }; try { a.pause(); } catch (_) { }; try { a.currentTime = 0; } catch (_) { }; try { a.muted = true; } catch (_) { }; }); } catch (_) { }
+            audioPlaying = false;
+            lastAudioCall = null;
+            // Turn off audio switch to avoid restarts
+            audioOn = false; localStorage.setItem('audioOn', 'false'); renderAudio();
+          } catch (_) { /* ignore */ }
+          // Pass details (pattern, row/col) and winner picks for yellow highlight
+          showWinner(msg.winner, msg.index, { pattern: msg.pattern, row: msg.row, col: msg.col, picks: msg.picks });
+        } else if (msg.type === 'restarted') {
+          if (!window.winnerShown) {
+            setTimeout(() => { try { localStorage.clear(); } catch (_) { } location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`; }, 200);
+          }
+        } else if (msg.type === 'finished') {
+          try { alert('Game finished. Redirecting to Play...'); } catch (_) { }
+          setTimeout(() => { try { localStorage.clear(); } catch (_) { } location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`; }, 200);
+        } else if (msg.type === 'disqualified') {
+          const btn = document.getElementById('btn-bingo'); if (btn) { btn.disabled = true; btn.title = 'You are disqualified until the next game starts.'; btn.style.opacity = '.6'; }
+          setTimeout(() => { try { localStorage.clear(); } catch (_) { } location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`; }, 200);
+        } else if (msg.type === 'call.sync') {
+          // Align all clients to the same timeline immediately
+          try {
+            if (typeof msg.server_time === 'number') {
+              window.__serverOffsetMs = msg.server_time - Date.now();
+            }
+            window.__startedAtMs = msg.started_at ? Date.parse(msg.started_at) : null;
+            // Reset playback state and fetch the latest to render equal current/recent for all
+            audioQueue = [];
+            lastAudioCall = null;
+            stopCallAudio();
+            refresh();
+            scheduleTickRefresh();
+          } catch (_) { /* ignore */ }
+        }
+      };
+      ws.onclose = () => { try { if (wsPingTimer) { clearInterval(wsPingTimer); } } catch (_) { } wsPingTimer = null; setTimeout(wsConnect, 2000); };
+    }
+    function currentPicksArray() {
+      try { return Array.from(window.myPicks || []).map(String); } catch (_) { return []; }
+    }
+    function sendClaimViaWS() {
+      if (ws && ws.readyState === 1) {
+        try { ws.send(JSON.stringify({ action: 'claim_bingo', tid: TID, picks: currentPicksArray() })); } catch (_) { }
+      } else {
+        pendingClaim = true;
+        if (!ws || ws.readyState === 3) { wsConnect(); }
+      }
+    }
+
+    // (Removed duplicate click handler; consolidated above.)
+
+    function isWinningCell(r, c, details) {
+      if (!details) return false;
+      if (details.pattern === 'row') return r === Number(details.row);
+      if (details.pattern === 'col') return c === Number(details.col);
+      if (details.pattern === 'diag_main') return r === c;
+      if (details.pattern === 'diag_anti') return (r + c) === 4;
+      if (details.pattern === 'four_corners') return (r === 0 && c === 0) || (r === 0 && c === 4) || (r === 4 && c === 0) || (r === 4 && c === 4);
+      return false;
+    }
+    function inferWinPatternFromCalled(rows) {
+      const called = window.lastCalledSet || new Set();
+      // four corners
+      const corners = [[0, 0], [0, 4], [4, 0], [4, 4]];
+      if (corners.every(([r, c]) => rows[r][c] === 'FREE' || called.has(String(rows[r][c])))) { return { pattern: 'four_corners' }; }
+      // rows
+      for (let r = 0; r < 5; r++) {
+        if ([0, 1, 2, 3, 4].every(c => rows[r][c] === 'FREE' || called.has(String(rows[r][c])))) {
+          return { pattern: 'row', row: r };
+        }
+      }
+      // cols
+      for (let c = 0; c < 5; c++) {
+        if ([0, 1, 2, 3, 4].every(r => rows[r][c] === 'FREE' || called.has(String(rows[r][c])))) {
+          return { pattern: 'col', col: c };
+        }
+      }
+      // diags
+      if ([0, 1, 2, 3, 4].every(i => rows[i][i] === 'FREE' || called.has(String(rows[i][i])))) { return { pattern: 'diag_main' }; }
+      if ([0, 1, 2, 3, 4].every(i => rows[i][4 - i] === 'FREE' || called.has(String(rows[i][4 - i])))) { return { pattern: 'diag_anti' }; }
+      return null;
+    }
+    function colorWinCard(details) {
+      const cells = document.querySelectorAll('#win-card .card-cell');
+      if (!cells.length) return;
+      // Rebuild values grid to map r,c
+      const rows = [];
+      let tmp = []; let i = 0;
+      cells.forEach(cell => { const t = cell.textContent.trim(); tmp.push(t === '' ? 'FREE' : Number(t)); if (tmp.length === 5) { rows.push(tmp); tmp = []; } i++; });
+      let info = details && details.pattern ? details : inferWinPatternFromCalled(rows);
+      const picksArr = (details && Array.isArray(details.picks)) ? details.picks.map(String) : Array.from(window.myPicks || []).map(String);
+      const picks = new Set(picksArr);
+      for (let idx = 0; idx < cells.length; idx++) {
+        const r = Math.floor(idx / 5), c = idx % 5;
+        const cell = cells[idx];
+        const val = rows[r][c];
+        // reset styles
+        cell.style.background = '';
+        cell.style.borderColor = '';
+        cell.style.color = '';
+        // green if part of winning line
+        if (info && isWinningCell(r, c, info)) {
+          cell.style.background = '#173e1f';
+          cell.style.borderColor = '#2a7a3b';
+          cell.style.color = '#ffffff';
+          continue;
+        }
+        // yellow if user picked
+        if (val !== 'FREE' && picks.has(String(val))) {
+          cell.style.background = '#fff04a';
+          cell.style.borderColor = '#caa400';
+          cell.style.color = '#333';
+        }
+      }
+    }
+    function showWinner(name, index, details) {
+      // Immediately suppress and hard-stop any audio on showing winner, regardless of caller
+      try {
+        window.suppressCalls = true;
+        audioQueue = [];
+        try { callAudio.onended = null; callAudio.onerror = null; } catch (_) { }
         stopCallAudio();
-        try{ callAudio.muted = true; }catch(_){ }
-        try{ callAudio.removeAttribute('src'); callAudio.load(); }catch(_){ }
-        try{ document.querySelectorAll('audio').forEach(a=>{ try{ a.onended=null; a.onerror=null; }catch(_){}; try{ a.pause(); }catch(_){}; try{ a.currentTime = 0; }catch(_){}; try{ a.muted = true; }catch(_){}; }); }catch(_){ }
+        try { callAudio.muted = true; } catch (_) { }
+        try { callAudio.removeAttribute('src'); callAudio.load(); } catch (_) { }
+        try { callAudio.volume = 0; } catch (_) { }
         audioPlaying = false;
         lastAudioCall = null;
-        // Turn off audio switch to avoid restarts
-        audioOn = false; localStorage.setItem('audioOn','false'); renderAudio();
-      }catch(_){ /* ignore */ }
-      // Pass details (pattern, row/col) and winner picks for yellow highlight
-      showWinner(msg.winner, msg.index, { pattern: msg.pattern, row: msg.row, col: msg.col, picks: msg.picks });
-    } else if(msg.type === 'restarted'){
-      if(!window.winnerShown){
-        setTimeout(()=>{ try{ localStorage.clear(); }catch(_){ } location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`; }, 200);
-      }
-    } else if(msg.type === 'finished'){
-      try{ alert('Game finished. Redirecting to Play...'); }catch(_){ }
-      setTimeout(()=>{ try{ localStorage.clear(); }catch(_){ } location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`; }, 200);
-    } else if(msg.type === 'disqualified'){
-      const btn=document.getElementById('btn-bingo'); if(btn){ btn.disabled = true; btn.title = 'You are disqualified until the next game starts.'; btn.style.opacity = '.6'; }
-      setTimeout(()=>{ try{ localStorage.clear(); }catch(_){ } location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`; }, 200);
-    } else if(msg.type === 'call.sync'){
-      // Align all clients to the same timeline immediately
-      try{
-        if(typeof msg.server_time === 'number'){
-          window.__serverOffsetMs = msg.server_time - Date.now();
+        audioOn = false; localStorage.setItem('audioOn', 'false'); renderAudio();
+      } catch (_) { /* ignore */ }
+      const bd = document.getElementById('win-backdrop');
+      const nm = document.getElementById('win-name');
+      const idx = document.getElementById('win-index');
+      if (nm) nm.textContent = name || 'Player';
+      if (idx) idx.textContent = String(index || '-');
+      const rows = buildCardFromSeed(Number(index || 1));
+      renderCardTo('win-card', rows);
+      colorWinCard(details);
+      if (bd) { bd.style.display = 'flex'; }
+      window.winnerShown = true;
+      try { localStorage.setItem('winnerShownAt', String(Date.now())); } catch (_) { }
+      // countdown UI
+      let left = 5; const el = document.getElementById('win-countdown');
+      const t = setInterval(() => {
+        left -= 1;
+        if (el) el.textContent = String(Math.max(0, left));
+        if (left <= 0) {
+          clearInterval(t);
+          try { localStorage.clear(); } catch (_) { }
+          location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
         }
-        window.__startedAtMs = msg.started_at ? Date.parse(msg.started_at) : null;
-        // Reset playback state and fetch the latest to render equal current/recent for all
-        audioQueue = [];
-        lastAudioCall = null;
-        stopCallAudio();
-        refresh();
-        scheduleTickRefresh();
-      }catch(_){ /* ignore */ }
+      }, 1000);
+      // Fallback redirect in case timers are throttled in miniapp/webview
+      setTimeout(() => {
+        if (window.winnerShown) {
+          try { localStorage.clear(); } catch (_) { }
+          location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
+        }
+      }, 9000);
     }
-  };
-  ws.onclose = ()=>{ try{ if(wsPingTimer){ clearInterval(wsPingTimer); } }catch(_){} wsPingTimer = null; setTimeout(wsConnect, 2000); };
-}
-function currentPicksArray(){
-  try { return Array.from(window.myPicks || []).map(String); } catch(_) { return []; }
-}
-function sendClaimViaWS(){
-  if(ws && ws.readyState===1){
-    try{ ws.send(JSON.stringify({action:'claim_bingo', tid: TID, picks: currentPicksArray()})); }catch(_){ }
-  }else{
-    pendingClaim = true;
-    if(!ws || ws.readyState===3){ wsConnect(); }
-  }
-}
 
-// (Removed duplicate click handler; consolidated above.)
+    // If tab was backgrounded during winner countdown, redirect immediately on resume
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!window.winnerShown) return;
+      try {
+        const ts = parseInt(localStorage.getItem('winnerShownAt') || '0', 10);
+        if (ts && (Date.now() - ts) > 6000) {
+          try { localStorage.clear(); } catch (_) { }
+          location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
+        }
+      } catch (_) { }
+    });
 
-function isWinningCell(r,c,details){
-  if(!details) return false;
-  if(details.pattern === 'row') return r === Number(details.row);
-  if(details.pattern === 'col') return c === Number(details.col);
-  if(details.pattern === 'diag_main') return r === c;
-  if(details.pattern === 'diag_anti') return (r + c) === 4;
-  if(details.pattern === 'four_corners') return (r===0&&c===0)||(r===0&&c===4)||(r===4&&c===0)||(r===4&&c===4);
-  return false;
-}
-function inferWinPatternFromCalled(rows){
-  const called = window.lastCalledSet || new Set();
-  // four corners
-  const corners = [[0,0],[0,4],[4,0],[4,4]];
-  if(corners.every(([r,c])=> rows[r][c]==='FREE' || called.has(String(rows[r][c])) )){ return { pattern:'four_corners' }; }
-  // rows
-  for(let r=0;r<5;r++){
-    if([0,1,2,3,4].every(c=> rows[r][c]==='FREE' || called.has(String(rows[r][c])) )){
-      return { pattern:'row', row:r };
-    }
-  }
-  // cols
-  for(let c=0;c<5;c++){
-    if([0,1,2,3,4].every(r=> rows[r][c]==='FREE' || called.has(String(rows[r][c])) )){
-      return { pattern:'col', col:c };
-    }
-  }
-  // diags
-  if([0,1,2,3,4].every(i=> rows[i][i]==='FREE' || called.has(String(rows[i][i])) )){ return { pattern:'diag_main' }; }
-  if([0,1,2,3,4].every(i=> rows[i][4-i]==='FREE' || called.has(String(rows[i][4-i])) )){ return { pattern:'diag_anti' }; }
-  return null;
-}
-function colorWinCard(details){
-  const cells = document.querySelectorAll('#win-card .card-cell');
-  if(!cells.length) return;
-  // Rebuild values grid to map r,c
-  const rows = [];
-  let tmp=[]; let i=0;
-  cells.forEach(cell=>{ const t = cell.textContent.trim(); tmp.push(t===''?'FREE':Number(t)); if(tmp.length===5){ rows.push(tmp); tmp=[]; } i++; });
-  let info = details && details.pattern ? details : inferWinPatternFromCalled(rows);
-  const picksArr = (details && Array.isArray(details.picks)) ? details.picks.map(String) : Array.from(window.myPicks || []).map(String);
-  const picks = new Set(picksArr);
-  for(let idx=0; idx<cells.length; idx++){
-    const r = Math.floor(idx/5), c = idx % 5;
-    const cell = cells[idx];
-    const val = rows[r][c];
-    // reset styles
-    cell.style.background = '';
-    cell.style.borderColor = '';
-    cell.style.color = '';
-    // green if part of winning line
-    if(info && isWinningCell(r,c,info)){
-      cell.style.background = '#173e1f';
-      cell.style.borderColor = '#2a7a3b';
-      cell.style.color = '#ffffff';
-      continue;
-    }
-    // yellow if user picked
-    if(val !== 'FREE' && picks.has(String(val))){
-      cell.style.background = '#fff04a';
-      cell.style.borderColor = '#caa400';
-      cell.style.color = '#333';
-    }
-  }
-}
-function showWinner(name, index, details){
-  // Immediately suppress and hard-stop any audio on showing winner, regardless of caller
-  try{
-    window.suppressCalls = true;
-    audioQueue = [];
-    try{ callAudio.onended = null; callAudio.onerror = null; }catch(_){ }
-    stopCallAudio();
-    try{ callAudio.muted = true; }catch(_){ }
-    try{ callAudio.removeAttribute('src'); callAudio.load(); }catch(_){ }
-    try{ callAudio.volume = 0; }catch(_){ }
-    audioPlaying = false;
-    lastAudioCall = null;
-    audioOn = false; localStorage.setItem('audioOn','false'); renderAudio();
-  }catch(_){ /* ignore */ }
-  const bd = document.getElementById('win-backdrop');
-  const nm = document.getElementById('win-name');
-  const idx = document.getElementById('win-index');
-  if(nm) nm.textContent = name || 'Player';
-  if(idx) idx.textContent = String(index||'-');
-  const rows = buildCardFromSeed(Number(index||1));
-  renderCardTo('win-card', rows);
-  colorWinCard(details);
-  if(bd){ bd.style.display = 'flex'; }
-  window.winnerShown = true;
-  try{ localStorage.setItem('winnerShownAt', String(Date.now())); }catch(_){ }
-  // countdown UI
-  let left = 5; const el = document.getElementById('win-countdown');
-  const t = setInterval(()=>{
-    left -= 1;
-    if(el) el.textContent = String(Math.max(0,left));
-    if(left<=0){
-      clearInterval(t);
-      try{ localStorage.clear(); }catch(_){ }
-      location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
-    }
-  }, 1000);
-  // Fallback redirect in case timers are throttled in miniapp/webview
-  setTimeout(()=>{
-    if(window.winnerShown){
-      try{ localStorage.clear(); }catch(_){ }
-      location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
-    }
-  }, 9000);
-}
-
-// If tab was backgrounded during winner countdown, redirect immediately on resume
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState !== 'visible') return;
-  if(!window.winnerShown) return;
-  try{
-    const ts = parseInt(localStorage.getItem('winnerShownAt') || '0', 10);
-    if(ts && (Date.now() - ts) > 6000){
-      try{ localStorage.clear(); }catch(_){ }
-      location.href = `/play/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
-    }
-  }catch(_){ }
-});
-
-wsConnect();
-</script>
+    wsConnect();
+  </script>
 </body>
-</html>
 
+</html>

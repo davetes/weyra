@@ -149,16 +149,19 @@ def api_game_state(request: HttpRequest):
         except Exception:
             pass
     # Before computing state, if countdown hasn't started, release stale accepted selections (>15s inactive)
+    # Throttle: run at most once per 3 seconds per game to avoid hammering DB
     if not game.countdown_started_at and not game.started_at:
-        try:
-            stale_threshold = int(timezone.now().timestamp()) - 15
-            accepted_qs = list(game.selections.filter(accepted=True).select_related('player'))
-            for s in accepted_qs:
-                last_seen = cache.get(f"seen_{getattr(s.player, 'telegram_id', None)}") if getattr(s, 'player', None) else None
-                if last_seen is None or int(last_seen) < stale_threshold:
-                    s.delete()
-        except Exception:
-            pass
+        stale_key = f"stale_check_{game.id}"
+        if cache.add(stale_key, 1, 3):  # runs only if key doesn't exist (i.e., once per 3s)
+            try:
+                stale_threshold = int(timezone.now().timestamp()) - 15
+                accepted_qs = list(game.selections.filter(accepted=True).select_related('player'))
+                for s in accepted_qs:
+                    last_seen = cache.get(f"seen_{getattr(s.player, 'telegram_id', None)}") if getattr(s, 'player', None) else None
+                    if last_seen is None or int(last_seen) < stale_threshold:
+                        s.delete()
+            except Exception:
+                pass
     taken = list(game.selections.filter(accepted=True).values_list('index', flat=True))
     accepted_count = game.selections.filter(accepted=True).count()
     # Freeze displayed players after countdown: use charged_count snapshot once stakes were charged
@@ -173,8 +176,10 @@ def api_game_state(request: HttpRequest):
     if game.countdown_started_at and not game.started_at:
         elapsed = (timezone.now() - game.countdown_started_at).total_seconds()
         if elapsed >= 30:
-            # Promote to started and charge all currently accepted players once
-            with transaction.atomic():
+            # Use cache lock so only ONE request runs the heavy promotion block
+            promote_key = f"promote_{game.id}"
+            if cache.add(promote_key, 1, 10):  # only one worker gets this lock
+              with transaction.atomic():
                 g = Game.objects.select_for_update().get(id=game.id)
                 if not g.started_at:
                     g.started_at = timezone.now()
@@ -210,8 +215,11 @@ def api_game_state(request: HttpRequest):
                 # reflect local vars
                 game.started_at = g.started_at
                 game.sequence = g.sequence
-            # Broadcast sync so all players align to the same start
-            _broadcast_call_sync(game.stake, game.started_at)
+              # Broadcast sync so all players align to the same start
+              _broadcast_call_sync(game.stake, game.started_at)
+            else:
+                # Another request already promoted; re-fetch to get latest state
+                game = Game.objects.get(id=game.id)
 
     if game.started_at:
         started = True
@@ -304,8 +312,11 @@ def api_game_state(request: HttpRequest):
             countdown_remaining = None
     started_at_iso = game.started_at.isoformat() if game.started_at else None
     server_time_ms = int(timezone.now().timestamp() * 1000)
-    # Game count based on started games across all stakes (all-time)
-    total_games = Game.objects.filter(started_at__isnull=False).count()
+    # Game count based on started games across all stakes (all-time) — cached 5s
+    total_games = cache.get('total_games')
+    if total_games is None:
+        total_games = Game.objects.filter(started_at__isnull=False).count()
+        cache.set('total_games', total_games, 5)
     payload = {
         "ok": True,
         "stake": stake,

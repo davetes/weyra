@@ -87,6 +87,16 @@ DATABASES = {
         'PASSWORD': os.getenv('PG_PASSWORD', ''),
         'HOST': os.getenv('PG_HOST', 'localhost'),
         'PORT': os.getenv('PG_PORT', '5432'),
+        'CONN_MAX_AGE': 60,  # Reuse DB connections for 60s to avoid flooding PostgreSQL
+    }
+}
+
+# Caching - use local memory for game state caching to reduce DB load
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'bingo-game-cache',
+        'TIMEOUT': 10,
     }
 }
 
