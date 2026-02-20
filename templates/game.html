@@ -551,9 +551,7 @@
     let lastSilentCall = null;
     // When true, stop any new audio and queue processing (set on winner for all clients)
     window.suppressCalls = false;
-    const CALL_INTERVAL_MS = 5000; // enforce ~5s cadence between call starts
-    const POST_END_GAP_MS = 300;   // small gap after audio ends
-    const MAX_AUDIO_MS = 4500;     // hard cap audio playback to 4.5s (voice needs time to say letter + number)
+    const CALL_INTERVAL_MS = 5000; // 5s cadence between calls (server-driven)
     function setCurrentBall(n) {
       const cur = document.getElementById('current-call');
       if (!cur) return;
@@ -597,170 +595,40 @@
         const curStr = String(data.current_call);
         if (!called.map(String).includes(curStr)) called.push(data.current_call);
       }
-      const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
-      markBoard(called, currentForBoard);
+      markBoard(called, data.current_call);
     }
-    function playNextFromQueue() {
-      if (window.suppressCalls) {
-        try { callAudio.pause(); } catch (_) { }
-        audioQueue = [];
-        return;
-      }
-      if (audioPlaying) return;
-      if (!audioOn) { audioQueue = []; return; }
-      if (!audioUnlocked) return;
-      // Skip ahead if queue is too far behind (>2 items) — prevents audio-ON players
-      // from falling behind audio-OFF players. Apply skipped numbers visually without sound.
-      while (audioQueue.length > 2) {
-        const skipped = Number(audioQueue.shift());
-        if (Number.isFinite(skipped) && skipped >= 1 && skipped <= 75) {
-          lastAudioCall = skipped;
-          setCurrentBall(skipped);
-          updateBoardCurrent();
-          autoPickIfOn(skipped);
-        }
-      }
-      const next = audioQueue.shift();
-      if (!next) return;
-      const num = Number(next);
-      if (!Number.isFinite(num) || num < 1 || num > 75) { playNextFromQueue(); return; }
-      // If we have server sync anchors, align this call's start time to the shared cadence
-      const idx = window.__callIndex && window.__callIndex[String(num)];
-      const startedAtMs = window.__startedAtMs;
-      const offset = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : 0;
-      const nowSynced = Date.now() + offset;
-      let delayMs = 0;
-      if (Number.isInteger(idx) && startedAtMs) {
-        const desiredStart = startedAtMs + (idx * CALL_INTERVAL_MS);
-        delayMs = Math.max(0, desiredStart - nowSynced);
-      }
-      const startAudio = () => {
-        audioPlaying = true;
-        lastAudioCall = num;
-        // Update the UI to the number we're about to speak
-        setCurrentBall(num);
-        // Update board current to match voice timing
-        updateBoardCurrent();
-        autoPickIfOn(num);
-        callAudio.src = `/static/audio/${num}.mp3`;
-        callAudio.currentTime = 0;
-        const startedAt = Date.now();
-        let scheduled = false;
-        const scheduleNext = () => {
-          if (scheduled) return; // avoid double scheduling on error+ended
-          scheduled = true;
-          try { clearTimeout(hardStopT); } catch (_) { }
-          const elapsed = Date.now() - startedAt; // how long this call has been playing
-          const waitCadence = Math.max(0, CALL_INTERVAL_MS - elapsed);
-          const waitGap = POST_END_GAP_MS;
-          const wait = Math.max(waitCadence, waitGap);
-          setTimeout(() => { audioPlaying = false; playNextFromQueue(); }, wait);
-        };
-        // Safety timer to stop audio at 3s AND advance the queue
-        let hardStopT = setTimeout(() => { try { callAudio.pause(); } catch (_) { }; try { scheduleNext(); } catch (_) { } }, MAX_AUDIO_MS);
-        callAudio.onended = scheduleNext;
-        callAudio.onerror = scheduleNext;
-        callAudio.play().catch(() => {
-          // Autoplay blocked: still show the ball visually and advance the queue
-          audioPlaying = false;
-          audioUnlocked = false;
-          // Fall back to showing the ball even without sound
-          setCurrentBall(num);
-          updateBoardCurrent();
-          autoPickIfOn(num);
-          // Schedule next after cadence interval so the game still progresses visually
-          setTimeout(() => { playNextFromQueue(); }, CALL_INTERVAL_MS);
-        });
-      };
-      if (delayMs > 5) { setTimeout(startAudio, delayMs); } else { startAudio(); }
+    // Simple audio: play a number's audio file ONCE when the server says a new number.
+    // No queue, no skip-ahead, no cadence sync — eliminates all race conditions.
+    function playNumber(num) {
+      if (window.suppressCalls) return;
+      if (!audioOn || !audioUnlocked) return;
+      if (audioPlaying) return; // let current audio finish
+      num = Number(num);
+      if (!Number.isFinite(num) || num < 1 || num > 75) return;
+      audioPlaying = true;
+      lastAudioCall = String(num);
+      callAudio.src = `/static/audio/${num}.mp3`;
+      callAudio.currentTime = 0;
+      callAudio.onended = () => { audioPlaying = false; };
+      callAudio.onerror = () => { audioPlaying = false; };
+      callAudio.play().catch(() => { audioPlaying = false; audioUnlocked = false; });
     }
+    function playNextFromQueue() { /* no-op — replaced by playNumber */ }
 
-    function playNextSilentFromQueue() {
-      if (window.suppressCalls) { silentQueue = []; return; }
-      if (silentPlaying) return;
-      if (audioOn) { silentQueue = []; return; }
-      const next = silentQueue.shift();
-      if (!next) return;
-      const num = Number(next);
-      if (!Number.isFinite(num) || num < 1 || num > 75) { playNextSilentFromQueue(); return; }
-      silentPlaying = true;
-      lastSilentCall = num;
-      setCurrentBall(num);
-      updateBoardCurrent();
-      autoPickIfOn(num);
-      setTimeout(() => { silentPlaying = false; playNextSilentFromQueue(); }, CALL_INTERVAL_MS);
-    }
-    // Align refresh() calls to the shared server timeline when audio is OFF
-    function scheduleTickRefresh() {
-      try { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } } catch (_) { }
-      const offset = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : 0;
-      const startedAtMs = window.__startedAtMs;
-      const nowSynced = Date.now() + offset;
-      if (!startedAtMs) {
-        tickTimer = setTimeout(() => { refresh(); scheduleTickRefresh(); }, CALL_INTERVAL_MS);
-        return;
-      }
-      const elapsed = Math.max(0, nowSynced - startedAtMs);
-      const untilNext = CALL_INTERVAL_MS - (elapsed % CALL_INTERVAL_MS);
-      // Align exactly to the next 3s boundary
-      const wait = Math.max(5, untilNext);
-      tickTimer = setTimeout(() => { refresh(); scheduleTickRefresh(); }, wait);
-    }
-    function enqueueCallsFromRecent(recent, current) {
-      if (window.suppressCalls) { audioQueue = []; return; }
-      if (!Array.isArray(recent)) recent = [];
-      const cur = Number(current);
-      const recentStr = recent.map(x => String(x));
-      const lastStr = (audioOn ? lastAudioCall : lastSilentCall);
-      let toAdd = [];
-      if (lastStr && recentStr.includes(lastStr)) {
-        const idx = recentStr.lastIndexOf(lastStr);
-        if (idx < recentStr.length - 1) {
-          toAdd = recentStr.slice(idx + 1);
-        }
-      } else if (cur) {
-        toAdd = [String(cur)];
-      }
-      // de-duplicate against items already queued
-      if (audioOn) {
-        toAdd.forEach(n => { if (!audioQueue.includes(n)) { audioQueue.push(n); } });
-        playNextFromQueue();
-      } else {
-        toAdd.forEach(n => { if (!silentQueue.includes(n)) { silentQueue.push(n); } });
-        playNextSilentFromQueue();
-      }
-    }
+    function playNextSilentFromQueue() { /* no-op */ }
+    function scheduleTickRefresh() { /* no-op */ }
+    function enqueueCallsFromRecent() { /* no-op */ }
+
     document.getElementById('audio-toggle')?.addEventListener('click', () => {
       if (window.winnerShown || window.suppressCalls) {
-        // Ignore attempts to re-enable audio after winner
         audioOn = false; localStorage.setItem('audioOn', 'false'); renderAudio();
         return;
       }
       audioOn = !audioOn;
       localStorage.setItem('audioOn', String(audioOn));
       if (audioOn) { audioUnlocked = true; }
-      if (!audioOn) {
-        stopCallAudio(); // also resets lastAudioCall
-        silentQueue = [];
-        silentPlaying = false;
-        // When audio is OFF, drive UI by exact tick boundaries
-        try { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } } catch (_) { }
-        scheduleTickRefresh();
-      } else {
-        lastAudioCall = null; // wait for new audio start to set green
-        lastSilentCall = null;
-        silentQueue = [];
-        silentPlaying = false;
-        // Clear tick scheduler when audio resumes to avoid duplicate cadence
-        try { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } } catch (_) { }
-        // Immediate refresh to rebuild audio queue from server anchors
-        refresh();
-        playNextFromQueue();
-      }
+      if (!audioOn) { stopCallAudio(); }
       renderAudio();
-      // Re-render board current only when audio resumes; when muted, let scheduler drive updates
-      if (audioOn) { updateBoardCurrent(); }
-      if (!audioOn) { /* scheduler already set above; no immediate UI jump */ }
     });
     renderAudio();
 
@@ -937,79 +805,41 @@
       setText('stat-players', data.players ?? 0);
       setText('stat-derash', Math.round(derash));
       setText('stat-totalgames', data.total_games ?? '-');
-      // Current big ball is driven by audio start via setCurrentBall()
-      // Enqueue audio using recent_calls to avoid skipping when a refresh misses a call
-      // Store sync anchors for cross-player audio alignment
-      try {
-        if (typeof data.server_time === 'number') {
-          window.__serverOffsetMs = Number.isFinite(window.__serverOffsetMs) ? window.__serverOffsetMs : (data.server_time - Date.now());
-        }
-        window.__startedAtMs = data.started_at ? Date.parse(data.started_at) : null;
-        // Build index map for numbers to their call slot (0-based)
-        if (Array.isArray(data.called_numbers)) {
-          window.__callIndex = {};
-          data.called_numbers.forEach((n, i) => { window.__callIndex[String(n)] = i; });
-        }
-      } catch (_) { /* ignore */ }
-      enqueueCallsFromRecent(data.recent_calls || [], data.current_call);
+      // Play audio when current_call changes (simple: no queue, no race conditions)
+      if (data.current_call != null && String(data.current_call) !== String(lastAudioCall)) {
+        playNumber(data.current_call);
+      }
       const wrap = document.getElementById('recent-calls');
       if (wrap) {
         wrap.innerHTML = '';
-        const base = Array.isArray(data.recent_calls) ? data.recent_calls.slice() : [];
-        const anchor = (audioOn && audioUnlocked && lastAudioCall != null) ? lastAudioCall : data.current_call;
-        let recent = [];
-        if (Array.isArray(data.called_numbers) && anchor != null) {
+        // Show last 4 calls before the current one
+        if (Array.isArray(data.called_numbers) && data.current_call != null) {
           const idxMap = {};
           data.called_numbers.forEach((n, i) => { idxMap[String(n)] = i; });
-          const aIdx = idxMap[String(anchor)];
+          const aIdx = idxMap[String(data.current_call)];
+          let recent = [];
           if (Number.isInteger(aIdx)) {
             recent = data.called_numbers.slice(Math.max(0, aIdx - 4), aIdx);
-          } else {
-            const i = base.lastIndexOf(anchor);
-            const end = i > 0 ? i : base.length;
-            recent = base.slice(Math.max(0, end - 4), end);
           }
-        } else if (anchor != null) {
-          const i = base.lastIndexOf(anchor);
-          const end = i > 0 ? i : base.length;
-          recent = base.slice(Math.max(0, end - 4), end);
-        } else {
-          recent = base.slice(-4);
+          recent.slice().reverse().forEach(n => wrap.appendChild(makeBall(n, 'sm')));
         }
-        // Ensure we never include the current (anchor) number in the recent display
-        if (anchor != null) {
-          const aStr = String(anchor);
-          recent = recent.filter(n => String(n) !== aStr);
-        }
-        // Render newest on the left, older to the right
-        recent.slice().reverse().forEach(n => wrap.appendChild(makeBall(n, 'sm')));
       }
       let called = Array.isArray(data.called_numbers) ? data.called_numbers.slice() : (data.recent_calls || []);
       if (data.current_call != null) {
         const curStr = String(data.current_call);
         if (!called.map(String).includes(curStr)) called.push(data.current_call);
       }
-      // Keep a set of called numbers for winner coloring inference
       window.lastCalledSet = new Set(called.map(v => String(v)));
       setText('stat-call', (typeof data.call_count === 'number') ? data.call_count : called.length);
-      // Use lastAudioCall for the green current dot only when audio is actually working
-      const currentForBoard = (audioOn && audioUnlocked && lastAudioCall != null) ? lastAudioCall : data.current_call;
-      markBoard(called, currentForBoard);
-      // Update the big ball display:
-      // - When audio is OFF: always use server's current_call
-      // - When audio is ON, unlocked, and actively playing: let the audio queue drive the ball
-      // - When audio is ON but blocked (not unlocked) or queue empty: use server's current_call
+      markBoard(called, data.current_call);
+      // Always show the big ball from server data
       if (data.current_call != null) {
-        const audioIsActive = audioOn && audioUnlocked && (audioPlaying || audioQueue.length > 0);
-        if (!audioIsActive) {
-          setCurrentBall(data.current_call);
-        }
+        setCurrentBall(data.current_call);
       }
       // Auto-pick only the current call (and next ones), do not retro-pick past calls
       try {
-        if (autoPickOn) {
-          const anchorNow = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
-          if (anchorNow != null) autoPickIfOn(anchorNow);
+        if (autoPickOn && data.current_call != null) {
+          autoPickIfOn(data.current_call);
         }
       } catch (_) { /* ignore */ }
       const btn = document.getElementById('btn-bingo');
