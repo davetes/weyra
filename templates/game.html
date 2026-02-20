@@ -935,7 +935,7 @@
       if (wrap) {
         wrap.innerHTML = '';
         const base = Array.isArray(data.recent_calls) ? data.recent_calls.slice() : [];
-        const anchor = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
+        const anchor = (audioOn && audioUnlocked && lastAudioCall != null) ? lastAudioCall : data.current_call;
         let recent = [];
         if (Array.isArray(data.called_numbers) && anchor != null) {
           const idxMap = {};
@@ -971,8 +971,8 @@
       // Keep a set of called numbers for winner coloring inference
       window.lastCalledSet = new Set(called.map(v => String(v)));
       setText('stat-call', (typeof data.call_count === 'number') ? data.call_count : called.length);
-      // Use lastAudioCall for the green current dot so the board waits for audio/UI
-      const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
+      // Use lastAudioCall for the green current dot only when audio is actually working
+      const currentForBoard = (audioOn && audioUnlocked && lastAudioCall != null) ? lastAudioCall : data.current_call;
       markBoard(called, currentForBoard);
       // Update the big ball display:
       // - When audio is OFF: always use server's current_call
@@ -1048,7 +1048,7 @@
 
     buildBoard();
     refresh();
-    setInterval(refresh, 3000);
+    setInterval(refresh, 2000);
 
     // WebSocket realtime (Channels)
     let ws; let pendingClaim = false; let wsPingTimer = null;
