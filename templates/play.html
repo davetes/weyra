@@ -411,6 +411,8 @@ const TID = '{{ tid|default:"" }}';
 const WALLET = parseFloat('{{ wallet|default:"0" }}') || 0;
 let SELECTED_INDEX = null;
 let countdownTimer = null;
+let lastStateAt = 0;
+let fastPollTimer = null;
 // Track first page load to optionally auto-abandon stale selection
 window.__firstLoad = true;
 const RANGES = [[1,15],[16,30],[31,45],[46,60],[61,75]];
@@ -527,6 +529,7 @@ async function refreshState(){
     const res = await fetch(`/api/game_state?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
     if(!res.ok) return;
     const data = await res.json();
+    lastStateAt = Date.now();
     // cache last known state for exit handling
     window.__lastPlayState = data;
     // On first load only: if a lingering selection exists but countdown hasn't begun, auto-abandon it
@@ -553,7 +556,19 @@ async function refreshState(){
     updateAcceptedCount(data.accepted_count || 0);
     updateDerash(data.accepted_count || 0);
     toggleTopbar(data.accepted_count || 0);
-    if(data.countdown_started_at){ startCountdownFrom(data.countdown_started_at); }
+    if(Number.isFinite(data.countdown_remaining)){
+      const elTop = document.getElementById('countdown-top');
+      if(elTop){
+        if(data.countdown_remaining <= 0 && !data.started){
+          elTop.textContent = 'Starting...';
+          ensureStartCheck();
+        }else{
+          elTop.textContent = String(data.countdown_remaining);
+        }
+      }
+    }else if(data.countdown_started_at){
+      startCountdownFrom(data.countdown_started_at);
+    }
 
     // Redirect to game page when started
     if(data.started){
@@ -578,6 +593,10 @@ function updateAcceptedCount(n){
 
 function startCountdownFrom(iso){
   const start = new Date(iso).getTime();
+  if(!Number.isFinite(start)){
+    const elTop = document.getElementById('countdown-top'); if(elTop) elTop.textContent = '-';
+    return;
+  }
   const DURATION = 30; // seconds
   if(countdownTimer) clearInterval(countdownTimer);
   countdownTimer = setInterval(()=>{
@@ -592,6 +611,19 @@ function startCountdownFrom(iso){
       window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
     }
   }, 500);
+}
+
+function ensureStartCheck(){
+  if(fastPollTimer) return;
+  let attempts = 0;
+  fastPollTimer = setInterval(async ()=>{
+    attempts += 1;
+    await refreshState();
+    if(attempts >= 10){
+      clearInterval(fastPollTimer);
+      fastPollTimer = null;
+    }
+  }, 1000);
 }
 
 // Initial load and polling: reset UI then poll server
@@ -609,8 +641,15 @@ document.addEventListener('visibilitychange', ()=>{
     if(__poll){ clearInterval(__poll); __poll = null; }
   }else{
     if(!__poll){ refreshState(); __poll = setInterval(refreshState, 2000); }
+    if(lastStateAt && (Date.now() - lastStateAt) > 5000){ refreshState(); }
   }
 });
+
+// Watchdog in case miniapp throttles timers
+setInterval(()=>{
+  if(document.visibilityState !== 'visible') return;
+  if(lastStateAt && (Date.now() - lastStateAt) > 6000){ refreshState(); }
+}, 3000);
 
 function updateDerash(acceptedCount){
   const pot = Math.max(0, Number(acceptedCount||0) * STAKE * 0.8);

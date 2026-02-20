@@ -295,6 +295,13 @@ def api_game_state(request: HttpRequest):
             pass
 
     countdown_started_at = game.countdown_started_at.isoformat() if game.countdown_started_at else None
+    countdown_remaining = None
+    if game.countdown_started_at and not game.started_at:
+        try:
+            elapsed = int((timezone.now() - game.countdown_started_at).total_seconds())
+            countdown_remaining = max(0, 30 - elapsed)
+        except Exception:
+            countdown_remaining = None
     started_at_iso = game.started_at.isoformat() if game.started_at else None
     server_time_ms = int(timezone.now().timestamp() * 1000)
     # Game count based on started games across all stakes (all-time)
@@ -308,6 +315,7 @@ def api_game_state(request: HttpRequest):
         "taken": taken,
         "accepted_count": accepted_count,
         "countdown_started_at": countdown_started_at,
+        "countdown_remaining": countdown_remaining,
         "started_at": started_at_iso,
         "started": started,
         "current_call": current_call,
