@@ -176,10 +176,10 @@ def api_game_state(request: HttpRequest):
     if game.countdown_started_at and not game.started_at:
         elapsed = (timezone.now() - game.countdown_started_at).total_seconds()
         if elapsed >= 30:
-            # Use cache lock so only ONE request runs the heavy promotion block
-            promote_key = f"promote_{game.id}"
-            if cache.add(promote_key, 1, 10):  # only one worker gets this lock
-              with transaction.atomic():
+            # Promote to started and charge all currently accepted players once
+            # select_for_update ensures only one request actually writes
+            should_broadcast = False
+            with transaction.atomic():
                 g = Game.objects.select_for_update().get(id=game.id)
                 if not g.started_at:
                     g.started_at = timezone.now()
@@ -212,14 +212,13 @@ def api_game_state(request: HttpRequest):
                         g.stakes_charged = True
                         g.charged_count = len(sel_qs)
                     g.save(update_fields=["started_at", "sequence", "stakes_charged", "charged_count"]) 
-                # reflect local vars
+                    should_broadcast = True
+                # Always reflect latest state from DB
                 game.started_at = g.started_at
                 game.sequence = g.sequence
-              # Broadcast sync so all players align to the same start
-              _broadcast_call_sync(game.stake, game.started_at)
-            else:
-                # Another request already promoted; re-fetch to get latest state
-                game = Game.objects.get(id=game.id)
+            # Broadcast sync once (only the request that did the promotion)
+            if should_broadcast and game.started_at:
+                _broadcast_call_sync(game.stake, game.started_at)
 
     if game.started_at:
         started = True

@@ -650,9 +650,15 @@
         callAudio.onended = scheduleNext;
         callAudio.onerror = scheduleNext;
         callAudio.play().catch(() => {
-          // Autoplay blocked or audio error: stop advancing to avoid jumps
+          // Autoplay blocked: still show the ball visually and advance the queue
           audioPlaying = false;
           audioUnlocked = false;
+          // Fall back to showing the ball even without sound
+          setCurrentBall(num);
+          updateBoardCurrent();
+          autoPickIfOn(num);
+          // Schedule next after cadence interval so the game still progresses visually
+          setTimeout(() => { playNextFromQueue(); }, CALL_INTERVAL_MS);
         });
       };
       if (delayMs > 5) { setTimeout(startAudio, delayMs); } else { startAudio(); }
@@ -957,8 +963,9 @@
       // Use lastAudioCall for the green current dot so the board waits for audio/UI
       const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
       markBoard(called, currentForBoard);
-      // If audio is OFF or hasn't started yet, keep the big current ball in sync with server
-      if (!audioOn && data.current_call) { setCurrentBall(data.current_call); }
+      // ALWAYS keep the big current ball in sync with server data
+      // (audio queue will override this when it catches up, but this ensures the ball is never blank)
+      if (data.current_call != null) { setCurrentBall(data.current_call); }
       // Auto-pick only the current call (and next ones), do not retro-pick past calls
       try {
         if (autoPickOn) {
