@@ -582,10 +582,14 @@ refresh();
 setInterval(refresh, 2000);
 
 // WebSocket realtime (Channels)
-let ws; let pendingClaim = false;
+let ws; let pendingClaim = false; let wsPingTimer = null;
 function wsUrl(){ const proto = location.protocol === 'https:' ? 'wss' : 'ws'; return `${proto}://${location.host}/ws/game/${STAKE}/`; }
 function wsConnect(){ try{ ws = new WebSocket(wsUrl()); }catch(_){ return; }
-  ws.onopen = ()=>{ /* ready */ if(pendingClaim){ try{ ws.send(JSON.stringify({action:'claim_bingo', tid: TID, picks: currentPicksArray()})); }catch(_){ } pendingClaim=false; } };
+  ws.onopen = ()=>{ /* ready */
+    if(wsPingTimer){ try{ clearInterval(wsPingTimer); }catch(_){} wsPingTimer = null; }
+    wsPingTimer = setInterval(()=>{ try{ if(ws && ws.readyState===1){ ws.send(JSON.stringify({action:'ping'})); } }catch(_){ } }, 25000);
+    if(pendingClaim){ try{ ws.send(JSON.stringify({action:'claim_bingo', tid: TID, picks: currentPicksArray()})); }catch(_){ } pendingClaim=false; }
+  };
   ws.onmessage = (ev)=>{
     let msg; try{ msg = JSON.parse(ev.data); }catch(_){ return; }
     if(msg.type === 'winner'){
@@ -632,7 +636,7 @@ function wsConnect(){ try{ ws = new WebSocket(wsUrl()); }catch(_){ return; }
       }catch(_){ /* ignore */ }
     }
   };
-  ws.onclose = ()=>{ setTimeout(wsConnect, 2000); };
+  ws.onclose = ()=>{ try{ if(wsPingTimer){ clearInterval(wsPingTimer); } }catch(_){} wsPingTimer = null; setTimeout(wsConnect, 2000); };
 }
 function currentPicksArray(){
   try { return Array.from(window.myPicks || []).map(String); } catch(_) { return []; }

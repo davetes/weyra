@@ -25,6 +25,8 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             tid = content.get('tid')
             picks = content.get('picks')  # optional list of numbers (as strings or ints)
             await self.handle_claim(tid, picks)
+        elif action == 'ping':
+            await self.send_json({'type': 'pong'})
 
     @database_sync_to_async
     def _check_and_finalize_bingo(self, tid: str):
