@@ -553,7 +553,7 @@
     window.suppressCalls = false;
     const CALL_INTERVAL_MS = 5000; // enforce ~5s cadence between call starts
     const POST_END_GAP_MS = 300;   // small gap after audio ends
-    const MAX_AUDIO_MS = 3000;     // hard cap audio playback to 3s
+    const MAX_AUDIO_MS = 4500;     // hard cap audio playback to 4.5s (voice needs time to say letter + number)
     function setCurrentBall(n) {
       const cur = document.getElementById('current-call');
       if (!cur) return;
