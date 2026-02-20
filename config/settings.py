@@ -140,9 +140,23 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Channels – development layer (in-memory). For production use Redis channel layer.
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+# Channels – use Redis in production (required for multiple workers / WebSockets)
+REDIS_URL = os.getenv('REDIS_URL', '').strip()
+REDIS_HOST = os.getenv('REDIS_HOST', '').strip()
+REDIS_PORT = os.getenv('REDIS_PORT', '6379').strip()
+if REDIS_URL or REDIS_HOST:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL or f"redis://{REDIS_HOST}:{REDIS_PORT}"],
+            },
+        }
     }
-}
+else:
+    # Development fallback only
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        }
+    }
