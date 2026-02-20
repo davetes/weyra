@@ -164,6 +164,10 @@ const callAudio = document.getElementById('call-audio');
 let lastAudioCall = null; // last number we started playing
 let audioQueue = [];
 let audioPlaying = false;
+let audioUnlocked = false;
+let silentQueue = [];
+let silentPlaying = false;
+let lastSilentCall = null;
 // When true, stop any new audio and queue processing (set on winner for all clients)
 window.suppressCalls = false;
 const CALL_INTERVAL_MS = 3000; // enforce ~3s cadence between call starts
@@ -223,6 +227,7 @@ function playNextFromQueue(){
   }
   if(audioPlaying) return;
   if(!audioOn) { audioQueue = []; return; }
+  if(!audioUnlocked) return;
   const next = audioQueue.shift();
   if(!next) return;
   const num = Number(next);
@@ -263,9 +268,29 @@ function playNextFromQueue(){
     let hardStopT = setTimeout(()=>{ try{ callAudio.pause(); }catch(_){}; try{ scheduleNext(); }catch(_){} }, MAX_AUDIO_MS);
     callAudio.onended = scheduleNext;
     callAudio.onerror = scheduleNext;
-    callAudio.play().catch(scheduleNext);
+    callAudio.play().catch(()=>{
+      // Autoplay blocked or audio error: stop advancing to avoid jumps
+      audioPlaying = false;
+      audioUnlocked = false;
+    });
   };
   if(delayMs > 5){ setTimeout(startAudio, delayMs); } else { startAudio(); }
+}
+
+function playNextSilentFromQueue(){
+  if(window.suppressCalls){ silentQueue = []; return; }
+  if(silentPlaying) return;
+  if(audioOn) { silentQueue = []; return; }
+  const next = silentQueue.shift();
+  if(!next) return;
+  const num = Number(next);
+  if(!Number.isFinite(num) || num < 1 || num > 75) { playNextSilentFromQueue(); return; }
+  silentPlaying = true;
+  lastSilentCall = num;
+  setCurrentBall(num);
+  updateBoardCurrent();
+  autoPickIfOn(num);
+  setTimeout(()=>{ silentPlaying = false; playNextSilentFromQueue(); }, CALL_INTERVAL_MS);
 }
 // Align refresh() calls to the shared server timeline when audio is OFF
 function scheduleTickRefresh(){
@@ -288,7 +313,7 @@ function enqueueCallsFromRecent(recent, current){
   if(!Array.isArray(recent)) recent = [];
   const cur = Number(current);
   const recentStr = recent.map(x=>String(x));
-  const lastStr = lastAudioCall == null ? null : String(lastAudioCall);
+  const lastStr = (audioOn ? lastAudioCall : lastSilentCall);
   let toAdd = [];
   if(lastStr && recentStr.includes(lastStr)){
     const idx = recentStr.lastIndexOf(lastStr);
@@ -299,8 +324,13 @@ function enqueueCallsFromRecent(recent, current){
     toAdd = [String(cur)];
   }
   // de-duplicate against items already queued
-  toAdd.forEach(n=>{ if(!audioQueue.includes(n)){ audioQueue.push(n); } });
-  playNextFromQueue();
+  if(audioOn){
+    toAdd.forEach(n=>{ if(!audioQueue.includes(n)){ audioQueue.push(n); } });
+    playNextFromQueue();
+  }else{
+    toAdd.forEach(n=>{ if(!silentQueue.includes(n)){ silentQueue.push(n); } });
+    playNextSilentFromQueue();
+  }
 }
 document.getElementById('audio-toggle')?.addEventListener('click', ()=>{
   if(window.winnerShown || window.suppressCalls){
@@ -310,13 +340,19 @@ document.getElementById('audio-toggle')?.addEventListener('click', ()=>{
   }
   audioOn = !audioOn;
   localStorage.setItem('audioOn', String(audioOn));
+  if(audioOn){ audioUnlocked = true; }
   if(!audioOn){
     stopCallAudio(); // also resets lastAudioCall
+    silentQueue = [];
+    silentPlaying = false;
     // When audio is OFF, drive UI by exact tick boundaries
     try{ if(tickTimer){ clearTimeout(tickTimer); tickTimer = null; } }catch(_){ }
     scheduleTickRefresh();
   }else{
     lastAudioCall = null; // wait for new audio start to set green
+    lastSilentCall = null;
+    silentQueue = [];
+    silentPlaying = false;
     // Clear tick scheduler when audio resumes to avoid duplicate cadence
     try{ if(tickTimer){ clearTimeout(tickTimer); tickTimer = null; } }catch(_){ }
     // Immediate refresh to rebuild audio queue from server anchors
@@ -329,6 +365,16 @@ document.getElementById('audio-toggle')?.addEventListener('click', ()=>{
   if(!audioOn){ /* scheduler already set above; no immediate UI jump */ }
 });
 renderAudio();
+
+// Unlock audio on first user interaction (mobile/webview autoplay policy)
+function unlockAudioOnce(){
+  audioUnlocked = true;
+  playNextFromQueue();
+  document.removeEventListener('click', unlockAudioOnce);
+  document.removeEventListener('touchstart', unlockAudioOnce);
+}
+document.addEventListener('click', unlockAudioOnce, { passive: true });
+document.addEventListener('touchstart', unlockAudioOnce, { passive: true });
 
 // Auto toggle: clicking makes it ON if currently OFF; clicking again turns it OFF
 document.getElementById('auto-toggle')?.addEventListener('click', ()=>{
@@ -597,6 +643,8 @@ function wsConnect(){ try{ ws = new WebSocket(wsUrl()); }catch(_){ return; }
       try{
         window.suppressCalls = true;
         audioQueue = [];
+        silentQueue = [];
+        silentPlaying = false;
         // Hard stop audio now and prevent any further playback
         try{ callAudio.onended = null; callAudio.onerror = null; }catch(_){ }
         stopCallAudio();

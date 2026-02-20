@@ -413,6 +413,7 @@ let SELECTED_INDEX = null;
 let countdownTimer = null;
 let lastStateAt = 0;
 let fastPollTimer = null;
+let startRedirectTimer = null;
 // Track first page load to optionally auto-abandon stale selection
 window.__firstLoad = true;
 const RANGES = [[1,15],[16,30],[31,45],[46,60],[61,75]];
@@ -562,6 +563,7 @@ async function refreshState(){
         if(data.countdown_remaining <= 0 && !data.started){
           elTop.textContent = 'Starting...';
           ensureStartCheck();
+          scheduleStartRedirect();
         }else{
           elTop.textContent = String(data.countdown_remaining);
         }
@@ -611,6 +613,13 @@ function startCountdownFrom(iso){
       window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
     }
   }, 500);
+}
+
+function scheduleStartRedirect(){
+  if(startRedirectTimer) return;
+  startRedirectTimer = setTimeout(()=>{
+    window.location.href = `/game/?stake=${STAKE}&tid=${encodeURIComponent(TID)}`;
+  }, 2000);
 }
 
 function ensureStartCheck(){
