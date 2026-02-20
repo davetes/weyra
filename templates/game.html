@@ -609,6 +609,17 @@
       if (audioPlaying) return;
       if (!audioOn) { audioQueue = []; return; }
       if (!audioUnlocked) return;
+      // Skip ahead if queue is too far behind (>2 items) — prevents audio-ON players
+      // from falling behind audio-OFF players. Apply skipped numbers visually without sound.
+      while (audioQueue.length > 2) {
+        const skipped = Number(audioQueue.shift());
+        if (Number.isFinite(skipped) && skipped >= 1 && skipped <= 75) {
+          lastAudioCall = skipped;
+          setCurrentBall(skipped);
+          updateBoardCurrent();
+          autoPickIfOn(skipped);
+        }
+      }
       const next = audioQueue.shift();
       if (!next) return;
       const num = Number(next);
@@ -963,9 +974,16 @@
       // Use lastAudioCall for the green current dot so the board waits for audio/UI
       const currentForBoard = (audioOn && lastAudioCall != null) ? lastAudioCall : data.current_call;
       markBoard(called, currentForBoard);
-      // ALWAYS keep the big current ball in sync with server data
-      // (audio queue will override this when it catches up, but this ensures the ball is never blank)
-      if (data.current_call != null) { setCurrentBall(data.current_call); }
+      // Update the big ball display:
+      // - When audio is OFF: always use server's current_call
+      // - When audio is ON and actively playing: let the audio queue drive the ball (it calls setCurrentBall itself)
+      // - When audio is ON but blocked/empty queue: use server's current_call as fallback
+      if (data.current_call != null) {
+        const audioIsActive = audioOn && (audioPlaying || audioQueue.length > 0);
+        if (!audioIsActive) {
+          setCurrentBall(data.current_call);
+        }
+      }
       // Auto-pick only the current call (and next ones), do not retro-pick past calls
       try {
         if (autoPickOn) {
