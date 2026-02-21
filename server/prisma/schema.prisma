@@ -15,12 +15,52 @@ model Player {
   wallet      Decimal   @default(0) @db.Decimal(12, 2)
   gift        Decimal   @default(0) @db.Decimal(12, 2)
   wins        Int       @default(0)
+  bannedAt    DateTime? @map("banned_at")
+  banReason   String    @default("") @db.Text @map("ban_reason")
   createdAt   DateTime  @default(now()) @map("created_at")
 
   selections   Selection[]
   transactions Transaction[]
+  depositRequests DepositRequest[]
+  withdrawRequests WithdrawRequest[]
 
   @@map("bingo_player")
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique @db.VarChar(64)
+  passwordHash String   @db.VarChar(255) @map("password_hash")
+  role         String   @db.VarChar(32)
+  permissions  String   @default("[]") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  sessions AdminSession[]
+
+  @@map("admin_user")
+}
+
+model AdminSession {
+  id         Int      @id @default(autoincrement())
+  token      String   @unique @db.VarChar(128)
+  adminId    Int      @map("admin_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  expiresAt  DateTime @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  admin AdminUser @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@map("admin_session")
+}
+
+model AppSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(64)
+  value     String   @default("") @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_setting")
 }
 
 model Game {
@@ -67,4 +107,45 @@ model Transaction {
   player Player @relation(fields: [playerId], references: [id])
 
   @@map("bingo_transaction")
+}
+
+model DepositRequest {
+  id              Int      @id @default(autoincrement())
+  playerId        Int      @map("player_id")
+  telegramId      BigInt   @map("telegram_id")
+  method          String   @default("") @db.VarChar(32)
+  amount          Decimal? @db.Decimal(12, 2)
+  status          String   @default("pending") @db.VarChar(16)
+  caption         String   @default("") @db.Text
+  telegramMessageId Int?   @map("telegram_message_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  decidedAt       DateTime? @map("decided_at")
+  decidedByAdminId Int?    @map("decided_by_admin_id")
+  decisionNote    String   @default("") @db.Text @map("decision_note")
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@index([playerId])
+  @@index([status])
+  @@map("deposit_request")
+}
+
+model WithdrawRequest {
+  id               Int      @id @default(autoincrement())
+  playerId         Int      @map("player_id")
+  telegramId       BigInt   @map("telegram_id")
+  amount           Decimal  @db.Decimal(12, 2)
+  method           String   @default("") @db.VarChar(32)
+  account          String   @default("") @db.Text
+  status           String   @default("pending") @db.VarChar(16)
+  createdAt        DateTime @default(now()) @map("created_at")
+  decidedAt        DateTime? @map("decided_at")
+  decidedByAdminId Int?     @map("decided_by_admin_id")
+  decisionNote     String   @default("") @db.Text @map("decision_note")
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@index([playerId])
+  @@index([status])
+  @@map("withdraw_request")
 }

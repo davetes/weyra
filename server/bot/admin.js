@@ -24,7 +24,7 @@ async function ensureAdmin(bot, msg) {
 }
 
 function setupAdmin(bot) {
-    bot.onText(/\/(admin|help)$/, async (msg) => {
+    bot.onText(/\/(admin|help)$/, async(msg) => {
         if (!await ensureAdmin(bot, msg)) return;
         const text =
             'Admin commands:\n' +
@@ -41,7 +41,7 @@ function setupAdmin(bot) {
         await bot.sendMessage(msg.chat.id, text);
     });
 
-    bot.onText(/\/username (.+)/, async (msg, match) => {
+    bot.onText(/\/username (.+)/, async(msg, match) => {
         if (!await ensureAdmin(bot, msg)) return;
         const newUname = match[1].trim().replace(/^@/, '').slice(0, 64);
         const adminId = getAdminChatId();
@@ -65,12 +65,11 @@ function setupAdmin(bot) {
             `Phone:         ${updated.phone || '-'}\n` +
             `Balance:       ${wallet} ETB\n` +
             `Coin:          ${gift}\n` +
-            '```',
-            { parse_mode: 'Markdown' }
+            '```', { parse_mode: 'Markdown' }
         );
     });
 
-    bot.onText(/\/present$/, async (msg) => {
+    bot.onText(/\/present$/, async(msg) => {
         if (!await ensureAdmin(bot, msg)) return;
         const now = Date.now();
         const players = await prisma.player.findMany({ select: { telegramId: true } });
@@ -82,7 +81,7 @@ function setupAdmin(bot) {
         await bot.sendMessage(msg.chat.id, `Players present (last 2 min): ${present}\nTotal registered: ${players.length}`);
     });
 
-    bot.onText(/\/top10$/, async (msg) => {
+    bot.onText(/\/top10$/, async(msg) => {
         if (!await ensureAdmin(bot, msg)) return;
         const players = await prisma.player.findMany({
             orderBy: [{ wins: 'desc' }, { wallet: 'desc' }],
@@ -95,7 +94,7 @@ function setupAdmin(bot) {
         await bot.sendMessage(msg.chat.id, `Top 10 players by wins:\n${lines.join('\n')}`);
     });
 
-    bot.onText(/\/(topdaily|topweekly)$/, async (msg, match) => {
+    bot.onText(/\/(topdaily|topweekly)$/, async(msg, match) => {
         if (!await ensureAdmin(bot, msg)) return;
         const period = match[1] === 'topdaily' ? 'daily' : 'weekly';
         const now = new Date();
@@ -140,18 +139,18 @@ function setupAdmin(bot) {
         })).sort((a, b) => b.count - a.count || b.amount.minus(a.amount).toNumber()).slice(0, 10);
 
         const lines = rows.map((r, i) => {
-            const name = r.player?.username || r.player?.telegramId || '-';
+            const name = (r.player && r.player.username) || (r.player && r.player.telegramId) || '-';
             return `${i + 1}. ${name} — ${r.count} wins — ${r.amount.toFixed(2)} ETB`;
         });
         const title = period === 'daily' ? 'Top winners TODAY' : 'Top winners THIS WEEK';
         await bot.sendMessage(msg.chat.id, `${title}:\n${lines.join('\n')}`);
     });
 
-    bot.onText(/\/post(.*)/, async (msg, match) => {
+    bot.onText(/\/post(.*)/, async(msg, match) => {
         if (!await ensureAdmin(bot, msg)) return;
 
         const args = (match[1] || '').trim().split(/\s+/).filter(Boolean);
-        const hasReplyPhoto = !!msg.reply_to_message?.photo?.length;
+        const hasReplyPhoto = !!(msg.reply_to_message && msg.reply_to_message.photo && msg.reply_to_message.photo.length);
         if (!args.length && !hasReplyPhoto) {
             await bot.sendMessage(msg.chat.id, 'Usage: /post <message> | /post photo <url> [caption] | /post file <path> [caption] | /post playnow [caption] | reply to a photo with /post [caption]');
             return;
@@ -163,11 +162,11 @@ function setupAdmin(bot) {
         let message = args.join(' ');
         let playNowButton = false;
 
-        if (args[0]?.toLowerCase() === 'photo' && args[1]) {
+        if (args[0] && args[0].toLowerCase() === 'photo' && args[1]) {
             mode = 'photo';
             photoUrl = args[1];
             caption = args.slice(2).join(' ') || null;
-        } else if (args[0]?.toLowerCase() === 'file' && args[1]) {
+        } else if (args[0] && args[0].toLowerCase() === 'file' && args[1]) {
             const filePath = args[1];
             caption = args.slice(2).join(' ') || null;
             if (!fs.existsSync(filePath)) {
@@ -175,11 +174,13 @@ function setupAdmin(bot) {
                 return;
             }
             const sent = await bot.sendPhoto(msg.chat.id, filePath, { caption, parse_mode: 'Markdown' });
-            const fileId = sent?.photo?.[sent.photo.length - 1]?.file_id;
+            const fileId = sent && sent.photo && sent.photo.length
+                ? sent.photo[sent.photo.length - 1].file_id
+                : null;
             if (!fileId) return bot.sendMessage(msg.chat.id, 'Could not upload photo.');
             mode = 'photo';
             photoUrl = fileId;
-        } else if (args[0]?.toLowerCase() === 'playnow') {
+        } else if (args[0] && args[0].toLowerCase() === 'playnow') {
             playNowButton = true;
             caption = args.slice(1).join(' ') || null;
             if (hasReplyPhoto) {
@@ -200,9 +201,12 @@ function setupAdmin(bot) {
             caption = null;
         }
 
-        const replyMarkup = playNowButton
-            ? { inline_keyboard: [[{ text: '/play', callback_data: 'play_now' }]] }
-            : undefined;
+        const replyMarkup = playNowButton ? {
+                inline_keyboard: [
+                    [{ text: '/play', callback_data: 'play_now' }]
+                ]
+            } :
+            undefined;
 
         const players = await prisma.player.findMany({ select: { telegramId: true } });
         const tids = [...new Set(players.map((p) => Number(p.telegramId)).filter(Boolean))];

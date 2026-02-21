@@ -20,6 +20,16 @@ function getUserState(uid) {
     return userState.get(uid);
 }
 
+function parsePositiveAmount(raw) {
+    try {
+        const d = new Decimal(String(raw).trim());
+        if (!d.isFinite() || d.lte(0)) return null;
+        return d;
+    } catch (_) {
+        return null;
+    }
+}
+
 function clearUserState(uid) {
     userState.delete(uid);
 }
@@ -62,7 +72,9 @@ async function ensurePhoneRegistered(bot, chatId, player) {
 
     await bot.sendMessage(chatId, 'Please Share Your Phone Number', {
         reply_markup: {
-            keyboard: [[{ text: 'Share Phone Number', request_contact: true }, { text: 'Cancel' }]],
+            keyboard: [
+                [{ text: 'Share Phone Number', request_contact: true }, { text: 'Cancel' }]
+            ],
             resize_keyboard: true,
             one_time_keyboard: true,
             input_field_placeholder: "Tap 'Share Phone Number'",
@@ -74,7 +86,7 @@ async function ensurePhoneRegistered(bot, chatId, player) {
 function setupCommands(bot) {
 
     // /start — register + welcome
-    bot.onText(/\/start(.*)/, async (msg, match) => {
+    bot.onText(/\/start(.*)/, async(msg, match) => {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
         const username = msg.from.username || '';
@@ -113,14 +125,14 @@ function setupCommands(bot) {
         const imgPath = process.env.START_IMAGE_PATH;
         const welcome = '🕹️ Every Square Counts – Grab Your roha, Join the Game, and Let the Fun Begin!';
         if (imgUrl) {
-            try { await bot.sendPhoto(chatId, imgUrl, { caption: '🎉 Welcome To roha Bingo! 🎉' }); } catch (_) { }
+            try { await bot.sendPhoto(chatId, imgUrl, { caption: '🎉 Welcome To roha Bingo! 🎉' }); } catch (_) {}
         } else if (imgPath) {
             try {
                 const resolved = path.isAbsolute(imgPath) ? imgPath : path.join(process.cwd(), imgPath);
                 if (fs.existsSync(resolved)) {
                     await bot.sendPhoto(chatId, resolved, { caption: '🎉 Welcome To roha Bingo! 🎉' });
                 }
-            } catch (_) { }
+            } catch (_) {}
         }
         await bot.sendMessage(chatId, welcome, {
             parse_mode: 'HTML',
@@ -131,7 +143,7 @@ function setupCommands(bot) {
     });
 
     // /play — open web app
-    bot.onText(/\/play/, async (msg) => {
+    bot.onText(/\/play/, async(msg) => {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
@@ -145,7 +157,7 @@ function setupCommands(bot) {
     });
 
     // /deposit — show deposit options
-    bot.onText(/\/deposit/, async (msg) => {
+    bot.onText(/\/deposit/, async(msg) => {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
@@ -158,7 +170,7 @@ function setupCommands(bot) {
     });
 
     // /balance
-    bot.onText(/\/balance/, async (msg) => {
+    bot.onText(/\/balance/, async(msg) => {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
@@ -173,13 +185,12 @@ function setupCommands(bot) {
             `Username:      ${player.username || '-'}\n` +
             `Balance:       ${wallet} ETB\n` +
             `Coin:          ${gift}\n` +
-            '```',
-            { parse_mode: 'Markdown' }
+            '```', { parse_mode: 'Markdown' }
         );
     });
 
     // /instruction
-    bot.onText(/\/instruction/, async (msg) => {
+    bot.onText(/\/instruction/, async(msg) => {
         await bot.sendMessage(
             msg.chat.id,
             'እንኮን ወደ ሮሃ ቢንጎ መጡ\n\n' +
@@ -203,7 +214,7 @@ function setupCommands(bot) {
     });
 
     // /contact
-    bot.onText(/\/contact/, async (msg) => {
+    bot.onText(/\/contact/, async(msg) => {
         await bot.sendMessage(
             msg.chat.id,
             'Telegram - @Rohabingosupport\nPhone - +251981959155'
@@ -211,7 +222,7 @@ function setupCommands(bot) {
     });
 
     // Handle contact sharing
-    bot.on('message', async (msg) => {
+    bot.on('message', async(msg) => {
         if (msg.contact) {
             const tid = msg.from.id;
             const phone = msg.contact.phone_number || '';
@@ -235,8 +246,7 @@ function setupCommands(bot) {
                 });
                 await bot.sendMessage(
                     msg.chat.id,
-                    `Registration completed. You received 10 ETB. Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)}`,
-                    { reply_markup: { remove_keyboard: true } }
+                    `Registration completed. You received 10 ETB. Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)}`, { reply_markup: { remove_keyboard: true } }
                 );
 
                 // Reward referrer
@@ -255,7 +265,7 @@ function setupCommands(bot) {
                                 refTid,
                                 `🎉 Referral bonus received!\nA new player joined using your link. +2.00 ETB\nNew Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB`
                             );
-                        } catch (_) { }
+                        } catch (_) {}
                     }
                 }
             } else {
@@ -271,6 +281,37 @@ function setupCommands(bot) {
                 reply_markup: { inline_keyboard: BUTTON_ROWS },
             });
             return;
+        }
+
+        // Deposit amount step (after user selected a deposit method)
+        if (msg.text && !msg.text.startsWith('/')) {
+            const tid = msg.from?.id;
+            const chatId = msg.chat?.id;
+            if (tid && chatId) {
+                const state = getUserState(tid);
+                if (state?.awaitingDepositAmount) {
+                    const text = String(msg.text || '').trim();
+                    if (text.toLowerCase() === 'cancel') {
+                        state.awaitingDepositAmount = false;
+                        state.depositAmount = null;
+                        await bot.sendMessage(chatId, 'Cancelled.', { reply_markup: { remove_keyboard: true } });
+                        return;
+                    }
+
+                    const amt = parsePositiveAmount(text);
+                    if (!amt) {
+                        await bot.sendMessage(chatId, 'Please enter a valid deposit amount (number). Or type Cancel.');
+                        return;
+                    }
+
+                    state.depositAmount = amt.toFixed(2);
+                    state.awaitingDepositAmount = false;
+                    await bot.sendMessage(chatId, `Deposit amount saved: ${amt.toFixed(2)} ETB. Now send your receipt screenshot/photo.`, {
+                        reply_markup: { remove_keyboard: true },
+                    });
+                    return;
+                }
+            }
         }
 
         if (!msg.text || msg.text.startsWith('/')) return;
@@ -293,24 +334,24 @@ function setupCommands(bot) {
         }
 
         if (text === '💳 Deposit') {
-            return bot.processUpdate({ message: { ...msg, text: '/deposit' } });
+            return bot.processUpdate({ message: {...msg, text: '/deposit' } });
         }
         if (text === '📤 Withdraw') {
-            return bot.processUpdate({ message: { ...msg, text: '/withdraw' } });
+            return bot.processUpdate({ message: {...msg, text: '/withdraw' } });
         }
         if (text === '🔄 Transfer') {
-            return bot.processUpdate({ message: { ...msg, text: '/transfer' } });
+            return bot.processUpdate({ message: {...msg, text: '/transfer' } });
         }
         if (text === '🎁 Invite') {
-            return bot.processUpdate({ message: { ...msg, text: '/invite' } });
+            return bot.processUpdate({ message: {...msg, text: '/invite' } });
         }
         if (text === '📋 Instruction') {
-            return bot.processUpdate({ message: { ...msg, text: '/instruction' } });
+            return bot.processUpdate({ message: {...msg, text: '/instruction' } });
         }
     });
 
     // Inline button callbacks (menu, deposit, etc.)
-    bot.on('callback_query', async (query) => {
+    bot.on('callback_query', async(query) => {
         const data = query.data || '';
         const chatId = query.message?.chat?.id;
         const tid = query.from?.id;
@@ -318,7 +359,7 @@ function setupCommands(bot) {
 
         if (data.startsWith('copy_tid:')) {
             const tidToCopy = data.split(':', 2)[1];
-            try { await bot.answerCallbackQuery(query.id, { text: `User ID: ${tidToCopy}`, show_alert: true }); } catch (_) { }
+            try { await bot.answerCallbackQuery(query.id, { text: `User ID: ${tidToCopy}`, show_alert: true }); } catch (_) {}
             return;
         }
 
@@ -331,7 +372,19 @@ function setupCommands(bot) {
 
         if (data.startsWith('deposit_')) {
             await bot.answerCallbackQuery(query.id).catch(() => {});
+            const state = getUserState(tid);
+            state.lastDepositMethod = data.replace(/^deposit_/, '');
+            state.awaitingDepositAmount = true;
+            state.depositAmount = null;
             await handleDepositSelection(bot, chatId, data);
+            await bot.sendMessage(chatId, 'How much do you want to deposit? (ETB). Send the amount as a number. Type Cancel to stop.', {
+                reply_markup: {
+                    keyboard: [[{ text: 'Cancel' }]],
+                    resize_keyboard: true,
+                    one_time_keyboard: true,
+                    input_field_placeholder: 'e.g. 200',
+                },
+            });
             return;
         }
 
@@ -365,8 +418,7 @@ function setupCommands(bot) {
                 `Username:      ${player.username || '-'}\n` +
                 `Balance:       ${wallet} ETB\n` +
                 `Coin:          ${gift}\n` +
-                '```',
-                { parse_mode: 'Markdown' }
+                '```', { parse_mode: 'Markdown' }
             );
             return;
         }
@@ -407,11 +459,12 @@ function setupCommands(bot) {
             const link = `https://t.me/${botInfo.username}?start=ref_${tid}`;
             await bot.sendMessage(
                 chatId,
-                `🎁 *Invite Friends*\n\nShare your referral link:\n\`${link}\`\n\nYou'll receive *2 ETB* for each new player who joins using your link!`,
-                {
+                `🎁 *Invite Friends*\n\nShare your referral link:\n\`${link}\`\n\nYou'll receive *2 ETB* for each new player who joins using your link!`, {
                     parse_mode: 'Markdown',
                     reply_markup: {
-                        inline_keyboard: [[{ text: '📤 Share Link', switch_inline_query: `Join Roha Bingo! ${link}` }]],
+                        inline_keyboard: [
+                            [{ text: '📤 Share Link', switch_inline_query: `Join Roha Bingo! ${link}` }]
+                        ],
                     },
                 }
             );
@@ -427,7 +480,7 @@ function setupCommands(bot) {
                 try {
                     await bot.sendPhoto(chatId, imgUrl, { caption });
                     return;
-                } catch (_) { }
+                } catch (_) {}
             } else if (imgPath) {
                 try {
                     const resolved = path.isAbsolute(imgPath) ? imgPath : path.join(process.cwd(), imgPath);
@@ -435,7 +488,7 @@ function setupCommands(bot) {
                         await bot.sendPhoto(chatId, resolved, { caption });
                         return;
                     }
-                } catch (_) { }
+                } catch (_) {}
             }
             await bot.sendMessage(chatId, caption);
         }
@@ -458,8 +511,30 @@ function setupCommands(bot) {
         const caption = msg.caption || '';
 
         try {
+            if (player) {
+                const state = getUserState(tid);
+                const method = String(state.lastDepositMethod || '');
+                const amountStr = state.depositAmount;
+                const amount = amountStr ? parsePositiveAmount(amountStr) : null;
+                await prisma.depositRequest.create({
+                    data: {
+                        playerId: player.id,
+                        telegramId: BigInt(tid),
+                        method,
+                        amount: amount ? amount.toNumber() : undefined,
+                        caption,
+                        telegramMessageId: msg.message_id,
+                        status: 'pending',
+                    },
+                });
+            }
+        } catch (err) {
+            console.error('deposit request persist error:', err);
+        }
+
+        try {
             await bot.forwardMessage(adminChatId, msg.chat.id, msg.message_id);
-        } catch (_) { }
+        } catch (_) {}
 
         const meta =
             'Receipt forwarded\n' +
@@ -478,17 +553,17 @@ function setupCommands(bot) {
 
         try {
             await bot.sendMessage(adminChatId, meta, { parse_mode: 'HTML', reply_markup: replyMarkup });
-        } catch (_) { }
+        } catch (_) {}
 
         try {
             await bot.sendMessage(msg.chat.id, 'Your receipt has been forwarded for verification. Thank you.');
-        } catch (_) { }
+        } catch (_) {}
     }
 
     // Handle receipt photos or image documents (deposit confirmation)
     bot.on('photo', forwardReceipt);
-    bot.on('document', async (msg) => {
-        if (msg.document?.mime_type && msg.document.mime_type.startsWith('image/')) {
+    bot.on('document', async(msg) => {
+        if (msg.document && msg.document.mime_type && msg.document.mime_type.startsWith('image/')) {
             await forwardReceipt(msg);
         }
     });

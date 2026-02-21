@@ -6,7 +6,9 @@
         "dev": "concurrently \"npm run dev:server\" \"npm run dev:frontend\"",
         "dev:server": "cd server && npm run dev",
         "dev:frontend": "cd frontend && npm run dev",
-        "install:all": "cd server && npm install && cd ../frontend && npm install",
+        "dev:admin": "cd admin-panel && npm run dev",
+        "dev:all": "concurrently \"npm run dev:server\" \"npm run dev:frontend\" \"npm run dev:admin\"",
+        "install:all": "cd server && npm install && cd ../frontend && npm install && cd ../admin-panel && npm install",
         "build": "cd frontend && npm run build",
         "start": "concurrently \"cd server && npm start\" \"cd frontend && npm start\""
     },
