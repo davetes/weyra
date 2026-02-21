@@ -697,11 +697,14 @@
               // Show "Starting..." and let the poll loop handle redirect when data.started===true
               elTop.textContent = 'Starting...';
               ensureStartCheck();
-            } else {
+            } else if (!countdownTimer) {
+              // Only set from server if client countdown isn't already running smoothly
               elTop.textContent = String(data.countdown_remaining);
             }
           }
-        } else if (data.countdown_started_at) {
+        }
+        // Start smooth client-side countdown if not running yet
+        if (data.countdown_started_at && !countdownTimer) {
           startCountdownFrom(data.countdown_started_at);
         }
 
