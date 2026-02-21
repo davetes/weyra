@@ -285,15 +285,17 @@ function setupCommands(bot) {
 
         // Deposit amount step (after user selected a deposit method)
         if (msg.text && !msg.text.startsWith('/')) {
-            const tid = msg.from?.id;
-            const chatId = msg.chat?.id;
+            const tid = msg.from ? .id;
+            const chatId = msg.chat ? .id;
             if (tid && chatId) {
                 const state = getUserState(tid);
-                if (state?.awaitingDepositAmount) {
+                if (state && state.awaitingDepositAmount) {
                     const text = String(msg.text || '').trim();
                     if (text.toLowerCase() === 'cancel') {
                         state.awaitingDepositAmount = false;
+                        state.awaitingDepositReceipt = false;
                         state.depositAmount = null;
+                        state.lastDepositMethod = null;
                         await bot.sendMessage(chatId, 'Cancelled.', { reply_markup: { remove_keyboard: true } });
                         return;
                     }
@@ -306,6 +308,7 @@ function setupCommands(bot) {
 
                     state.depositAmount = amt.toFixed(2);
                     state.awaitingDepositAmount = false;
+                    state.awaitingDepositReceipt = true;
                     await bot.sendMessage(chatId, `Deposit amount saved: ${amt.toFixed(2)} ETB. Now send your receipt screenshot/photo.`, {
                         reply_markup: { remove_keyboard: true },
                     });
@@ -353,8 +356,8 @@ function setupCommands(bot) {
     // Inline button callbacks (menu, deposit, etc.)
     bot.on('callback_query', async(query) => {
         const data = query.data || '';
-        const chatId = query.message?.chat?.id;
-        const tid = query.from?.id;
+        const chatId = query.message ? .chat ? .id;
+        const tid = query.from ? .id;
         if (!chatId || !tid) return;
 
         if (data.startsWith('copy_tid:')) {
@@ -375,11 +378,14 @@ function setupCommands(bot) {
             const state = getUserState(tid);
             state.lastDepositMethod = data.replace(/^deposit_/, '');
             state.awaitingDepositAmount = true;
+            state.awaitingDepositReceipt = false;
             state.depositAmount = null;
             await handleDepositSelection(bot, chatId, data);
             await bot.sendMessage(chatId, 'How much do you want to deposit? (ETB). Send the amount as a number. Type Cancel to stop.', {
                 reply_markup: {
-                    keyboard: [[{ text: 'Cancel' }]],
+                    keyboard: [
+                        [{ text: 'Cancel' }]
+                    ],
                     resize_keyboard: true,
                     one_time_keyboard: true,
                     input_field_placeholder: 'e.g. 200',
@@ -505,14 +511,20 @@ function setupCommands(bot) {
         const adminChatId = process.env.ENTERTAINER_ID;
         if (!adminChatId) return;
         const tid = msg.from.id;
+        const state = getUserState(tid);
+        if (!state || !state.lastDepositMethod) {
+            return; // ignore non-deposit photos
+        }
+        if (state.awaitingDepositAmount || !state.depositAmount) {
+            return; // require amount before accepting receipt
+        }
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-        const username = player?.username || msg.from.username || '-';
-        const phone = player?.phone || '-';
+        const username = (player && player.username) ? player.username : (msg.from && msg.from.username ? msg.from.username : '-');
+        const phone = (player && player.phone) ? player.phone : '-';
         const caption = msg.caption || '';
 
         try {
             if (player) {
-                const state = getUserState(tid);
                 const method = String(state.lastDepositMethod || '');
                 const amountStr = state.depositAmount;
                 const amount = amountStr ? parsePositiveAmount(amountStr) : null;
@@ -527,6 +539,9 @@ function setupCommands(bot) {
                         status: 'pending',
                     },
                 });
+                state.lastDepositMethod = null;
+                state.depositAmount = null;
+                state.awaitingDepositReceipt = false;
             }
         } catch (err) {
             console.error('deposit request persist error:', err);

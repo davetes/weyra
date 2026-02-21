@@ -2,6 +2,8 @@ const express = require('express');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { Decimal } = require('decimal.js');
+const TelegramBot = require('node-telegram-bot-api');
+const { getBot } = require('../bot');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -61,6 +63,25 @@ function serializeWithdrawRequest(row) {
         ...row,
         telegramId: row.telegramId != null ? String(row.telegramId) : null,
     };
+}
+
+async function tryNotifyTelegram(chatId, text) {
+    try {
+        const liveBot = getBot();
+        if (liveBot) {
+            await liveBot.sendMessage(chatId, text);
+            return;
+        }
+    } catch (_) {}
+
+    try {
+        const token = process.env.BOT_TOKEN;
+        if (!token || token === 'your-telegram-bot-token') return;
+        const bot = new TelegramBot(token, { polling: false });
+        await bot.sendMessage(chatId, text);
+    } catch (err) {
+        console.error('telegram notify error:', err ? .message || err);
+    }
 }
 
 function nowPlusDays(days) {
@@ -197,8 +218,7 @@ router.get('/players', requireAuth(), requirePerm(PERMS.players_read), async(req
     try {
         const q = String(req.query.q || '').trim();
 
-        const where = q ?
-            {
+        const where = q ? {
                 OR: [
                     { username: { contains: q, mode: 'insensitive' } },
                     { phone: { contains: q, mode: 'insensitive' } },
@@ -293,8 +313,7 @@ router.post('/admins', requireAuth(), requireRole(['super_admin']), async(req, r
         }
 
         const nextPerms = Array.isArray(permissions) ?
-            permissions.map(String).filter(Boolean) :
-            [];
+            permissions.map(String).filter(Boolean) : [];
 
         const admin = await prisma.adminUser.create({
             data: {
@@ -324,9 +343,9 @@ router.patch('/admins/:id', requireAuth(), requireRole(['super_admin']), async(r
         if (!admin) return res.status(404).json({ ok: false, error: 'Not found' });
         if (admin.role === 'super_admin') return res.status(400).json({ ok: false, error: 'Cannot edit super_admin' });
 
-            const permissions = Array.isArray(req.body && req.body.permissions)
-                ? req.body.permissions.map(String).filter(Boolean)
-                : null;
+        const permissions = Array.isArray(req.body && req.body.permissions) ?
+            req.body.permissions.map(String).filter(Boolean) :
+            null;
         if (!permissions) return res.status(400).json({ ok: false, error: 'Missing permissions' });
 
         const updated = await prisma.adminUser.update({
@@ -416,9 +435,9 @@ router.get('/deposit_requests', requireAuth(), requirePerm(PERMS.deposit_read), 
 router.patch('/deposit_requests/:id/decide', requireAuth(), requirePerm(PERMS.deposit_decide), async(req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const decision = String((req.body && req.body.decision) || '').toLowerCase();
-        const amountRaw = req.body ? req.body.amount : undefined;
-        const note = String((req.body && req.body.note) || '');
+        const decision = String(req.body ? .decision || '').toLowerCase();
+        const amountRaw = req.body ? .amount;
+        const note = String(req.body ? .note || '');
         if (!id) return res.status(400).json({ ok: false, error: 'Invalid request id' });
         if (!['approved', 'rejected'].includes(decision)) return res.status(400).json({ ok: false, error: 'Invalid decision' });
 
@@ -436,7 +455,7 @@ router.patch('/deposit_requests/:id/decide', requireAuth(), requirePerm(PERMS.de
             }
         }
 
-        const updated = await prisma.$transaction(async (tx) => {
+        const updated = await prisma.$transaction(async(tx) => {
             const reqRow = await tx.depositRequest.update({
                 where: { id },
                 data: {
@@ -467,6 +486,30 @@ router.patch('/deposit_requests/:id/decide', requireAuth(), requirePerm(PERMS.de
 
             return reqRow;
         });
+
+        try {
+            const chatId = updated.telegramId != null ? String(updated.telegramId) : null;
+            if (chatId) {
+                const amountText = updated.amount != null ? String(updated.amount) : '';
+                const methodText = updated.method ? String(updated.method) : '';
+
+                if (decision === 'approved') {
+                    await tryNotifyTelegram(
+                        chatId,
+                        `✅ Deposit approved\nAmount: ${amountText} ETB\nMethod: ${methodText}` +
+                        (note ? `\nNote: ${note}` : '')
+                    );
+                } else {
+                    await tryNotifyTelegram(
+                        chatId,
+                        `❌ Deposit rejected\nAmount: ${amountText} ETB\nMethod: ${methodText}` +
+                        (note ? `\nReason: ${note}` : '')
+                    );
+                }
+            }
+        } catch (err) {
+            console.error('deposit notify error:', err ? .message || err);
+        }
 
         return res.json({ ok: true, request: serializeDepositRequest(updated) });
     } catch (err) {
@@ -542,6 +585,31 @@ router.patch('/withdraw_requests/:id/decide', requireAuth(), requirePerm(PERMS.w
 
             return reqRow;
         });
+
+        try {
+            const chatId = updated.telegramId != null ? String(updated.telegramId) : null;
+            if (chatId) {
+                const amountText = updated.amount != null ? String(updated.amount) : '';
+                const methodText = updated.method ? String(updated.method) : '';
+                const accountText = updated.account ? String(updated.account) : '';
+
+                if (decision === 'approved') {
+                    await tryNotifyTelegram(
+                        chatId,
+                        `✅ Withdrawal approved\nAmount: ${amountText} ETB\nMethod: ${methodText}\nAccount: ${accountText}` +
+                        (note ? `\nNote: ${note}` : '')
+                    );
+                } else {
+                    await tryNotifyTelegram(
+                        chatId,
+                        `❌ Withdrawal rejected\nAmount: ${amountText} ETB\nMethod: ${methodText}\nAccount: ${accountText}` +
+                        (note ? `\nReason: ${note}` : '')
+                    );
+                }
+            }
+        } catch (err) {
+            console.error('withdraw notify error:', err ? .message || err);
+        }
 
         return res.json({ ok: true, request: serializeWithdrawRequest(updated) });
     } catch (err) {

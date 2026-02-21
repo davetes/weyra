@@ -5,6 +5,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const morgan = require("morgan");
 
 const handleGameState = require("./routes/gameState");
 const handleSelect = require("./routes/select");
@@ -22,6 +23,7 @@ const io = new Server(server, {
 
 // Middleware
 app.use(cors());
+app.use(morgan(process.env.NODE_ENV === "production" ? "tiny" : "dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -128,7 +128,6 @@ function WithdrawInner({ token, admin }) {
                             <tr className="border-b border-border">
                                 <th className="py-2 pr-3">ID</th>
                                 <th className="pr-3">User</th>
-                                <th className="pr-3">Wallet</th>
                                 <th className="pr-3">Telegram ID</th>
                                 <th className="pr-3">Amount</th>
                                 <th className="pr-3">Method</th>
@@ -144,7 +143,6 @@ function WithdrawInner({ token, admin }) {
                                 <tr key={r.id} className="border-b border-border/60">
                                     <td className="py-2 pr-3 text-slate-300">{r.id}</td>
                                     <td className="pr-3">{r.player?.username || r.player?.phone || '-'}</td>
-                                    <td className="pr-3 text-slate-300">{r.player?.wallet != null ? String(r.player.wallet) : '-'}</td>
                                     <td className="pr-3 text-slate-300">{r.telegramId || '-'}</td>
                                     <td className="pr-3 text-slate-300">{String(r.amount)}</td>
                                     <td className="pr-3 text-slate-300">{r.method || '-'}</td>
