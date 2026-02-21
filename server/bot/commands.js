@@ -285,8 +285,8 @@ function setupCommands(bot) {
 
         // Deposit amount step (after user selected a deposit method)
         if (msg.text && !msg.text.startsWith('/')) {
-            const tid = msg.from ? .id;
-            const chatId = msg.chat ? .id;
+            const tid = msg.from && msg.from.id;
+            const chatId = msg.chat && msg.chat.id;
             if (tid && chatId) {
                 const state = getUserState(tid);
                 if (state && state.awaitingDepositAmount) {
@@ -356,8 +356,8 @@ function setupCommands(bot) {
     // Inline button callbacks (menu, deposit, etc.)
     bot.on('callback_query', async(query) => {
         const data = query.data || '';
-        const chatId = query.message ? .chat ? .id;
-        const tid = query.from ? .id;
+        const chatId = query.message && query.message.chat && query.message.chat.id;
+        const tid = query.from && query.from.id;
         if (!chatId || !tid) return;
 
         if (data.startsWith('copy_tid:')) {

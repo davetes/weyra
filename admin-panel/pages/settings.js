@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import RequireAuth from '../components/RequireAuth';
 import AdminShell from '../components/AdminShell';
 import Card from '../components/Card';
+import Button from '../components/Button';
+import { Input } from '../components/FormElements';
 import { apiFetch } from '../lib/api';
 import { saveToken } from '../lib/auth';
+import { IconSettings, IconPlus, IconCheck, IconTrash } from '../components/Icons';
 
 function hasPerm(admin, perm) {
     if (admin?.role === 'super_admin') return true;
@@ -62,6 +65,14 @@ function SettingsInner({ token, admin }) {
         }
     }
 
+    function addSetting() {
+        setSettings((prev) => [...prev, { key: '', value: '' }]);
+    }
+
+    function removeSetting(index) {
+        setSettings((prev) => prev.filter((_, i) => i !== index));
+    }
+
     return (
         <AdminShell
             admin={admin}
@@ -71,64 +82,72 @@ function SettingsInner({ token, admin }) {
                 window.location.href = '/login';
             }}
         >
-            <div className="space-y-4">
+            <div className="space-y-5">
                 {!canRead ? (
                     <Card title="No access">
-                        <div className="text-sm text-slate-300">You do not have permission to view settings.</div>
+                        <div className="text-sm text-muted">You do not have permission to view settings.</div>
                     </Card>
-                ) : null}
-
-                {canRead ? (
-                    <Card
-                        title="App Settings"
-                        right={
+                ) : (
+                    <Card title="App Settings" icon={IconSettings} noPadding>
+                        <div className="p-5 border-b border-border flex items-center justify-between">
+                            <p className="text-sm text-muted">Key / value configuration pairs for the application</p>
                             <div className="flex gap-2">
-                                <button
-                                    className="text-sm px-3 py-2 rounded-lg border border-border hover:bg-white/10 disabled:opacity-60"
-                                    disabled={loading || !canEdit}
-                                    onClick={() => setSettings((prev) => [...prev, { key: `setting_${prev.length + 1}`, value: '' }])}
-                                >
+                                <Button variant="outline" size="sm" icon={IconPlus} disabled={!canEdit || loading} onClick={addSetting}>
                                     Add
-                                </button>
-                                <button
-                                    className="text-sm px-3 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white disabled:opacity-60"
-                                    disabled={loading || !canEdit}
-                                    onClick={save}
-                                >
-                                    Save
-                                </button>
+                                </Button>
+                                <Button variant="primary" size="sm" icon={IconCheck} disabled={!canEdit || loading} loading={loading} onClick={save}>
+                                    Save All
+                                </Button>
                             </div>
-                        }
-                    >
-                        {error ? <div className="text-sm text-red-300 mb-3">{error}</div> : null}
-                        <div className="space-y-2">
-                            {settings.map((s, i) => (
-                                <div key={i} className="grid md:grid-cols-2 gap-2">
-                                    <input
-                                        className="bg-transparent border border-border rounded-lg px-3 py-2 text-sm"
-                                        value={s.key}
-                                        disabled={!canEdit}
-                                        onChange={(e) => {
-                                            const next = [...settings];
-                                            next[i] = { ...next[i], key: e.target.value };
-                                            setSettings(next);
-                                        }}
-                                    />
-                                    <input
-                                        className="bg-transparent border border-border rounded-lg px-3 py-2 text-sm"
-                                        value={s.value}
-                                        disabled={!canEdit}
-                                        onChange={(e) => {
-                                            const next = [...settings];
-                                            next[i] = { ...next[i], value: e.target.value };
-                                            setSettings(next);
-                                        }}
-                                    />
-                                </div>
-                            ))}
+                        </div>
+
+                        {error && (
+                            <div className="bg-danger-muted border-b border-danger/20 px-5 py-3 text-sm text-danger">{error}</div>
+                        )}
+
+                        <div className="p-5 space-y-3 max-h-[600px] overflow-y-auto">
+                            {settings.length === 0 ? (
+                                <div className="text-center py-8 text-muted text-sm">No settings configured</div>
+                            ) : (
+                                settings.map((s, i) => (
+                                    <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3 items-end">
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted mb-1.5 uppercase tracking-wider">Key</label>
+                                            <Input
+                                                value={s.key}
+                                                disabled={!canEdit}
+                                                onChange={(e) => {
+                                                    const next = [...settings];
+                                                    next[i] = { ...next[i], key: e.target.value };
+                                                    setSettings(next);
+                                                }}
+                                                placeholder="e.g., max_players"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted mb-1.5 uppercase tracking-wider">Value</label>
+                                            <Input
+                                                value={s.value}
+                                                disabled={!canEdit}
+                                                onChange={(e) => {
+                                                    const next = [...settings];
+                                                    next[i] = { ...next[i], value: e.target.value };
+                                                    setSettings(next);
+                                                }}
+                                                placeholder="e.g., 1000"
+                                            />
+                                        </div>
+                                        {canEdit && (
+                                            <Button variant="danger" size="sm" icon={IconTrash} onClick={() => removeSetting(i)}>
+                                                Remove
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </Card>
-                ) : null}
+                )}
             </div>
         </AdminShell>
     );
