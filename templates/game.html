@@ -635,7 +635,9 @@
     // Unlock audio on first user interaction (mobile/webview autoplay policy)
     function unlockAudioOnce() {
       audioUnlocked = true;
-      playNextFromQueue();
+      // Play the current ball immediately so sound starts right away
+      const d = window.lastGameData;
+      if (d && d.current_call != null) { playNumber(d.current_call); }
       document.removeEventListener('click', unlockAudioOnce);
       document.removeEventListener('touchstart', unlockAudioOnce);
     }
@@ -653,7 +655,8 @@
         ctx.resume().then(() => {
           if (ctx.state === 'running') {
             audioUnlocked = true;
-            playNextFromQueue();
+            const d = window.lastGameData;
+            if (d && d.current_call != null) { playNumber(d.current_call); }
             if (_autoUnlockTimer) { clearInterval(_autoUnlockTimer); _autoUnlockTimer = null; }
           }
           ctx.close().catch(() => { });
@@ -665,7 +668,8 @@
         silent.play().then(() => {
           audioUnlocked = true;
           silent.pause();
-          playNextFromQueue();
+          const d = window.lastGameData;
+          if (d && d.current_call != null) { playNumber(d.current_call); }
           if (_autoUnlockTimer) { clearInterval(_autoUnlockTimer); _autoUnlockTimer = null; }
         }).catch(() => { });
       } catch (_) { }
