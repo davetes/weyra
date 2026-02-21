@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id          Int       @id @default(autoincrement())
+  telegramId  BigInt    @unique @map("telegram_id")
+  phone       String    @default("") @db.VarChar(32)
+  username    String    @default("") @db.VarChar(64)
+  wallet      Decimal   @default(0) @db.Decimal(12, 2)
+  gift        Decimal   @default(0) @db.Decimal(12, 2)
+  wins        Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  selections   Selection[]
+  transactions Transaction[]
+
+  @@map("bingo_player")
+}
+
+model Game {
+  id                 Int       @id @default(autoincrement())
+  stake              Int
+  active             Boolean   @default(true)
+  finished           Boolean   @default(false)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  countdownStartedAt DateTime? @map("countdown_started_at")
+  startedAt          DateTime? @map("started_at")
+  sequence           String    @default("") @db.Text
+  stakesCharged      Boolean   @default(false) @map("stakes_charged")
+  chargedCount       Int       @default(0) @map("charged_count")
+
+  selections Selection[]
+
+  @@map("bingo_game")
+}
+
+model Selection {
+  id       Int     @id @default(autoincrement())
+  gameId   Int     @map("game_id")
+  playerId Int     @map("player_id")
+  index    Int
+  accepted Boolean @default(false)
+
+  game   Game   @relation(fields: [gameId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([gameId, index])
+  @@unique([gameId, playerId])
+  @@map("bingo_selection")
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  playerId  Int      @map("player_id")
+  kind      String   @db.VarChar(32)
+  amount    Decimal  @db.Decimal(12, 2)
+  note      String   @default("") @db.Text
+  actorTid  BigInt?  @map("actor_tid")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@map("bingo_transaction")
+}

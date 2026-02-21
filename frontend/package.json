@@ -1,0 +1,21 @@
+{
+    "name": "rohagame-frontend",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev -p 3000",
+        "build": "next build",
+        "start": "next start -p 3000"
+    },
+    "dependencies": {
+        "next": "^14.2.21",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "socket.io-client": "^4.8.1"
+    },
+    "devDependencies": {
+        "tailwindcss": "^3.4.17",
+        "postcss": "^8.4.49",
+        "autoprefixer": "^10.4.20"
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "name": "rohagame",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently \"npm run dev:server\" \"npm run dev:frontend\"",
+        "dev:server": "cd server && npm run dev",
+        "dev:frontend": "cd frontend && npm run dev",
+        "install:all": "cd server && npm install && cd ../frontend && npm install",
+        "build": "cd frontend && npm run build",
+        "start": "concurrently \"cd server && npm start\" \"cd frontend && npm start\""
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.0"
+    }
+}

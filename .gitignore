@@ -9,7 +9,7 @@ venv/
 .env
 .env.*
 
-# Django
+# Django (legacy)
 *.log
 staticfiles/
 static_root/
@@ -48,8 +48,10 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Node (if present for front-end assets)
+# Node
 node_modules/
+.next/
+out/
 
 # Cache
 .cache/
