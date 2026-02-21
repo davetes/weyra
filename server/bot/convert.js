@@ -7,21 +7,27 @@ function setupConvert(bot, userState) {
     bot.onText(/\/convert/, async (msg) => {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
-        const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-        if (!player) return bot.sendMessage(chatId, 'Please /start first.');
 
-        const gift = new Decimal(player.gift.toString());
-        if (gift.lte(0)) {
-            return bot.sendMessage(chatId, '❌ You have no gift balance to convert.');
-        }
+        const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
+        if (!player) return bot.sendMessage(chatId, 'Please register first using /start and share your phone number.');
 
         if (!userState.has(tid)) userState.set(tid, {});
-        userState.get(tid).convertStep = 'amount';
-        userState.get(tid).maxConvert = parseFloat(gift.toString());
+        const state = userState.get(tid);
+        state.convertStep = 'amount';
 
+        await bot.sendMessage(chatId, 'Please enter the amount you want to convert:', {
+            reply_markup: { remove_keyboard: true },
+        });
+
+        const wallet = new Decimal(player.wallet.toString());
+        const gift = new Decimal(player.gift.toString());
         await bot.sendMessage(
             chatId,
-            `🎁 *Convert Gift Balance*\n\nGift balance: *${gift.toFixed(2)} ETB*\n\nEnter amount to convert to wallet (2 wins required per 10 ETB):`,
+            '```\n' +
+            `Username:     ${player.username || '-'}\n` +
+            `Balance:      ${wallet.toFixed(2)} ETB\n` +
+            `Coin:         ${gift.toFixed(2)}\n` +
+            '```',
             { parse_mode: 'Markdown' }
         );
     });
@@ -33,49 +39,53 @@ function setupConvert(bot, userState) {
         const state = userState.get(tid);
         if (!state || state.convertStep !== 'amount') return;
 
-        const amount = parseFloat(msg.text.trim());
-        if (isNaN(amount) || amount <= 0) {
-            return bot.sendMessage(chatId, '❌ Please enter a valid amount.');
+        const text = msg.text.trim();
+        if (text.toLowerCase() === 'cancel') {
+            userState.delete(tid);
+            await bot.sendMessage(chatId, 'Conversion cancelled.');
+            return;
         }
-        if (amount > state.maxConvert) {
-            return bot.sendMessage(chatId, `❌ You can only convert up to ${state.maxConvert} ETB.`);
+
+        let amount;
+        try { amount = new Decimal(text); } catch (_) { amount = null; }
+        if (!amount) {
+            await bot.sendMessage(chatId, 'Please enter a valid number amount.');
+            return;
+        }
+        if (amount.lte(0)) {
+            await bot.sendMessage(chatId, 'Amount must be greater than 0.');
+            return;
         }
 
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-        if (!player) return;
-
-        // Check wins requirement (2 wins per 10 ETB)
-        const winsRequired = Math.ceil(amount / 10) * 2;
-        if (player.wins < winsRequired) {
+        if (!player) {
+            await bot.sendMessage(chatId, 'Please register first using /start and share your phone number.');
             userState.delete(tid);
-            return bot.sendMessage(
-                chatId,
-                `❌ You need at least ${winsRequired} wins to convert ${amount} ETB. You have ${player.wins} wins.`
-            );
+            return;
         }
 
-        // Execute conversion
-        await prisma.player.update({
+        const gift = new Decimal(player.gift.toString());
+        if (gift.lt(amount)) {
+            await bot.sendMessage(chatId, 'Insufficient coin to convert.');
+            return;
+        }
+
+        const updated = await prisma.player.update({
             where: { id: player.id },
             data: {
-                gift: { decrement: amount },
-                wallet: { increment: amount },
-            },
-        });
-
-        await prisma.transaction.create({
-            data: {
-                playerId: player.id,
-                kind: 'convert',
-                amount: amount,
-                note: `Converted ${amount} ETB from gift to wallet`,
+                gift: gift.minus(amount).toNumber(),
+                wallet: new Decimal(player.wallet.toString()).plus(amount).toNumber(),
             },
         });
 
         userState.delete(tid);
-        return bot.sendMessage(
+
+        await bot.sendMessage(
             chatId,
-            `✅ Successfully converted *${amount} ETB* from gift to wallet!`,
+            '```\n' +
+            `Balance:      ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB\n` +
+            `Coin:         ${new Decimal(updated.gift.toString()).toFixed(2)}\n` +
+            '```',
             { parse_mode: 'Markdown' }
         );
     });

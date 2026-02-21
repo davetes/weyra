@@ -3,26 +3,27 @@ const { PrismaClient } = require('@prisma/client');
 const { Decimal } = require('decimal.js');
 const prisma = new PrismaClient();
 
+const MIN_WITHDRAW = new Decimal(100);
+const METHODS = [
+    { key: 'telebirr', label: 'Telebirr' },
+    { key: 'cbe_birr', label: 'CBE Birr' },
+    { key: 'boa', label: 'BOA' },
+    { key: 'cbe', label: 'CBE' },
+];
+
 function setupWithdraw(bot, userState) {
     bot.onText(/\/withdraw/, async (msg) => {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
-        const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-        if (!player) return bot.sendMessage(chatId, 'Please /start first.');
-
-        const wallet = new Decimal(player.wallet.toString());
-        if (wallet.lt(10)) {
-            return bot.sendMessage(chatId, '❌ Minimum withdrawal is 10 ETB. Your balance is insufficient.');
-        }
 
         if (!userState.has(tid)) userState.set(tid, {});
-        userState.get(tid).withdrawStep = 'amount';
+        const state = userState.get(tid);
+        state.withdrawStep = 'amount';
+        state.withdraw = {};
 
-        await bot.sendMessage(
-            chatId,
-            `💰 Your wallet: *${wallet.toFixed(2)} ETB*\n\nEnter amount to withdraw (min 10 ETB):`,
-            { parse_mode: 'Markdown' }
-        );
+        await bot.sendMessage(chatId, 'Please enter the amount you wish to withdraw.', {
+            reply_markup: { remove_keyboard: true },
+        });
     });
 
     bot.on('message', async (msg) => {
@@ -30,102 +31,114 @@ function setupWithdraw(bot, userState) {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
         const state = userState.get(tid);
-        if (!state) return;
+        if (!state || !state.withdrawStep) return;
+
+        const text = msg.text.trim();
+        if (text.toLowerCase() === 'cancel') {
+            userState.delete(tid);
+            await bot.sendMessage(chatId, 'Withdraw cancelled.');
+            return;
+        }
 
         if (state.withdrawStep === 'amount') {
-            const amount = parseFloat(msg.text.trim());
-            if (isNaN(amount) || amount < 10) {
-                return bot.sendMessage(chatId, '❌ Please enter a valid amount (minimum 10 ETB).');
+            let amount;
+            try { amount = new Decimal(text); } catch (_) { amount = null; }
+            if (!amount) {
+                await bot.sendMessage(chatId, 'Please enter a valid number amount.');
+                return;
             }
+            if (amount.lt(MIN_WITHDRAW)) {
+                await bot.sendMessage(chatId, `Withdraw amount must be greater than or equal to ${MIN_WITHDRAW.toFixed(0)}`);
+                return;
+            }
+
             const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-            if (!player || new Decimal(player.wallet.toString()).lt(amount)) {
-                return bot.sendMessage(chatId, '❌ Insufficient balance.');
+            if (!player) {
+                await bot.sendMessage(chatId, 'Please register first using /start and share your phone number.');
+                userState.delete(tid);
+                return;
             }
-            state.withdrawAmount = amount;
+
+            const balance = new Decimal(player.wallet.toString());
+            if (balance.lt(amount)) {
+                await bot.sendMessage(chatId, `Insufficient fund. user: ${tid}, amount: ${amount.toFixed(1)}.`);
+                return;
+            }
+
+            state.withdraw = { amount, balance, phone: player.phone || '-' };
             state.withdrawStep = 'method';
-            return bot.sendMessage(chatId, 'Choose withdrawal method:', {
+
+            await bot.sendMessage(chatId, 'Please choose your withdraw method:', {
                 reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: 'Telebirr', callback_data: 'wd_telebirr' },
-                            { text: 'BOA', callback_data: 'wd_boa' },
-                        ],
-                        [
-                            { text: 'CBE', callback_data: 'wd_cbe' },
-                            { text: 'Awash', callback_data: 'wd_awash' },
-                        ],
+                    keyboard: [
+                        METHODS.map((m) => ({ text: m.label })),
+                        [{ text: 'Cancel' }],
                     ],
+                    resize_keyboard: true,
+                    one_time_keyboard: true,
+                    input_field_placeholder: 'Choose withdraw method',
                 },
             });
+            return;
+        }
+
+        if (state.withdrawStep === 'method') {
+            const norm = text.toLowerCase();
+            const matched = METHODS.find((m) => m.key === norm || m.label.toLowerCase() === norm);
+            if (!matched) {
+                await bot.sendMessage(chatId, 'Please choose a valid method: Telebirr, CBE Birr, BOA, or CBE.');
+                return;
+            }
+            state.withdraw.method = matched.key;
+            state.withdraw.methodLabel = matched.label;
+            state.withdrawStep = 'account';
+            await bot.sendMessage(chatId, `Enter your ${matched.label} account/phone to receive the withdrawal:`, {
+                reply_markup: { remove_keyboard: true },
+            });
+            return;
         }
 
         if (state.withdrawStep === 'account') {
-            const account = msg.text.trim();
-            const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-            if (!player) return;
+            const account = text;
+            const info = state.withdraw || {};
+            const amount = info.amount;
+            const balance = info.balance;
+            const phone = info.phone || '-';
+            const methodLabel = info.methodLabel || '-';
 
-            const amount = state.withdrawAmount;
-            if (new Decimal(player.wallet.toString()).lt(amount)) {
-                userState.delete(tid);
-                return bot.sendMessage(chatId, '❌ Insufficient balance. Withdrawal cancelled.');
+            userState.delete(tid);
+
+            if (!amount || !balance) {
+                await bot.sendMessage(chatId, 'Unable to process your request right now.');
+                return;
             }
 
-            // Deduct from wallet
-            await prisma.player.update({
-                where: { id: player.id },
-                data: { wallet: { decrement: amount } },
-            });
-
-            await prisma.transaction.create({
-                data: {
-                    playerId: player.id,
-                    kind: 'withdraw',
-                    amount: -amount,
-                    note: `Withdraw ${amount} ETB via ${state.withdrawMethod} to ${account}`,
-                },
-            });
-
-            // Notify admin
-            const adminChatId = process.env.ADMIN_CHAT_ID;
-            if (adminChatId) {
+            const entertainerId = parseInt(process.env.ENTERTAINER_ID || '0', 10) || null;
+            const username = msg.from.username || '-';
+            if (entertainerId) {
                 try {
                     await bot.sendMessage(
-                        adminChatId,
-                        `📤 *Withdrawal Request*\n\n` +
-                        `Player: ${player.username || tid}\n` +
-                        `Amount: ${amount} ETB\n` +
-                        `Method: ${state.withdrawMethod}\n` +
-                        `Account: ${account}`,
-                        { parse_mode: 'Markdown' }
+                        entertainerId,
+                        'Withdrawal Request\n' +
+                        `User: @${username} (id: ${tid})\n` +
+                        `Phone: ${phone}\n` +
+                        `Amount: ${amount.toFixed(2)} ETB\n` +
+                        `Method: ${methodLabel}\n` +
+                        `Account: ${account}\n` +
+                        `Current Balance: ${balance.toFixed(2)} ETB\n`
                     );
                 } catch (_) { }
             }
 
-            userState.delete(tid);
-            return bot.sendMessage(
+            await bot.sendMessage(
                 chatId,
-                `✅ Withdrawal of *${amount} ETB* submitted!\n\nYou will receive your funds shortly.`,
-                { parse_mode: 'Markdown' }
+                'Your withdrawal request has been received and is being processed by admin.\n' +
+                `Requested Amount: ${amount.toFixed(2)} ETB\n` +
+                `Method: ${methodLabel}\n` +
+                `Account: ${account}\n` +
+                `Current Balance: ${balance.toFixed(2)} ETB`
             );
         }
-    });
-
-    // Handle withdraw method selection callback
-    bot.on('callback_query', async (query) => {
-        const tid = query.from.id;
-        const state = userState.get(tid);
-        if (!state || state.withdrawStep !== 'method') return;
-        if (!query.data.startsWith('wd_')) return;
-
-        await bot.answerCallbackQuery(query.id);
-        const methods = { wd_telebirr: 'Telebirr', wd_boa: 'BOA', wd_cbe: 'CBE', wd_awash: 'Awash' };
-        state.withdrawMethod = methods[query.data] || query.data;
-        state.withdrawStep = 'account';
-
-        await bot.sendMessage(
-            query.message.chat.id,
-            `Enter your ${state.withdrawMethod} account number/phone:`
-        );
     });
 }
 

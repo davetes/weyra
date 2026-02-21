@@ -22,9 +22,10 @@ async function handleGameState(req, res, io) {
             game = await prisma.game.create({ data: { stake } });
         }
 
-        // Track heartbeat
+        // Track heartbeat + presence
         if (tidNum) {
             cache.set(`hb_${game.id}_${tidNum}`, Date.now(), 30);
+            cache.set(`seen_${tidNum}`, Date.now(), 120);
         }
 
         // Get accepted selections

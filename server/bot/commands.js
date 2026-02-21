@@ -1,4 +1,6 @@
 // Bot command handlers — port of bingo/bot.py
+const fs = require('fs');
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const { Decimal } = require('decimal.js');
 const { buildDepositKeyboard, handleDepositSelection } = require('./deposit');
@@ -108,9 +110,17 @@ function setupCommands(bot) {
         }
 
         const imgUrl = process.env.START_IMAGE_URL;
+        const imgPath = process.env.START_IMAGE_PATH;
         const welcome = '🕹️ Every Square Counts – Grab Your roha, Join the Game, and Let the Fun Begin!';
         if (imgUrl) {
             try { await bot.sendPhoto(chatId, imgUrl, { caption: '🎉 Welcome To roha Bingo! 🎉' }); } catch (_) { }
+        } else if (imgPath) {
+            try {
+                const resolved = path.isAbsolute(imgPath) ? imgPath : path.join(process.cwd(), imgPath);
+                if (fs.existsSync(resolved)) {
+                    await bot.sendPhoto(chatId, resolved, { caption: '🎉 Welcome To roha Bingo! 🎉' });
+                }
+            } catch (_) { }
         }
         await bot.sendMessage(chatId, welcome, {
             parse_mode: 'HTML',
@@ -127,22 +137,23 @@ function setupCommands(bot) {
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
         const ok = await ensurePhoneRegistered(bot, chatId, player);
         if (!ok) return;
-    // /deposit
+
+        await bot.sendMessage(chatId, '💰 Choose Your Stake, Play Your Luck — The Bigger the Bet, The Bigger the Glory!', {
+            parse_mode: 'HTML',
+            reply_markup: buildStakeKeyboard(tid),
+        });
+    });
+
+    // /deposit — show deposit options
     bot.onText(/\/deposit/, async (msg) => {
         const chatId = msg.chat.id;
         const tid = msg.from.id;
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
         const ok = await ensurePhoneRegistered(bot, chatId, player);
         if (!ok) return;
+
         await bot.sendMessage(chatId, 'Please select the bank option you wish to use for the top-up.', {
             reply_markup: buildDepositKeyboard(),
-        });
-    });
-
-
-        await bot.sendMessage(chatId, '💰 Choose Your Stake, Play Your Luck — The Bigger the Bet, The Bigger the Glory!', {
-            parse_mode: 'HTML',
-            reply_markup: buildStakeKeyboard(tid),
         });
     });
 
@@ -312,9 +323,8 @@ function setupCommands(bot) {
         }
 
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-        const needsPhone = !player || !player.phone || player.phone.trim().length === 0;
-        if (needsPhone) {
-            await ensurePhoneRegistered(bot, chatId, player);
+        const registered = await ensurePhoneRegistered(bot, chatId, player);
+        if (!registered) {
             await bot.answerCallbackQuery(query.id).catch(() => {});
             return;
         }
@@ -412,10 +422,19 @@ function setupCommands(bot) {
             await bot.answerCallbackQuery(query.id).catch(() => {});
             const caption = '🎯 From straight lines to funky shapes – every pattern is a chance to WIN BIG! Know the pattern, play smart, and shout BINGO when the stars align!';
             const imgUrl = process.env.WIN_PATTERNS_IMAGE_URL;
+            const imgPath = process.env.WIN_PATTERNS_IMAGE_PATH;
             if (imgUrl) {
                 try {
                     await bot.sendPhoto(chatId, imgUrl, { caption });
                     return;
+                } catch (_) { }
+            } else if (imgPath) {
+                try {
+                    const resolved = path.isAbsolute(imgPath) ? imgPath : path.join(process.cwd(), imgPath);
+                    if (fs.existsSync(resolved)) {
+                        await bot.sendPhoto(chatId, resolved, { caption });
+                        return;
+                    }
                 } catch (_) { }
             }
             await bot.sendMessage(chatId, caption);
@@ -429,22 +448,48 @@ function setupCommands(bot) {
     setupInvite(bot);
     setupReport(bot);
 
-    // Handle receipt photos (deposit confirmation)
-    bot.on('photo', async (msg) => {
-        const adminChatId = process.env.ADMIN_CHAT_ID;
+    async function forwardReceipt(msg) {
+        const adminChatId = process.env.ENTERTAINER_ID;
         if (!adminChatId) return;
         const tid = msg.from.id;
         const player = await prisma.player.findUnique({ where: { telegramId: BigInt(tid) } });
-        const username = player?.username || msg.from.username || '';
+        const username = player?.username || msg.from.username || '-';
+        const phone = player?.phone || '-';
+        const caption = msg.caption || '';
 
         try {
-            const photo = msg.photo[msg.photo.length - 1]; // highest quality
-            await bot.sendPhoto(adminChatId, photo.file_id, {
-                caption: `💳 Deposit receipt from ${username} (TID: ${tid})\n\nUse /add ${tid} <amount> to credit.`,
-            });
-            await bot.sendMessage(msg.chat.id, '✅ Receipt sent to admin. Your balance will be updated shortly.');
-        } catch (err) {
-            console.error('Failed to forward receipt:', err);
+            await bot.forwardMessage(adminChatId, msg.chat.id, msg.message_id);
+        } catch (_) { }
+
+        const meta =
+            'Receipt forwarded\n' +
+            `User: @${username} (id: <code>${tid}</code>)\n` +
+            `Phone: ${phone}\n` +
+            `caption:${caption}`;
+
+        const replyMarkup = {
+            inline_keyboard: [
+                [
+                    { text: 'Open User', url: `tg://user?id=${tid}` },
+                    { text: 'Copy ID', callback_data: `copy_tid:${tid}` },
+                ],
+            ],
+        };
+
+        try {
+            await bot.sendMessage(adminChatId, meta, { parse_mode: 'HTML', reply_markup: replyMarkup });
+        } catch (_) { }
+
+        try {
+            await bot.sendMessage(msg.chat.id, 'Your receipt has been forwarded for verification. Thank you.');
+        } catch (_) { }
+    }
+
+    // Handle receipt photos or image documents (deposit confirmation)
+    bot.on('photo', forwardReceipt);
+    bot.on('document', async (msg) => {
+        if (msg.document?.mime_type && msg.document.mime_type.startsWith('image/')) {
+            await forwardReceipt(msg);
         }
     });
 }
