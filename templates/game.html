@@ -537,7 +537,7 @@
     document.getElementById('stat-stake').textContent = STAKE;
 
     // Audio control state
-    let audioOn = (localStorage.getItem('audioOn') ?? 'true') !== 'false';
+    let audioOn = (localStorage.getItem('audioOn') ?? 'false') !== 'false';
     let autoPickOn = (localStorage.getItem('autoPickOn') ?? 'false') === 'true';
     let autoClaimOn = false;
     let tickTimer = null; // drives exact UI updates when audio is OFF
