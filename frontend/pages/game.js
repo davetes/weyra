@@ -234,44 +234,53 @@ export default function GamePage() {
             <Head><title>Bingo - Game</title></Head>
             <audio ref={audioRef} preload="auto" />
 
-            <div className="max-w-[480px] mx-auto">
-                <div className="bg-slate-900 text-slate-100 px-3 py-3">
-                    <div className="flex items-center justify-between">
-                        <button type="button" onClick={leaveGame} className="text-2xl leading-none">×</button>
-                        <div className="text-base font-semibold">Awash Bingo</div>
+            <div className="max-w-[480px] mx-auto min-h-[100svh]">
+                <div className="bg-slate-900 text-slate-100 px-2.5 py-2.5 sm:px-3 sm:py-3">
+                    <div className="flex items-center justify-end">
                         <div className="w-6" />
                     </div>
                 </div>
 
-                <div className="p-3">
-                    <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3">
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="flex flex-wrap gap-2">
-                                <div className="bg-teal-500/90 text-teal-950 font-bold rounded-lg px-3 py-2 text-xs">Game Id #{totalGames}</div>
-                                <div className="bg-emerald-500/90 text-emerald-950 font-bold rounded-lg px-3 py-2 text-xs">Stake Birr {STAKE}</div>
-                                <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-3 py-2 text-xs">Prize Birr {Math.round(derash)}</div>
-                                <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-3 py-2 text-xs">Players {players}</div>
-                            </div>
+                <div className="p-2.5 sm:p-3">
+                    <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 sm:p-3">
+                        <div className="grid grid-cols-5 gap-2 items-stretch">
+                            <div className="bg-teal-500/90 text-teal-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">Game Id #{totalGames}</div>
+                            <div className="bg-emerald-500/90 text-emerald-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">Stake Birr {STAKE}</div>
+                            <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">Prize Birr {Math.round(derash)}</div>
+                            <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">Players {players}</div>
                             <button
                                 type="button"
                                 onClick={() => setAudioOn((p) => !p)}
-                                className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-3 py-2 text-xs"
+                                className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs flex items-center justify-center"
+                                aria-label={audioOn ? 'Mute' : 'Unmute'}
                             >
-                                {audioOn ? 'Mute' : 'Mute'}
+                                {audioOn ? (
+                                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+                                        <path d="M4 9v6h4l5 4V5L8 9H4z" />
+                                        <path d="M16.5 12c0-1.4-.5-2.7-1.4-3.7l1.4-1.4A7.48 7.48 0 0 1 19 12a7.48 7.48 0 0 1-2.5 5.6l-1.4-1.4c.9-1 1.4-2.3 1.4-3.7z" />
+                                        <path d="M14.3 9.7 12.9 11.1a1.97 1.97 0 0 1 0 1.8l1.4 1.4a3.97 3.97 0 0 0 0-4.6z" />
+                                    </svg>
+                                ) : (
+                                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+                                        <path d="M16.5 12c0-1.4-.5-2.7-1.4-3.7l1.4-1.4A7.48 7.48 0 0 1 19 12a7.48 7.48 0 0 1-2.5 5.6l-1.4-1.4c.9-1 1.4-2.3 1.4-3.7z" />
+                                        <path d="M14.3 9.7 12.9 11.1a1.97 1.97 0 0 1 0 1.8l1.4 1.4a3.97 3.97 0 0 0 0-4.6z" />
+                                        <path d="M4 9v6h4l5 4V5L8 9H4z" />
+                                        <path d="m3 3 18 18-1.4 1.4L2 4.4 3 3z" />
+                                    </svg>
+                                )}
                             </button>
                         </div>
 
-                        <div className="mt-3 flex gap-3">
+                        <div className="mt-2.5 sm:mt-3 flex gap-2.5 sm:gap-3">
                             <div className="flex-1">
                                 <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-2">
-                                    <div className="text-emerald-400 font-semibold text-sm mb-2">Connected</div>
-                                    <div className="grid grid-cols-5 gap-1.5">
+                                    <div className="grid grid-cols-5 gap-1">
                                         {LETTERS.map((l) => (
-                                            <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}>{l}</div>
+                                            <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}>{l}</div>
                                         ))}
                                     </div>
 
-                                    <div className="mt-1.5 grid grid-cols-5 gap-1.5">
+                                    <div className="mt-1.5 grid grid-cols-5 gap-1">
                                         {Array.from({ length: 15 }, (_, r) => r + 1).map((r) => (
                                             <div key={r} className="contents">
                                                 {LETTERS.map((l, c) => {
@@ -288,7 +297,7 @@ export default function GamePage() {
                                                     return (
                                                         <div
                                                             key={n}
-                                                            className={`h-8 rounded-md flex items-center justify-center font-bold text-sm border ${cellCls}`}
+                                                            className={`aspect-square rounded-md flex items-center justify-center font-bold text-[10px] sm:text-sm leading-none border ${cellCls}`}
                                                         >
                                                             {n}
                                                         </div>
@@ -300,96 +309,82 @@ export default function GamePage() {
                                 </div>
                             </div>
 
-                            <div className="w-[190px] space-y-3">
-                                <div className="bg-black/60 border border-slate-700 rounded-xl px-3 py-3 flex items-center justify-center">
-                                    <div className="text-3xl font-black tracking-wide">
+                            <div className="w-[168px] sm:w-[190px] space-y-2.5 sm:space-y-3">
+                                <div className="bg-black/60 border border-slate-700 rounded-xl px-2.5 py-2.5 sm:px-3 sm:py-3 flex items-center justify-center">
+                                    <div className="text-2xl sm:text-3xl font-black tracking-wide">
                                         {currentCall != null ? `${letterFor(currentCall)}-${currentCall}` : '—'}
                                     </div>
                                 </div>
 
-                                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-2">
-                                    <div className="grid grid-cols-5 gap-1">
-                                        {LETTERS.map((l) => (
-                                            <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}>{l}</div>
-                                        ))}
-                                    </div>
+                                {[0, 1].map((slot) => {
+                                    const card = myCards?.[slot] || null;
+                                    const slotPicks = slot === 1 ? picks1 : picks0;
+                                    const enabled = !!card;
 
-                                    {[0, 1].map((slot) => {
-                                        const card = myCards?.[slot] || null;
-                                        const slotPicks = slot === 1 ? picks1 : picks0;
-                                        const enabled = !!card;
-
-                                        return (
-                                            <div
-                                                key={slot}
-                                                className={`border border-slate-700 rounded-xl p-2 ${
-                                                    activeSlot === slot ? 'bg-slate-950/40' : 'bg-slate-900/40'
-                                                }`}
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => setActiveSlot(slot)}
-                                                onKeyDown={() => setActiveSlot(slot)}
-                                            >
-                                                <div className="grid grid-cols-5 gap-1">
-                                                    {LETTERS.map((l) => (
-                                                        <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}>{l}</div>
-                                                    ))}
-                                                </div>
-
-                                                <div className="mt-2 grid grid-cols-5 gap-1">
-                                                    {card ? (
-                                                        card.flat().map((val, i) => {
-                                                            const vs = String(val);
-                                                            const isFree = val === 'FREE';
-                                                            const isPicked = slotPicks.has(vs);
-                                                            return (
-                                                                <div
-                                                                    key={i}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (!isFree) togglePick(slot, vs);
-                                                                    }}
-                                                                    className={`rounded-md flex items-center justify-center h-9 font-bold border text-sm select-none ${
-                                                                        isFree
-                                                                            ? 'bg-amber-400 text-amber-950 border-amber-200'
-                                                                            : isPicked
-                                                                                ? 'bg-violet-500 text-violet-950 border-violet-200'
-                                                                                : 'bg-slate-950/30 text-slate-100 border-slate-700'
-                                                                    }`}
-                                                                >
-                                                                    {isFree ? '★' : val}
-                                                                </div>
-                                                            );
-                                                        })
-                                                    ) : (
-                                                        <div className="col-span-5 text-center text-slate-400 py-4 text-sm">No card</div>
-                                                    )}
-                                                </div>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        claimBingo(slot);
-                                                    }}
-                                                    disabled={!enabled}
-                                                    className={`mt-3 w-full bg-amber-700/90 text-amber-100 font-black rounded-lg py-2 border border-amber-500 ${
-                                                        enabled ? 'active:scale-[0.99]' : 'opacity-60'
-                                                    }`}
-                                                >
-                                                    BINGO
-                                                </button>
+                                    return (
+                                        <div
+                                            key={slot}
+                                            className={`border border-slate-700 rounded-xl p-1.5 sm:p-2 ${
+                                                activeSlot === slot ? 'bg-slate-950/40' : 'bg-slate-900/40'
+                                            }`}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setActiveSlot(slot)}
+                                            onKeyDown={() => setActiveSlot(slot)}
+                                        >
+                                            <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                                                {card ? (
+                                                    card.flat().map((val, i) => {
+                                                        const vs = String(val);
+                                                        const isFree = val === 'FREE';
+                                                        const isPicked = slotPicks.has(vs);
+                                                        return (
+                                                            <div
+                                                                key={i}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!isFree) togglePick(slot, vs);
+                                                                }}
+                                                                className={`rounded-md flex items-center justify-center h-7 sm:h-9 font-bold border text-[11px] sm:text-sm select-none ${
+                                                                    isFree
+                                                                        ? 'bg-amber-400 text-amber-950 border-amber-200'
+                                                                        : isPicked
+                                                                            ? 'bg-violet-500 text-violet-950 border-violet-200'
+                                                                            : 'bg-slate-950/30 text-slate-100 border-slate-700'
+                                                                }`}
+                                                            >
+                                                                {isFree ? '★' : val}
+                                                            </div>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <div className="col-span-5 text-center text-slate-400 py-3 text-[11px] sm:text-sm">No card</div>
+                                                )}
                                             </div>
-                                        );
-                                    })}
-                                </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    claimBingo(slot);
+                                                }}
+                                                disabled={!enabled}
+                                                className={`mt-2.5 sm:mt-3 w-full bg-amber-700/90 text-amber-100 font-black rounded-lg py-1.5 sm:py-2 text-xs sm:text-sm border border-amber-500 ${
+                                                    enabled ? 'active:scale-[0.99]' : 'opacity-60'
+                                                }`}
+                                            >
+                                                BINGO
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
                         <button
                             type="button"
                             onClick={leaveGame}
-                            className="mt-4 w-full bg-red-600 text-white font-bold rounded-xl py-3"
+                            className="mt-3.5 sm:mt-4 w-full bg-red-600 text-white font-bold rounded-xl py-2.5 sm:py-3 text-sm"
                         >
                             Leave Game
                         </button>

@@ -227,13 +227,13 @@ export default function PlayPage() {
                 </div>
             )}
 
-            <div className="max-w-[420px] mx-auto">
-                <div className="bg-slate-900 text-slate-100 px-3 py-2.5">
+            <div className="max-w-[420px] mx-auto min-h-[100svh]">
+                <div className="bg-slate-900 text-slate-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
                     <div className="flex items-center justify-between">
-                        <div className="text-lg font-semibold">Awash Bingo</div>
-                        <div className="text-xs text-slate-300">{TID ? 'Connected' : '...'}</div>
+                        <div className="text-base sm:text-lg font-semibold">Awash Bingo</div>
+                        <div className="text-[10px] sm:text-xs text-slate-300">{TID ? 'Connected' : '...'}</div>
                     </div>
-                    <div className="mt-2 flex items-start justify-between text-xs">
+                    <div className="mt-1.5 sm:mt-2 flex items-start justify-between text-[10px] sm:text-xs">
                         <div className="space-y-1">
                             <div>Room ID: {totalGames}</div>
                             <div>Bet: {STAKE} Birr</div>
@@ -245,10 +245,10 @@ export default function PlayPage() {
                     </div>
                 </div>
 
-                <div className="p-3">
-                    <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3">
+                <div className="p-2 sm:p-3">
+                    <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 sm:p-3">
 
-                        <div className="flex items-center gap-5 text-xs text-slate-200">
+                        <div className="flex items-center gap-4 sm:gap-5 text-[10px] sm:text-xs text-slate-200">
                             <div className="inline-flex items-center gap-2">
                                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                                 Available
@@ -263,19 +263,19 @@ export default function PlayPage() {
                             </div>
                         </div>
 
-                        <div className="mt-3 flex items-center justify-between text-xs">
+                        <div className="mt-2.5 sm:mt-3 flex items-center justify-between text-[10px] sm:text-xs">
                             <div className="text-slate-200">
                                 Players: {acceptedCount} <span className="text-slate-500">|</span> Prize: {Math.round(derash)} Br
                             </div>
                             <div className="text-amber-400 font-semibold">Starts In: {startsInText}</div>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-10 gap-1">
+                        <div className="mt-2.5 sm:mt-3 grid grid-cols-10 gap-[2px] sm:gap-1">
                             {pagedNumbers.map((n) => {
                                 const key = String(n);
                                 const isTaken = taken.has(key);
                                 const isSelected = selectedA === n || selectedB === n;
-                                const base = 'relative font-bold rounded-md aspect-square flex items-center justify-center select-none text-sm border';
+                                const base = 'relative font-bold rounded-sm sm:rounded-md aspect-square flex items-center justify-center select-none text-[10px] sm:text-sm leading-none border';
                                 const cls = isTaken
                                     ? 'bg-rose-900/60 border-rose-700 text-rose-200'
                                     : isSelected
@@ -329,7 +329,7 @@ export default function PlayPage() {
                                     >
                                         {n}
                                         {isSelected && (
-                                            <span className="absolute top-0.5 right-0.5 text-[10px] leading-none">
+                                            <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">
                                                 ✓
                                             </span>
                                         )}
@@ -344,10 +344,10 @@ export default function PlayPage() {
                             </div>
                         )}
 
-                        <div className="mt-3 flex items-center justify-between text-slate-300 text-sm">
+                        <div className="mt-2.5 sm:mt-3 flex items-center justify-between text-slate-300 text-xs sm:text-sm">
                             <button
                                 type="button"
-                                className="px-3 py-1.5"
+                                className="px-2.5 py-1 sm:px-3 sm:py-1.5"
                                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                                 disabled={safePage <= 0}
                             >
@@ -358,7 +358,7 @@ export default function PlayPage() {
                             </div>
                             <button
                                 type="button"
-                                className="px-3 py-1.5"
+                                className="px-2.5 py-1 sm:px-3 sm:py-1.5"
                                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                                 disabled={safePage >= totalPages - 1}
                             >
@@ -367,36 +367,75 @@ export default function PlayPage() {
                         </div>
 
                         {(selectedA || selectedB) && (
-                            <div className="mt-4 border-t border-slate-700 pt-4">
-                                <div className="grid grid-cols-2 gap-3">
+                            <div className="mt-3.5 sm:mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
+                                <div
+                                    className={`border rounded-xl p-1.5 sm:p-2 ${
+                                        activeSlot === 0
+                                            ? 'bg-slate-900/80 border-indigo-500/70'
+                                            : 'bg-slate-900/70 border-slate-700'
+                                    }`}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setActiveSlot(0)}
+                                    onKeyDown={() => setActiveSlot(0)}
+                                >
+                                    <div className="grid grid-cols-5 gap-1">
+                                        {LETTERS.map((l) => (
+                                            <div
+                                                key={l}
+                                                className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}
+                                            >
+                                                {l}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                                        {cardRowsA &&
+                                            cardRowsA.flat().map((val, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`rounded-md flex items-center justify-center h-7 sm:h-9 font-bold border text-[11px] sm:text-sm ${
+                                                        val === 'FREE'
+                                                            ? 'bg-slate-700 border-slate-600 text-white'
+                                                            : 'bg-slate-950/40 border-slate-700 text-slate-100'
+                                                    }`}
+                                                >
+                                                    {val === 'FREE' ? '★' : val}
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+
+                                {selectedB ? (
                                     <div
-                                        className={`border rounded-xl p-2 ${
-                                            activeSlot === 0
+                                        className={`border rounded-xl p-1.5 sm:p-2 ${
+                                            activeSlot === 1
                                                 ? 'bg-slate-900/80 border-indigo-500/70'
                                                 : 'bg-slate-900/70 border-slate-700'
                                         }`}
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => setActiveSlot(0)}
-                                        onKeyDown={() => setActiveSlot(0)}
+                                        onClick={() => setActiveSlot(1)}
+                                        onKeyDown={() => setActiveSlot(1)}
                                     >
                                         <div className="grid grid-cols-5 gap-1">
                                             {LETTERS.map((l) => (
                                                 <div
                                                     key={l}
-                                                    className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}
+                                                    className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}
                                                 >
                                                     {l}
                                                 </div>
                                             ))}
                                         </div>
 
-                                        <div className="mt-2 grid grid-cols-5 gap-1">
-                                            {cardRowsA &&
-                                                cardRowsA.flat().map((val, i) => (
+                                        <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                                            {cardRowsB &&
+                                                cardRowsB.flat().map((val, i) => (
                                                     <div
                                                         key={i}
-                                                        className={`rounded-md flex items-center justify-center h-9 font-bold border text-sm ${
+                                                        className={`rounded-md flex items-center justify-center h-7 sm:h-9 font-bold border text-[11px] sm:text-sm ${
                                                             val === 'FREE'
                                                                 ? 'bg-slate-700 border-slate-600 text-white'
                                                                 : 'bg-slate-950/40 border-slate-700 text-slate-100'
@@ -407,54 +446,13 @@ export default function PlayPage() {
                                                 ))}
                                         </div>
                                     </div>
-
-                                    {selectedB ? (
-                                        <div
-                                            className={`border rounded-xl p-2 ${
-                                                activeSlot === 1
-                                                    ? 'bg-slate-900/80 border-indigo-500/70'
-                                                    : 'bg-slate-900/70 border-slate-700'
-                                            }`}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={() => setActiveSlot(1)}
-                                            onKeyDown={() => setActiveSlot(1)}
-                                        >
-                                            <div className="grid grid-cols-5 gap-1">
-                                                {LETTERS.map((l) => (
-                                                    <div
-                                                        key={l}
-                                                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}
-                                                    >
-                                                        {l}
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <div className="mt-2 grid grid-cols-5 gap-1">
-                                                {cardRowsB &&
-                                                    cardRowsB.flat().map((val, i) => (
-                                                        <div
-                                                            key={i}
-                                                            className={`rounded-md flex items-center justify-center h-9 font-bold border text-sm ${
-                                                                val === 'FREE'
-                                                                    ? 'bg-slate-700 border-slate-600 text-white'
-                                                                    : 'bg-slate-950/40 border-slate-700 text-slate-100'
-                                                            }`}
-                                                        >
-                                                            {val === 'FREE' ? '★' : val}
-                                                        </div>
-                                                    ))}
-                                            </div>
+                                ) : (
+                                    <div className="border border-dashed border-slate-600 rounded-xl p-3 bg-slate-900/40 flex items-center justify-center text-center">
+                                        <div className="text-xs text-slate-300 leading-relaxed">
+                                            If you want, select a second card to play with
                                         </div>
-                                    ) : (
-                                        <div className="border border-dashed border-slate-600 rounded-xl p-3 bg-slate-900/40 flex items-center justify-center text-center">
-                                            <div className="text-xs text-slate-300 leading-relaxed">
-                                                If you want, select a second card to play with
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

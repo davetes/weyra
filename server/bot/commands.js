@@ -108,27 +108,15 @@ function setupCommands(bot) {
     const username = msg.from.username || "";
     const refParam = (match[1] || "").trim();
 
-    // Find or create player
-    let player = await prisma.player.findUnique({
+    // Create or update player atomically to avoid unique race
+    const player = await prisma.player.upsert({
       where: { telegramId: BigInt(tid) },
+      create: {
+        telegramId: BigInt(tid),
+        username,
+      },
+      update: username ? { username } : {},
     });
-    const isNew = !player;
-    if (!player) {
-      player = await prisma.player.create({
-        data: {
-          telegramId: BigInt(tid),
-          username,
-        },
-      });
-    } else {
-      // Update username
-      if (username && username !== player.username) {
-        await prisma.player.update({
-          where: { id: player.id },
-          data: { username },
-        });
-      }
-    }
 
     // Capture referral for first-time registration completion
     if (refParam.startsWith("ref_")) {

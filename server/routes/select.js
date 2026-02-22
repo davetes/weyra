@@ -32,7 +32,10 @@ async function handleSelect(req, res) {
       return res.status(400).json({ ok: false, error: "Missing index" });
     }
 
-    if ((action === "accept" || action === "preview") && (!Number.isFinite(slot) || slot < 0 || slot > 1)) {
+    if (
+      (action === "accept" || action === "preview") &&
+      (!Number.isFinite(slot) || slot < 0 || slot > 1)
+    ) {
       return res.status(400).json({ ok: false, error: "Invalid slot" });
     }
 
@@ -147,7 +150,10 @@ async function handleSelect(req, res) {
           ? null
           : parseInt(reqSlotRaw, 10);
 
-      if (reqSlot != null && (!Number.isFinite(reqSlot) || reqSlot < 0 || reqSlot > 1)) {
+      if (
+        reqSlot != null &&
+        (!Number.isFinite(reqSlot) || reqSlot < 0 || reqSlot > 1)
+      ) {
         return res.status(400).json({ ok: false, error: "Invalid slot" });
       }
 

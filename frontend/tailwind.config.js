@@ -44,7 +44,7 @@ module.exports = {
       },
       fontFamily: {
         sans: [
-          "Inter",
+          "Space Grotesk",
           "system-ui",
           "-apple-system",
           "Segoe UI",
