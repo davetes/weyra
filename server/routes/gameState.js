@@ -198,6 +198,10 @@ async function handleGameState(req, res, io) {
       }
     }
 
+    if (currentCall == null) {
+      cache.del(`call_${game.id}`);
+    }
+
     // Find player's card + balance
     let myCards = [null, null];
     let myIndices = [null, null];

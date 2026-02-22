@@ -37,8 +37,11 @@ export default function GamePage() {
 
     const socketRef = useRef(null);
     const audioRef = useRef(null);
+    const audioCacheRef = useRef(new Map());
     const audioPlayingRef = useRef(false);
     const lastAudioCallRef = useRef(null);
+    const scheduledAudioRef = useRef(null);
+    const serverOffsetRef = useRef(0);
     const winCountdownRef = useRef(null);
     const winnerRef = useRef(null);
     const noWinnerRedirectedRef = useRef(false);
@@ -101,14 +104,49 @@ export default function GamePage() {
         if (suppressCalls || !audioOn || audioPlayingRef.current) return;
         num = Number(num);
         if (!Number.isFinite(num) || num < 1 || num > 75) return;
-        if (!audioRef.current) return;
+        const cached = audioCacheRef.current.get(num);
+        const audio = cached || audioRef.current;
+        if (!audio) return;
         audioPlayingRef.current = true;
         lastAudioCallRef.current = String(num);
-        audioRef.current.src = `/static/audio/${num}.mp3`;
-        audioRef.current.currentTime = 0;
-        audioRef.current.onended = () => { audioPlayingRef.current = false; };
-        audioRef.current.onerror = () => { audioPlayingRef.current = false; };
-        audioRef.current.play().catch(() => { audioPlayingRef.current = false; });
+        if (!cached) audio.src = `/static/audio/${num}.mp3`;
+        audio.currentTime = 0;
+        audio.onended = () => { audioPlayingRef.current = false; };
+        audio.onerror = () => { audioPlayingRef.current = false; };
+        audio.play().catch(() => { audioPlayingRef.current = false; });
+    }
+
+    function schedulePlayNumber(num, serverTime) {
+        if (suppressCalls || !audioOn) return;
+        if (scheduledAudioRef.current) {
+            clearTimeout(scheduledAudioRef.current);
+            scheduledAudioRef.current = null;
+        }
+        const offset = serverOffsetRef.current || 0;
+        const baseServerTime = Number.isFinite(serverTime) ? serverTime : Date.now() + offset;
+        const targetTime = baseServerTime + 350 - offset;
+        const delay = Math.max(0, Math.min(1000, targetTime - Date.now()));
+        scheduledAudioRef.current = setTimeout(() => {
+            scheduledAudioRef.current = null;
+            playNumber(num);
+        }, delay);
+    }
+
+    function preloadNumber(num) {
+        num = Number(num);
+        if (!Number.isFinite(num) || num < 1 || num > 75) return;
+        if (audioCacheRef.current.has(num)) return;
+        const audio = new Audio(`/static/audio/${num}.mp3`);
+        audio.preload = 'auto';
+        audio.load();
+        audioCacheRef.current.set(num, audio);
+    }
+
+    function preloadNextNumbers(startNum) {
+        const base = Number(startNum);
+        if (!Number.isFinite(base)) return;
+        const end = Math.min(75, base + 5);
+        for (let n = base; n <= end; n += 1) preloadNumber(n);
     }
 
     const refresh = useCallback(async () => {
@@ -118,6 +156,11 @@ export default function GamePage() {
             if (!res.ok) return;
             const data = await res.json();
 
+            if (typeof data.server_time === 'number') {
+                const offset = data.server_time - Date.now();
+                serverOffsetRef.current = serverOffsetRef.current * 0.8 + offset * 0.2;
+            }
+
             setPlayers(data.players ?? 0);
             setTotalGames(data.total_games ?? '-');
 
@@ -125,6 +168,8 @@ export default function GamePage() {
                 playNumber(data.current_call);
             }
             setCurrentCall(data.current_call);
+
+            if (audioOn && data.current_call != null) preloadNextNumbers(data.current_call);
 
             const called = new Set((data.called_numbers || []).map(String));
             if (data.current_call != null) called.add(String(data.current_call));
@@ -159,6 +204,10 @@ export default function GamePage() {
     }, [router.isReady, refresh]);
 
     useEffect(() => {
+        if (audioOn && currentCall != null) preloadNextNumbers(currentCall);
+    }, [audioOn, currentCall]);
+
+    useEffect(() => {
         if (!router.isReady || !STAKE) return;
         const socket = io(typeof window !== 'undefined' ? window.location.origin : '', {
             path: '/ws/',
@@ -167,7 +216,18 @@ export default function GamePage() {
         socketRef.current = socket;
 
         socket.on('message', (msg) => {
-            if (msg.type === 'winner') {
+            if (msg.type === 'call' && msg.number != null) {
+                const numStr = String(msg.number);
+                setCurrentCall(msg.number);
+                setCalledSet((prev) => {
+                    const next = new Set(prev);
+                    next.add(numStr);
+                    return next;
+                });
+                lastAudioCallRef.current = numStr;
+                schedulePlayNumber(msg.number, msg.server_time);
+                if (audioOn) preloadNextNumbers(msg.number);
+            } else if (msg.type === 'winner') {
                 setSuppressCalls(true);
                 setAudioOn(false);
                 showWinner(msg.winner, msg.index, msg);
@@ -250,7 +310,16 @@ export default function GamePage() {
                             <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">Players {players}</div>
                             <button
                                 type="button"
-                                onClick={() => setAudioOn((p) => !p)}
+                                onClick={() => {
+                                    setAudioOn((p) => {
+                                        const next = !p;
+                                        if (next && currentCall != null) {
+                                            lastAudioCallRef.current = String(currentCall);
+                                            preloadNextNumbers(currentCall);
+                                        }
+                                        return next;
+                                    });
+                                }}
                                 className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs flex items-center justify-center"
                                 aria-label={audioOn ? 'Mute' : 'Unmute'}
                             >
@@ -311,7 +380,7 @@ export default function GamePage() {
 
                             <div className="w-[168px] sm:w-[190px] space-y-2.5 sm:space-y-3">
                                 <div className="bg-black/60 border border-slate-700 rounded-xl px-2.5 py-2.5 sm:px-3 sm:py-3 flex items-center justify-center">
-                                    <div className="text-2xl sm:text-3xl font-black tracking-wide">
+                                    <div className="text-2xl sm:text-3xl font-black tracking-wide animate-bounce text-shadow-glow">
                                         {currentCall != null ? `${letterFor(currentCall)}-${currentCall}` : '—'}
                                     </div>
                                 </div>

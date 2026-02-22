@@ -13,6 +13,7 @@ const handleClaimBingo = require("./routes/claimBingo");
 const handleAbandon = require("./routes/abandon");
 const adminRoutes = require("./routes/admin");
 const setupSocket = require("./socket");
+const { startCallTicker } = require("./callTicker");
 
 const app = express();
 const server = http.createServer(app);
@@ -44,6 +45,7 @@ app.get("/api/health", (req, res) =>
 
 // Socket.IO
 setupSocket(io);
+startCallTicker(io);
 
 // Start Telegram bot (non-blocking)
 try {
