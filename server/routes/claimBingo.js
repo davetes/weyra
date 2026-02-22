@@ -55,6 +55,7 @@ async function handleClaimBingo(req, res, io) {
     const tid = req.body.tid || "";
     const stake = parseInt(req.body.stake || "10", 10);
     const tidNum = parseInt(tid, 10) || 0;
+    const slot = parseInt(req.body.slot ?? "0", 10);
     let picks = [];
     try {
       picks = JSON.parse(req.body.picks || "[]");
@@ -64,6 +65,10 @@ async function handleClaimBingo(req, res, io) {
 
     if (!tidNum) {
       return res.status(400).json({ ok: false, error: "Missing tid" });
+    }
+
+    if (!Number.isFinite(slot) || slot < 0 || slot > 1) {
+      return res.status(400).json({ ok: false, error: "Invalid slot" });
     }
 
     const player = await prisma.player.findUnique({
@@ -82,7 +87,7 @@ async function handleClaimBingo(req, res, io) {
     }
 
     const sel = await prisma.selection.findFirst({
-      where: { gameId: game.id, playerId: player.id, accepted: true },
+      where: { gameId: game.id, playerId: player.id, slot, accepted: true },
     });
     if (!sel) {
       return res.status(400).json({ ok: false, error: "Not in game" });
@@ -109,6 +114,7 @@ async function handleClaimBingo(req, res, io) {
       io.to(`game_${stake}`).emit("message", {
         type: "disqualified",
         tid: tidNum,
+        slot,
       });
       return res.json({
         ok: false,
@@ -155,6 +161,7 @@ async function handleClaimBingo(req, res, io) {
       type: "winner",
       winner: winnerName,
       index: sel.index,
+      slot,
       pattern: result.pattern,
       row: result.row,
       col: result.col,

@@ -84,6 +84,7 @@ model Selection {
   id       Int     @id @default(autoincrement())
   gameId   Int     @map("game_id")
   playerId Int     @map("player_id")
+  slot     Int     @default(0)
   index    Int
   accepted Boolean @default(false)
 
@@ -91,7 +92,7 @@ model Selection {
   player Player @relation(fields: [playerId], references: [id])
 
   @@unique([gameId, index])
-  @@unique([gameId, playerId])
+  @@unique([gameId, playerId, slot])
   @@map("bingo_selection")
 }
 

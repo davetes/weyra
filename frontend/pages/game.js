@@ -14,7 +14,6 @@ function buildCard(seed) { const cols = RANGES_DEF.map(([s, e], idx) => { const 
 function letterFor(n) { n = Number(n); if (n >= 1 && n <= 15) return 'B'; if (n <= 30) return 'I'; if (n <= 45) return 'N'; if (n <= 60) return 'G'; return 'O'; }
 
 const LETTER_BG = { B: 'bg-green-bingo', I: 'bg-red-bingo', N: 'bg-yellow-bingo', G: 'bg-blue-bingo', O: 'bg-pink-bingo' };
-const LETTER_RING = { B: '#2ecc71', I: '#e74c3c', N: '#f39c12', G: '#2d89ff', O: '#d81b60' };
 const LETTERS = ['B', 'I', 'N', 'G', 'O'];
 
 export default function GamePage() {
@@ -24,17 +23,16 @@ export default function GamePage() {
     const TID = tidQ || '';
 
     const [players, setPlayers] = useState(0);
-    const [callCount, setCallCount] = useState('-');
     const [totalGames, setTotalGames] = useState('-');
     const [currentCall, setCurrentCall] = useState(null);
-    const [recentCalls, setRecentCalls] = useState([]);
     const [calledSet, setCalledSet] = useState(new Set());
-    const [myCard, setMyCard] = useState(null);
-    const [myIndex, setMyIndex] = useState(null);
-    const [picks, setPicks] = useState(new Set());
+    const [myCards, setMyCards] = useState([null, null]);
+    const [myIndices, setMyIndices] = useState([null, null]);
+    const [activeSlot, setActiveSlot] = useState(0);
+    const [picks0, setPicks0] = useState(new Set());
+    const [picks1, setPicks1] = useState(new Set());
     const [winner, setWinner] = useState(null);
     const [audioOn, setAudioOn] = useState(false);
-    const [autoPickOn, setAutoPickOn] = useState(false);
     const [suppressCalls, setSuppressCalls] = useState(false);
 
     const socketRef = useRef(null);
@@ -42,41 +40,59 @@ export default function GamePage() {
     const audioPlayingRef = useRef(false);
     const lastAudioCallRef = useRef(null);
     const winCountdownRef = useRef(null);
+    const winnerRef = useRef(null);
+    const noWinnerRedirectedRef = useRef(false);
 
     const derash = Math.max(0, players * STAKE * 0.8);
 
     useEffect(() => {
-        if (myIndex == null) return;
+        winnerRef.current = winner;
+    }, [winner]);
+
+    function loadSlotPicks(slot, idx) {
+        if (idx == null) return new Set();
         try {
-            const raw = localStorage.getItem(`bingo_picks_${STAKE}_${myIndex}`);
-            if (raw) setPicks(new Set(JSON.parse(raw).map(String)));
-        } catch (_) { }
-    }, [myIndex, STAKE]);
-
-    function savePicks(newPicks) {
-        try { localStorage.setItem(`bingo_picks_${STAKE}_${myIndex}`, JSON.stringify([...newPicks])); } catch (_) { }
+            const raw = localStorage.getItem(`bingo_picks_${STAKE}_${idx}_${slot}`);
+            if (raw) return new Set(JSON.parse(raw).map(String));
+        } catch (_) {}
+        return new Set();
     }
 
-    function togglePick(val) {
-        setPicks(prev => {
-            const ns = new Set(prev);
-            if (ns.has(val)) ns.delete(val); else ns.add(val);
-            savePicks(ns);
-            return ns;
-        });
+    function saveSlotPicks(slot, idx, newPicks) {
+        if (idx == null) return;
+        try {
+            localStorage.setItem(
+                `bingo_picks_${STAKE}_${idx}_${slot}`,
+                JSON.stringify([...newPicks]),
+            );
+        } catch (_) {}
     }
 
-    function autoPick(n) {
-        if (!autoPickOn || n == null) return;
-        const val = String(n);
-        setPicks(prev => {
-            if (!myCard) return prev;
-            const flat = myCard.flat().map(String);
-            if (!flat.includes(val)) return prev;
-            if (prev.has(val)) return prev;
+    useEffect(() => {
+        const idx0 = myIndices?.[0] != null ? Number(myIndices[0]) : null;
+        const idx1 = myIndices?.[1] != null ? Number(myIndices[1]) : null;
+        setPicks0(loadSlotPicks(0, idx0));
+        setPicks1(loadSlotPicks(1, idx1));
+    }, [STAKE, myIndices]);
+
+    function togglePick(slot, val) {
+        const idx = myIndices?.[slot] != null ? Number(myIndices[slot]) : null;
+        if (slot === 0) {
+            setPicks0((prev) => {
+                const ns = new Set(prev);
+                if (ns.has(val)) ns.delete(val);
+                else ns.add(val);
+                saveSlotPicks(0, idx, ns);
+                return ns;
+            });
+            return;
+        }
+
+        setPicks1((prev) => {
             const ns = new Set(prev);
-            ns.add(val);
-            savePicks(ns);
+            if (ns.has(val)) ns.delete(val);
+            else ns.add(val);
+            saveSlotPicks(1, idx, ns);
             return ns;
         });
     }
@@ -104,27 +120,36 @@ export default function GamePage() {
 
             setPlayers(data.players ?? 0);
             setTotalGames(data.total_games ?? '-');
-            setCallCount(data.call_count ?? 0);
 
             if (data.current_call != null && String(data.current_call) !== lastAudioCallRef.current) {
                 playNumber(data.current_call);
             }
             setCurrentCall(data.current_call);
 
-            if (Array.isArray(data.called_numbers) && data.current_call != null) {
-                const idx = data.called_numbers.indexOf(data.current_call);
-                if (idx >= 0) setRecentCalls(data.called_numbers.slice(Math.max(0, idx - 4), idx).reverse());
-            }
-
             const called = new Set((data.called_numbers || []).map(String));
             if (data.current_call != null) called.add(String(data.current_call));
             setCalledSet(called);
 
-            if (data.my_card) setMyCard(data.my_card);
-            if (data.my_index != null) setMyIndex(data.my_index);
-            if (autoPickOn && data.current_call != null) autoPick(data.current_call);
+            if (Array.isArray(data.my_cards)) setMyCards(data.my_cards);
+            if (Array.isArray(data.my_indices)) setMyIndices(data.my_indices);
+
+            const callNum = data.current_call != null ? Number(data.current_call) : null;
+            const calledCount = Array.isArray(data.called_numbers) ? data.called_numbers.length : 0;
+            const noWinner = !winnerRef.current && !suppressCalls;
+
+            if (
+                noWinner &&
+                !noWinnerRedirectedRef.current &&
+                callNum != null &&
+                Number.isFinite(callNum) &&
+                callNum >= 75 &&
+                calledCount >= 75
+            ) {
+                noWinnerRedirectedRef.current = true;
+                router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+            }
         } catch (_) { }
-    }, [STAKE, TID, autoPickOn, suppressCalls, audioOn]);
+    }, [STAKE, TID, suppressCalls, audioOn]);
 
     useEffect(() => {
         if (!router.isReady) return;
@@ -172,14 +197,19 @@ export default function GamePage() {
         }, 1000);
     }
 
-    function claimBingo() {
+    function claimBingo(slot) {
+        const picks = slot === 1 ? picks1 : picks0;
         if (socketRef.current?.connected) {
-            socketRef.current.emit('message', { action: 'claim_bingo', tid: TID, picks: [...picks] });
+            socketRef.current.emit('message', { action: 'claim_bingo', tid: TID, slot: slot ?? 0, picks: [...picks] });
         }
         const form = new URLSearchParams();
-        form.set('tid', TID); form.set('stake', String(STAKE)); form.set('picks', JSON.stringify([...picks]));
+        form.set('tid', TID);
+        form.set('stake', String(STAKE));
+        form.set('slot', String(slot ?? 0));
+        form.set('picks', JSON.stringify([...picks]));
         fetch('/api/claim_bingo', { method: 'POST', body: form }).then(r => r.json()).then(data => {
-            if (data.ok && myIndex != null) showWinner('You', myIndex, data);
+            const idx = myIndices?.[slot ?? 0];
+            if (data.ok && idx != null) showWinner('You', idx, data);
         }).catch(() => { });
     }
 
@@ -193,125 +223,175 @@ export default function GamePage() {
         return false;
     }
 
-    /* Ball component */
-    function Ball({ n, size }) {
-        const ltr = letterFor(n);
-        const isLg = size === 'lg';
-        return (
-            <div className={`flex items-center justify-center rounded-full text-white shadow-lg border-2 border-white/90 ${isLg ? 'w-[88px] h-[88px]' : 'w-9 h-9'}`} style={{ background: LETTER_RING[ltr] }}>
-                <div className="flex flex-col items-center leading-none">
-                    <div className={`font-extrabold opacity-95 ${isLg ? 'text-xs -mt-0.5' : 'text-[10px]'}`}>{ltr}</div>
-                    <div className={`font-black ${isLg ? 'text-[28px] mt-0.5' : 'text-sm mt-px'}`}>{n}</div>
-                </div>
-            </div>
-        );
-    }
-
-    /* Top board rows */
-    const boardRows = LETTERS.map((l, r) => {
-        const start = r * 15 + 1;
-        const nums = [];
-        for (let n = start; n < start + 15; n++) nums.push(n);
-        return { letter: l, nums };
-    });
-
     const winCardRows = winner ? buildCard(Number(winner.index || 1)) : null;
+
+    function leaveGame() {
+        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+    }
 
     return (
         <>
             <Head><title>Bingo - Game</title></Head>
             <audio ref={audioRef} preload="auto" />
 
-            <div className="max-w-[480px] mx-auto p-3">
-                <div className="bg-panel border border-border rounded-xl shadow-lg p-2.5">
+            <div className="max-w-[480px] mx-auto">
+                <div className="bg-slate-900 text-slate-100 px-3 py-3">
+                    <div className="flex items-center justify-between">
+                        <button type="button" onClick={leaveGame} className="text-2xl leading-none">×</button>
+                        <div className="text-base font-semibold">Awash Bingo</div>
+                        <div className="w-6" />
+                    </div>
+                </div>
 
-                    {/* Badges row */}
-                    <div className="flex flex-col gap-0.5 mb-2.5 text-xs">
-                        <div className="flex gap-2.5">
-                            {[
-                                { label: `Call ${callCount}` },
-                                { label: `Players ${players}` },
-                                { label: `Stake ${STAKE}` },
-                                { label: `Derash ${Math.round(derash)}` },
-                            ].map(b => (
-                                <div key={b.label} className="bg-purple-dark text-white border border-white/20 rounded-full px-3.5 py-1.5 font-extrabold">{b.label}</div>
-                            ))}
+                <div className="p-3">
+                    <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-wrap gap-2">
+                                <div className="bg-teal-500/90 text-teal-950 font-bold rounded-lg px-3 py-2 text-xs">Game Id #{totalGames}</div>
+                                <div className="bg-emerald-500/90 text-emerald-950 font-bold rounded-lg px-3 py-2 text-xs">Stake Birr {STAKE}</div>
+                                <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-3 py-2 text-xs">Prize Birr {Math.round(derash)}</div>
+                                <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-3 py-2 text-xs">Players {players}</div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setAudioOn((p) => !p)}
+                                className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-3 py-2 text-xs"
+                            >
+                                {audioOn ? 'Mute' : 'Mute'}
+                            </button>
                         </div>
-                        <div className="flex gap-2.5">
-                            <div className="bg-purple-mid text-white border border-white/20 rounded-full px-3.5 py-1.5 font-extrabold">Game {totalGames}</div>
-                            <div onClick={() => setAutoPickOn(p => !p)} className="bg-purple-mid text-white border border-white/20 rounded-full px-3.5 py-1.5 font-extrabold cursor-pointer flex items-center gap-1.5">
-                                Auto
-                                <div className={`w-11 h-6 rounded-full relative transition-colors ${autoPickOn ? 'bg-purple-glow' : 'bg-gray-300'}`}>
-                                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${autoPickOn ? 'left-[22px]' : 'left-0.5'}`} />
+
+                        <div className="mt-3 flex gap-3">
+                            <div className="flex-1">
+                                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-2">
+                                    <div className="text-emerald-400 font-semibold text-sm mb-2">Connected</div>
+                                    <div className="grid grid-cols-5 gap-1.5">
+                                        {LETTERS.map((l) => (
+                                            <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}>{l}</div>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-1.5 grid grid-cols-5 gap-1.5">
+                                        {Array.from({ length: 15 }, (_, r) => r + 1).map((r) => (
+                                            <div key={r} className="contents">
+                                                {LETTERS.map((l, c) => {
+                                                    const n = c * 15 + r;
+                                                    const ns = String(n);
+                                                    const isCurrent = currentCall != null && ns === String(currentCall);
+                                                    const isCalled = calledSet.has(ns) && !isCurrent;
+                                                    const cellCls = isCurrent
+                                                        ? 'bg-emerald-500 text-emerald-950 border-emerald-300'
+                                                        : isCalled
+                                                            ? 'bg-pink-500 text-pink-950 border-pink-300'
+                                                            : 'bg-slate-950/30 text-slate-100 border-slate-700';
+
+                                                    return (
+                                                        <div
+                                                            key={n}
+                                                            className={`h-8 rounded-md flex items-center justify-center font-bold text-sm border ${cellCls}`}
+                                                        >
+                                                            {n}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                            <div onClick={() => setAudioOn(p => !p)} className="bg-purple-mid text-white border border-white/20 rounded-full px-3.5 py-1.5 font-extrabold cursor-pointer">
-                                {audioOn ? '🔊' : '🔇'}
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Top board grid */}
-                    <div className="bg-[#141824] border border-border rounded-[10px] p-2 mb-2.5 -ml-2.5">
-                        <div className="grid gap-0.5 items-center -ml-2.5" style={{ gridTemplateColumns: '24px repeat(15, 1fr)' }}>
-                            {boardRows.map(({ letter, nums }) => (
-                                <div key={letter} className="contents">
-                                    <div className="w-6 flex items-center justify-center font-extrabold -ml-1" style={{ color: LETTER_RING[letter] }}>{letter}</div>
-                                    {nums.map(n => {
-                                        const ns = String(n);
-                                        const isCurrent = currentCall != null && ns === String(currentCall);
-                                        const isCalled = calledSet.has(ns) && !isCurrent;
+                            <div className="w-[190px] space-y-3">
+                                <div className="bg-black/60 border border-slate-700 rounded-xl px-3 py-3 flex items-center justify-center">
+                                    <div className="text-3xl font-black tracking-wide">
+                                        {currentCall != null ? `${letterFor(currentCall)}-${currentCall}` : '—'}
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-2">
+                                    <div className="grid grid-cols-5 gap-1">
+                                        {LETTERS.map((l) => (
+                                            <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}>{l}</div>
+                                        ))}
+                                    </div>
+
+                                    {[0, 1].map((slot) => {
+                                        const card = myCards?.[slot] || null;
+                                        const slotPicks = slot === 1 ? picks1 : picks0;
+                                        const enabled = !!card;
+
                                         return (
-                                            <div key={n} className={`h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-bold
-                        ${isCurrent ? 'bg-green-bingo text-[#0b3018]' : isCalled ? 'bg-red-called text-white' : 'bg-board-cell text-slate-300'}`}>
-                                                {n}
+                                            <div
+                                                key={slot}
+                                                className={`border border-slate-700 rounded-xl p-2 ${
+                                                    activeSlot === slot ? 'bg-slate-950/40' : 'bg-slate-900/40'
+                                                }`}
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => setActiveSlot(slot)}
+                                                onKeyDown={() => setActiveSlot(slot)}
+                                            >
+                                                <div className="grid grid-cols-5 gap-1">
+                                                    {LETTERS.map((l) => (
+                                                        <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 rounded-md text-xs`}>{l}</div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="mt-2 grid grid-cols-5 gap-1">
+                                                    {card ? (
+                                                        card.flat().map((val, i) => {
+                                                            const vs = String(val);
+                                                            const isFree = val === 'FREE';
+                                                            const isPicked = slotPicks.has(vs);
+                                                            return (
+                                                                <div
+                                                                    key={i}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (!isFree) togglePick(slot, vs);
+                                                                    }}
+                                                                    className={`rounded-md flex items-center justify-center h-9 font-bold border text-sm select-none ${
+                                                                        isFree
+                                                                            ? 'bg-amber-400 text-amber-950 border-amber-200'
+                                                                            : isPicked
+                                                                                ? 'bg-violet-500 text-violet-950 border-violet-200'
+                                                                                : 'bg-slate-950/30 text-slate-100 border-slate-700'
+                                                                    }`}
+                                                                >
+                                                                    {isFree ? '★' : val}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <div className="col-span-5 text-center text-slate-400 py-4 text-sm">No card</div>
+                                                    )}
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        claimBingo(slot);
+                                                    }}
+                                                    disabled={!enabled}
+                                                    className={`mt-3 w-full bg-amber-700/90 text-amber-100 font-black rounded-lg py-2 border border-amber-500 ${
+                                                        enabled ? 'active:scale-[0.99]' : 'opacity-60'
+                                                    }`}
+                                                >
+                                                    BINGO
+                                                </button>
                                             </div>
                                         );
                                     })}
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Current call & recent */}
-                    <div className="flex items-center gap-2 my-2.5 justify-start">
-                        {currentCall != null && <Ball n={currentCall} size="lg" />}
-                        <div className="flex gap-2.5">
-                            {recentCalls.map((n, i) => <Ball key={i} n={n} size="sm" />)}
-                        </div>
-                    </div>
-
-                    {/* BINGO letter header */}
-                    <div className="grid grid-cols-5 gap-2 my-2">
-                        {LETTERS.map(l => <div key={l} className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1.5 rounded-md`}>{l}</div>)}
-                    </div>
-
-                    {/* My card */}
-                    <div className="bg-white rounded-[10px] p-2.5 grid grid-cols-5 gap-2">
-                        {myCard ? myCard.flat().map((val, i) => {
-                            const vs = String(val);
-                            const isFree = val === 'FREE';
-                            const isPicked = picks.has(vs);
-                            return (
-                                <div key={i} onClick={() => !isFree && togglePick(vs)}
-                                    className={`rounded-lg flex items-center justify-center h-11 font-extrabold text-base border
-                    ${isFree ? 'bg-purple-bright border-[#6a00b8] text-white cursor-default'
-                                            : isPicked ? 'bg-purple-bright border-card-free-border text-white cursor-pointer'
-                                                : 'bg-white border-gray-300 text-black cursor-pointer hover:bg-gray-50 active:scale-95 transition'}`}>
-                                    {isFree ? '⭐' : val}
-                                </div>
-                            );
-                        }) : (
-                            <div className="col-span-5 text-center text-gray-400 py-5">No card — join from Play screen</div>
-                        )}
-                    </div>
-
-                    {/* BINGO button */}
-                    <div className="flex justify-center mt-3">
-                        <button onClick={claimBingo} disabled={!myCard}
-                            className={`bg-gold border border-gold-border text-[#1a1306] px-4 py-2.5 rounded-full font-bold transition
-                ${myCard ? 'cursor-pointer hover:brightness-110 active:scale-95' : 'cursor-not-allowed opacity-60'}`}>
-                            BINGO
+                        <button
+                            type="button"
+                            onClick={leaveGame}
+                            className="mt-4 w-full bg-red-600 text-white font-bold rounded-xl py-3"
+                        >
+                            Leave Game
                         </button>
                     </div>
                 </div>

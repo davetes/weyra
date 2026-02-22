@@ -51,10 +51,13 @@ async function handleGameState(req, res, io) {
       include: { player: true },
     });
 
-    const acceptedCount = freshSelections.length;
+    const acceptedCardsCount = freshSelections.length;
+    const acceptedPlayersCount = new Set(
+      freshSelections.map((s) => String(s.playerId)),
+    ).size;
 
-    // Start countdown when >=2 players (if not started yet)
-    if (acceptedCount >= 2 && !game.countdownStartedAt) {
+    // Start countdown when >=2 distinct players (if not started yet)
+    if (acceptedPlayersCount >= 2 && !game.countdownStartedAt) {
       game = await prisma.game.update({
         where: { id: game.id },
         data: { countdownStartedAt: new Date() },
@@ -187,8 +190,8 @@ async function handleGameState(req, res, io) {
     }
 
     // Find player's card + balance
-    let myCard = null;
-    let myIndex = null;
+    let myCards = [null, null];
+    let myIndices = [null, null];
     let wallet = 0;
     let gift = 0;
     if (tidNum) {
@@ -198,10 +201,12 @@ async function handleGameState(req, res, io) {
       if (player) {
         wallet = new Decimal(player.wallet.toString()).toNumber();
         gift = new Decimal(player.gift.toString()).toNumber();
-        const mySel = freshSelections.find((s) => s.playerId === player.id);
-        if (mySel) {
-          myIndex = mySel.index;
-          myCard = getCard(mySel.index);
+        const mySels = freshSelections.filter((s) => s.playerId === player.id);
+        for (const sel of mySels) {
+          const slot = Number(sel.slot ?? 0);
+          if (!Number.isFinite(slot) || slot < 0 || slot > 1) continue;
+          myIndices[slot] = sel.index;
+          myCards[slot] = getCard(sel.index);
         }
       }
     }
@@ -215,14 +220,15 @@ async function handleGameState(req, res, io) {
 
     const playersDisplay = game.stakesCharged
       ? game.chargedCount
-      : acceptedCount;
+      : acceptedPlayersCount;
 
     return res.json({
       ok: true,
       stake,
       game_id: game.id,
       players: playersDisplay,
-      accepted_count: acceptedCount,
+      accepted_count: acceptedPlayersCount,
+      accepted_cards: acceptedCardsCount,
       taken,
       countdown_started_at: game.countdownStartedAt
         ? game.countdownStartedAt.toISOString()
@@ -233,8 +239,10 @@ async function handleGameState(req, res, io) {
       current_call: currentCall,
       called_numbers: calledNumbers,
       call_count: callCount,
-      my_card: myCard,
-      my_index: myIndex,
+      my_card: myCards[0],
+      my_index: myIndices[0],
+      my_cards: myCards,
+      my_indices: myIndices,
       total_games: totalGames,
       wallet,
       gift,
