@@ -5,16 +5,25 @@ const { getCard } = require("../utils");
 
 const prisma = new PrismaClient();
 
+function parseTid(input) {
+  const tidStr = String(input || "").trim();
+  if (!tidStr) return { tidStr: "", tidBig: null };
+  try {
+    return { tidStr, tidBig: BigInt(tidStr) };
+  } catch (_) {
+    return { tidStr: "", tidBig: null };
+  }
+}
+
 async function handleSelect(req, res) {
   try {
-    const tid = req.body.tid || "";
+    const { tidBig } = parseTid(req.body.tid);
     const stake = parseInt(req.body.stake || "10", 10);
     const index = parseInt(req.body.index || "0", 10);
     const slot = parseInt(req.body.slot ?? "0", 10);
     const action = req.body.action || "preview";
-    const tidNum = parseInt(tid, 10) || 0;
 
-    if (!tidNum) {
+    if (!tidBig) {
       return res.status(400).json({ ok: false, error: "Missing tid" });
     }
 
@@ -29,11 +38,11 @@ async function handleSelect(req, res) {
 
     // Find or create player
     let player = await prisma.player.findUnique({
-      where: { telegramId: BigInt(tidNum) },
+      where: { telegramId: tidBig },
     });
     if (!player) {
       player = await prisma.player.create({
-        data: { telegramId: BigInt(tidNum) },
+        data: { telegramId: tidBig },
       });
     }
 

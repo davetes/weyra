@@ -7,11 +7,20 @@ const { ensureAdminWins } = require("../checker");
 
 const prisma = new PrismaClient();
 
+function parseTid(input) {
+  const tidStr = String(input || "").trim();
+  if (!tidStr) return { tidStr: "", tidBig: null };
+  try {
+    return { tidStr, tidBig: BigInt(tidStr) };
+  } catch (_) {
+    return { tidStr: "", tidBig: null };
+  }
+}
+
 async function handleGameState(req, res, io) {
   try {
     const stake = parseInt(req.query.stake || "10", 10);
-    const tid = req.query.tid || "";
-    const tidNum = parseInt(tid, 10) || 0;
+    const { tidStr, tidBig } = parseTid(req.query.tid);
 
     // Find or create active game for this stake
     let game = await prisma.game.findFirst({
@@ -23,9 +32,9 @@ async function handleGameState(req, res, io) {
     }
 
     // Track heartbeat + presence
-    if (tidNum) {
-      cache.set(`hb_${game.id}_${tidNum}`, Date.now(), 30);
-      cache.set(`seen_${tidNum}`, Date.now(), 120);
+    if (tidBig) {
+      cache.set(`hb_${game.id}_${tidStr}`, Date.now(), 30);
+      cache.set(`seen_${tidStr}`, Date.now(), 120);
     }
 
     // Get accepted selections
@@ -194,9 +203,9 @@ async function handleGameState(req, res, io) {
     let myIndices = [null, null];
     let wallet = 0;
     let gift = 0;
-    if (tidNum) {
+    if (tidBig) {
       const player = await prisma.player.findUnique({
-        where: { telegramId: BigInt(tidNum) },
+        where: { telegramId: tidBig },
       });
       if (player) {
         wallet = new Decimal(player.wallet.toString()).toNumber();

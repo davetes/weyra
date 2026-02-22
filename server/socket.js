@@ -4,6 +4,16 @@ const { getCard } = require("./utils");
 
 const prisma = new PrismaClient();
 
+function parseTid(input) {
+  const tidStr = String(input || "").trim();
+  if (!tidStr) return { tidStr: "", tidBig: null };
+  try {
+    return { tidStr, tidBig: BigInt(tidStr) };
+  } catch (_) {
+    return { tidStr: "", tidBig: null };
+  }
+}
+
 function setupSocket(io) {
   io.on("connection", (socket) => {
     // Join room by stake from query
@@ -26,14 +36,13 @@ function setupSocket(io) {
 
       if (msg.action === "claim_bingo") {
         // WebSocket claim — handled same as HTTP but broadcast via socket
-        const tid = msg.tid || "";
-        const tidNum = parseInt(tid, 10) || 0;
+        const { tidBig } = parseTid(msg.tid);
         const picks = Array.isArray(msg.picks) ? msg.picks : [];
 
-        if (!tidNum || !stake) return;
+        if (!tidBig || !stake) return;
 
         const player = await prisma.player.findUnique({
-          where: { telegramId: BigInt(tidNum) },
+          where: { telegramId: tidBig },
         });
         if (!player) return;
 

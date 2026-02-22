@@ -3,18 +3,27 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+function parseTid(input) {
+  const tidStr = String(input || "").trim();
+  if (!tidStr) return { tidStr: "", tidBig: null };
+  try {
+    return { tidStr, tidBig: BigInt(tidStr) };
+  } catch (_) {
+    return { tidStr: "", tidBig: null };
+  }
+}
+
 async function handleAbandon(req, res) {
   try {
-    const tid = req.body.tid || "";
+    const { tidBig } = parseTid(req.body.tid);
     const stake = parseInt(req.body.stake || "10", 10);
-    const tidNum = parseInt(tid, 10) || 0;
 
-    if (!tidNum) {
+    if (!tidBig) {
       return res.status(400).json({ ok: false, error: "Missing tid" });
     }
 
     const player = await prisma.player.findUnique({
-      where: { telegramId: BigInt(tidNum) },
+      where: { telegramId: tidBig },
     });
     if (!player) {
       return res.status(400).json({ ok: false, error: "Player not found" });

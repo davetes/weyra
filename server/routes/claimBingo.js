@@ -5,6 +5,16 @@ const { getCard } = require("../utils");
 
 const prisma = new PrismaClient();
 
+function parseTid(input) {
+  const tidStr = String(input || "").trim();
+  if (!tidStr) return { tidStr: "", tidBig: null };
+  try {
+    return { tidStr, tidBig: BigInt(tidStr) };
+  } catch (_) {
+    return { tidStr: "", tidBig: null };
+  }
+}
+
 function checkBingo(card, calledSet) {
   // Check rows
   for (let r = 0; r < 5; r++) {
@@ -52,9 +62,8 @@ function checkBingo(card, calledSet) {
 
 async function handleClaimBingo(req, res, io) {
   try {
-    const tid = req.body.tid || "";
+    const { tidStr, tidBig } = parseTid(req.body.tid);
     const stake = parseInt(req.body.stake || "10", 10);
-    const tidNum = parseInt(tid, 10) || 0;
     const slot = parseInt(req.body.slot ?? "0", 10);
     let picks = [];
     try {
@@ -63,7 +72,7 @@ async function handleClaimBingo(req, res, io) {
       picks = [];
     }
 
-    if (!tidNum) {
+    if (!tidBig) {
       return res.status(400).json({ ok: false, error: "Missing tid" });
     }
 
@@ -72,7 +81,7 @@ async function handleClaimBingo(req, res, io) {
     }
 
     const player = await prisma.player.findUnique({
-      where: { telegramId: BigInt(tidNum) },
+      where: { telegramId: tidBig },
     });
     if (!player) {
       return res.status(400).json({ ok: false, error: "Player not found" });
@@ -113,7 +122,7 @@ async function handleClaimBingo(req, res, io) {
       await prisma.selection.delete({ where: { id: sel.id } });
       io.to(`game_${stake}`).emit("message", {
         type: "disqualified",
-        tid: tidNum,
+        tid: tidStr,
         slot,
       });
       return res.json({
