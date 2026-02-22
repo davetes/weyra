@@ -7,11 +7,14 @@ export default function Modal({
   title,
   children,
   maxWidth = "max-w-2xl",
+  zIndex = "z-50",
 }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div
+      className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4 animate-fade-in`}
+    >
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}

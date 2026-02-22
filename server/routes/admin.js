@@ -501,17 +501,42 @@ router.patch(
     try {
       const id = parseInt(req.params.id, 10);
       const walletRaw = req.body && req.body.wallet;
+      const deltaRaw = req.body && req.body.delta;
+      const noteRaw = req.body && req.body.note;
       if (!id)
         return res.status(400).json({ ok: false, error: "Invalid player id" });
 
-      let nextWallet = null;
-      try {
-        nextWallet = new Decimal(String(walletRaw));
-      } catch (_) {
-        nextWallet = null;
+      const note = String(noteRaw || "").trim();
+      const hasDelta = deltaRaw !== undefined && deltaRaw !== null && String(deltaRaw).trim() !== "";
+      const hasWallet = walletRaw !== undefined && walletRaw !== null && String(walletRaw).trim() !== "";
+      if (!hasDelta && !hasWallet) {
+        return res
+          .status(400)
+          .json({ ok: false, error: "Provide delta or wallet" });
       }
-      if (!nextWallet || !nextWallet.isFinite() || nextWallet.lt(0)) {
-        return res.status(400).json({ ok: false, error: "Invalid wallet" });
+
+      let parsedDelta = null;
+      if (hasDelta) {
+        try {
+          parsedDelta = new Decimal(String(deltaRaw));
+        } catch (_) {
+          parsedDelta = null;
+        }
+        if (!parsedDelta || !parsedDelta.isFinite()) {
+          return res.status(400).json({ ok: false, error: "Invalid delta" });
+        }
+      }
+
+      let parsedWallet = null;
+      if (hasWallet) {
+        try {
+          parsedWallet = new Decimal(String(walletRaw));
+        } catch (_) {
+          parsedWallet = null;
+        }
+        if (!parsedWallet || !parsedWallet.isFinite() || parsedWallet.lt(0)) {
+          return res.status(400).json({ ok: false, error: "Invalid wallet" });
+        }
       }
 
       const updated = await prisma.$transaction(async (tx) => {
@@ -519,6 +544,10 @@ router.patch(
         if (!player) return null;
 
         const prevWallet = new Decimal(player.wallet.toString());
+        const nextWallet = parsedWallet ? parsedWallet : prevWallet.plus(parsedDelta);
+        if (!nextWallet.isFinite() || nextWallet.lt(0)) {
+          throw new Error("Invalid next wallet");
+        }
         const delta = nextWallet.minus(prevWallet);
 
         const out = await tx.player.update({
@@ -539,12 +568,13 @@ router.patch(
         });
 
         if (!delta.isZero()) {
+          const extra = note ? ` | ${note}` : "";
           await tx.transaction.create({
             data: {
               playerId: id,
               kind: "adjust_wallet",
               amount: delta.toNumber(),
-              note: `Wallet adjusted by ${req.adminUser.username} (#${req.adminUser.id})`,
+              note: `Wallet adjusted by ${req.adminUser.username} (#${req.adminUser.id})${extra}`,
             },
           });
         }
