@@ -87,7 +87,6 @@ function loadLastPlayerId() {
 export default function PlayersPage() {
   return (
     <RequireAuth>
-      {" "}
       {({ token, admin }) => <PlayersInner token={token} admin={admin} />}
     </RequireAuth>
   );

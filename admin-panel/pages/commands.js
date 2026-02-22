@@ -31,7 +31,6 @@ const ENTERTAINER_COMMANDS = [
 export default function CommandsPage() {
   return (
     <RequireAuth>
-      {" "}
       {({ admin }) => (
         <AdminShell
           admin={admin}
@@ -124,7 +123,7 @@ export default function CommandsPage() {
             </Card>{" "}
           </div>{" "}
         </AdminShell>
-      )}{" "}
+      )}
     </RequireAuth>
   );
 }
