@@ -381,6 +381,67 @@ router.get(
   },
 );
 
+router.get(
+  "/players/:id/transactions",
+  requireAuth(),
+  requirePerm(PERMS.players_read),
+  async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!id)
+        return res.status(400).json({ ok: false, error: "Invalid player id" });
+
+      const player = await prisma.player.findUnique({
+        where: { id },
+        select: { id: true, telegramId: true, wallet: true, username: true },
+      });
+      if (!player) return res.status(404).json({ ok: false, error: "Not found" });
+
+      const limit = Math.min(parseInt(String(req.query.limit || "200"), 10) || 200, 500);
+
+      const rows = await prisma.transaction.findMany({
+        where: { playerId: id },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: { id: true, kind: true, amount: true, note: true, createdAt: true },
+      });
+
+      let running = new Decimal(player.wallet.toString());
+      const mapped = rows.map((t) => {
+        const amt = new Decimal(t.amount.toString());
+        const balanceAfter = running;
+        const balanceBefore = running.minus(amt);
+        running = balanceBefore;
+        return {
+          id: t.id,
+          kind: t.kind,
+          note: t.note,
+          amount: amt.toNumber(),
+          createdAt: t.createdAt,
+          balanceBefore: balanceBefore.toNumber(),
+          balanceAfter: balanceAfter.toNumber(),
+        };
+      });
+
+      const referralTotal = mapped
+        .filter((t) => String(t.kind || "").toLowerCase().includes("ref"))
+        .reduce((acc, t) => acc.plus(new Decimal(String(t.amount))), new Decimal(0));
+
+      return res.json({
+        ok: true,
+        player: { id: player.id, telegramId: String(player.telegramId), username: player.username || "" },
+        referralTotal: referralTotal.toNumber(),
+        transactions: mapped,
+      });
+    } catch (err) {
+      console.error("player transactions error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
 router.patch(
   "/players/:id/ban",
   requireAuth(),
@@ -425,6 +486,76 @@ router.patch(
       return res.json({ ok: true, player });
     } catch (err) {
       console.error("unban error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.patch(
+  "/players/:id/wallet",
+  requireAuth(),
+  requirePerm(PERMS.players_ban),
+  async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const walletRaw = req.body && req.body.wallet;
+      if (!id)
+        return res.status(400).json({ ok: false, error: "Invalid player id" });
+
+      let nextWallet = null;
+      try {
+        nextWallet = new Decimal(String(walletRaw));
+      } catch (_) {
+        nextWallet = null;
+      }
+      if (!nextWallet || !nextWallet.isFinite() || nextWallet.lt(0)) {
+        return res.status(400).json({ ok: false, error: "Invalid wallet" });
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const player = await tx.player.findUnique({ where: { id } });
+        if (!player) return null;
+
+        const prevWallet = new Decimal(player.wallet.toString());
+        const delta = nextWallet.minus(prevWallet);
+
+        const out = await tx.player.update({
+          where: { id },
+          data: { wallet: nextWallet.toNumber() },
+          select: {
+            id: true,
+            telegramId: true,
+            username: true,
+            phone: true,
+            wallet: true,
+            gift: true,
+            wins: true,
+            bannedAt: true,
+            banReason: true,
+            createdAt: true,
+          },
+        });
+
+        if (!delta.isZero()) {
+          await tx.transaction.create({
+            data: {
+              playerId: id,
+              kind: "adjust_wallet",
+              amount: delta.toNumber(),
+              note: `Wallet adjusted by ${req.adminUser.username} (#${req.adminUser.id})`,
+            },
+          });
+        }
+
+        return out;
+      });
+
+      if (!updated) return res.status(404).json({ ok: false, error: "Not found" });
+      return res.json({ ok: true, player: serializePlayer(updated) });
+    } catch (err) {
+      console.error("wallet adjust error:", err);
       return res
         .status(500)
         .json({ ok: false, error: "Internal server error" });

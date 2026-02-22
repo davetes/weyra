@@ -25,11 +25,33 @@ function formatDate(v) {
     }
 }
 
+function formatDateTime(v) {
+    if (!v) return '-';
+    try {
+        const d = new Date(v);
+        const date = d.toLocaleDateString('en-GB');
+        const time = d.toLocaleTimeString('en-GB', { hour12: false });
+        return `${date}, ${time}`;
+    } catch (_) {
+        return '-';
+    }
+}
+
 function formatMoney(v) {
     if (v == null) return '-';
     const n = Number(v);
     if (Number.isNaN(n)) return String(v);
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function initialsOf(name) {
+    const s = String(name || '').trim();
+    if (!s) return 'U';
+    const parts = s.split(/\s+/).filter(Boolean);
+    const a = (parts[0] || '').slice(0, 1);
+    const b = (parts[1] || '').slice(0, 1);
+    const out = (a + b).toUpperCase();
+    return out || 'U';
 }
 
 function saveLastPlayerId(id) {
@@ -63,6 +85,11 @@ function PlayersInner({ token, admin }) {
     const [players, setPlayers] = useState([]);
     const [selected, setSelected] = useState(null);
     const [actionError, setActionError] = useState('');
+    const [txOpen, setTxOpen] = useState(false);
+    const [txLoading, setTxLoading] = useState(false);
+    const [txError, setTxError] = useState('');
+    const [txRows, setTxRows] = useState([]);
+    const [txReferralTotal, setTxReferralTotal] = useState(0);
 
     async function load() {
         setLoading(true);
@@ -97,6 +124,26 @@ function PlayersInner({ token, admin }) {
     const canRead = useMemo(() => hasPerm(admin, 'players.read'), [admin]);
     const canModerate = useMemo(() => hasPerm(admin, 'players.ban'), [admin]);
 
+    async function adjustCash(p) {
+        setActionError('');
+        try {
+            const current = p?.wallet != null ? String(p.wallet) : '';
+            const next = window.prompt('Set new cash (wallet) balance (ETB):', current);
+            if (next == null) return;
+            const trimmed = String(next).trim();
+            if (!trimmed) return;
+
+            await apiFetch(`/api/admin/players/${p.id}/wallet`, {
+                token,
+                method: 'PATCH',
+                body: { wallet: trimmed },
+            });
+            await load();
+        } catch (err) {
+            setActionError(err?.message || 'Failed');
+        }
+    }
+
     async function ban(p) {
         setActionError('');
         try {
@@ -120,6 +167,25 @@ function PlayersInner({ token, admin }) {
         }
     }
 
+    async function openTransactions(p) {
+        if (!p) return;
+        setTxOpen(true);
+        setTxLoading(true);
+        setTxError('');
+        setTxRows([]);
+        setTxReferralTotal(0);
+
+        try {
+            const res = await apiFetch(`/api/admin/players/${p.id}/transactions?limit=200`, { token });
+            setTxRows(res.transactions || []);
+            setTxReferralTotal(res.referralTotal != null ? Number(res.referralTotal) : 0);
+        } catch (err) {
+            setTxError(err?.message || 'Failed to load transactions');
+        } finally {
+            setTxLoading(false);
+        }
+    }
+
     function handleSearch(e) {
         e.preventDefault();
         load();
@@ -135,38 +201,110 @@ function PlayersInner({ token, admin }) {
             }}
         >
             <div className="space-y-5">
+                {/* Transaction History Modal */}
+                <Modal
+                    open={txOpen}
+                    onClose={() => {
+                        setTxOpen(false);
+                        setTxError('');
+                        setTxRows([]);
+                        setTxReferralTotal(0);
+                    }}
+                    title={`Transaction History (User ID: ${selected?.telegramId || '-'})`}
+                    maxWidth="max-w-5xl"
+                >
+                    <div className="space-y-4">
+                        <div className="bg-bg-secondary border border-border rounded-xl p-4">
+                            <div className="text-xs text-muted">Total Referral Earnings</div>
+                            <div className="text-2xl font-semibold text-slate-100 mt-1">{formatMoney(txReferralTotal)} ETB</div>
+                        </div>
+
+                        {txError && (
+                            <div className="bg-danger-muted border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+                                {txError}
+                            </div>
+                        )}
+
+                        <div className="overflow-auto border border-border rounded-xl">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left text-xs font-medium text-muted uppercase tracking-wider border-b border-border bg-bg-secondary/40">
+                                        <th className="px-5 py-3">Date</th>
+                                        <th className="pr-3 py-3">Type</th>
+                                        <th className="pr-3 py-3">Description</th>
+                                        <th className="pr-3 py-3">Amount</th>
+                                        <th className="pr-3 py-3">Balance Before</th>
+                                        <th className="pr-5 py-3">Balance After</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {txLoading ? (
+                                        <tr>
+                                            <td colSpan={6} className="text-center py-10 text-muted text-sm">Loading...</td>
+                                        </tr>
+                                    ) : txRows.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="text-center py-10 text-muted text-sm">No transactions</td>
+                                        </tr>
+                                    ) : (
+                                        txRows.map((t) => {
+                                            const amt = Number(t.amount || 0);
+                                            const amtText = `${amt >= 0 ? '+' : ''}${formatMoney(amt)} ETB`;
+                                            const amtClass = amt >= 0 ? 'text-success' : 'text-danger';
+                                            return (
+                                                <tr key={t.id} className="border-b border-border/40">
+                                                    <td className="px-5 py-3 text-muted whitespace-nowrap">{formatDateTime(t.createdAt)}</td>
+                                                    <td className="pr-3 py-3 text-slate-200 whitespace-nowrap">{t.kind || '-'}</td>
+                                                    <td className="pr-3 py-3 text-muted max-w-[420px] truncate">{t.note || '-'}</td>
+                                                    <td className={`pr-3 py-3 font-medium whitespace-nowrap ${amtClass}`}>{amtText}</td>
+                                                    <td className="pr-3 py-3 text-slate-300 whitespace-nowrap">{formatMoney(t.balanceBefore)} ETB</td>
+                                                    <td className="pr-5 py-3 text-slate-300 whitespace-nowrap">{formatMoney(t.balanceAfter)} ETB</td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </Modal>
+
                 {/* Player Detail Modal */}
-                <Modal open={!!selected} onClose={() => setSelected(null)} title={`Player #${selected?.id}`}>
+                <Modal open={!!selected} onClose={() => setSelected(null)} title="User Actions" maxWidth="max-w-xl">
                     {selected && (
                         <>
-                            <div className="grid grid-cols-2 gap-3">
-                                {[
-                                    { label: 'Telegram ID', value: selected.telegramId || '-' },
-                                    { label: 'Username', value: selected.username || '-' },
-                                    { label: 'Phone', value: selected.phone || '-' },
-                                    { label: 'Created', value: formatDate(selected.createdAt) },
-                                    { label: 'Wallet', value: `${formatMoney(selected.wallet)} ETB` },
-                                    { label: 'Gift', value: `${formatMoney(selected.gift)} ETB` },
-                                    { label: 'Wins', value: selected.wins ?? 0 },
-                                    {
-                                        label: 'Status',
-                                        value: selected.bannedAt ? (
-                                            <div>
-                                                <Badge variant="danger" dot>Banned</Badge>
-                                                {selected.banReason && (
-                                                    <div className="text-xs text-muted mt-1">Reason: {selected.banReason}</div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <Badge variant="success" dot>Active</Badge>
-                                        ),
-                                    },
-                                ].map((item, i) => (
-                                    <div key={i} className="bg-bg-secondary border border-border rounded-xl p-3.5">
-                                        <div className="text-[10px] font-medium text-muted uppercase tracking-wider">{item.label}</div>
-                                        <div className="mt-1.5 text-sm text-slate-200 break-all">{item.value}</div>
+                            <div className="flex items-center gap-4">
+                                <div className="h-14 w-14 rounded-full bg-success/20 text-success flex items-center justify-center font-semibold text-lg">
+                                    {initialsOf(selected.username || selected.phone || 'User')}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-lg font-semibold text-slate-100 leading-tight">
+                                        {selected.username || 'Player'}
                                     </div>
-                                ))}
+                                    <div className="text-sm text-muted leading-tight">{selected.phone || '-'}</div>
+                                    <div className="text-xs text-muted mt-1">ID: {selected.telegramId || '-'}</div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                                <div className="text-slate-300">Points: <span className="font-semibold text-slate-100">{formatMoney(selected.gift)}</span></div>
+                                <div className="text-slate-300">Cash: <span className="font-semibold text-slate-100">{formatMoney(selected.wallet)} ETB</span></div>
+                                <div className="text-slate-300">Wins: <span className="font-semibold text-slate-100">{selected.wins ?? 0}</span></div>
+                            </div>
+
+                            <div className="mt-2 text-xs text-muted">Joined: {formatDate(selected.createdAt)}</div>
+
+                            <div className="mt-4">
+                                {selected.bannedAt ? (
+                                    <div>
+                                        <Badge variant="danger" dot>Banned</Badge>
+                                        {selected.banReason && (
+                                            <div className="text-xs text-muted mt-1">Reason: {selected.banReason}</div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <Badge variant="success" dot>Active</Badge>
+                                )}
                             </div>
 
                             {actionError && (
@@ -175,16 +313,36 @@ function PlayersInner({ token, admin }) {
                                 </div>
                             )}
 
-                            <div className="mt-5 flex items-center justify-end gap-2">
+                            <div className="mt-6 space-y-3">
+                                <Button
+                                    variant="success"
+                                    size="lg"
+                                    className="w-full"
+                                    disabled={!canModerate}
+                                    loading={loading}
+                                    onClick={() => adjustCash(selected)}
+                                >
+                                    Adjust Cash Balance
+                                </Button>
+
+                                <Button
+                                    variant="primary"
+                                    size="lg"
+                                    className="w-full"
+                                    onClick={() => openTransactions(selected)}
+                                >
+                                    View Transaction History
+                                </Button>
+
                                 {!canModerate ? (
-                                    <span className="text-xs text-muted">No moderation access</span>
+                                    <div className="text-center text-xs text-muted">No moderation access</div>
                                 ) : selected.bannedAt ? (
-                                    <Button variant="success" size="sm" icon={IconCheck} loading={loading} onClick={() => unban(selected)}>
-                                        Unban Player
+                                    <Button variant="success" size="lg" className="w-full" icon={IconCheck} loading={loading} onClick={() => unban(selected)}>
+                                        Unban
                                     </Button>
                                 ) : (
-                                    <Button variant="danger" size="sm" icon={IconBan} loading={loading} onClick={() => ban(selected)}>
-                                        Ban Player
+                                    <Button variant="danger" size="lg" className="w-full" icon={IconBan} loading={loading} onClick={() => ban(selected)}>
+                                        Ban
                                     </Button>
                                 )}
                             </div>
