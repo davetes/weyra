@@ -338,18 +338,6 @@ export default function GamePage() {
         showWinner(w.winner, w.index, w);
       }
 
-      // If we were in a started game and now the server reports not started,
-      // treat it as game ended/restarted and return the player to /play.
-      if (
-        gameStartedRef.current &&
-        !data.started &&
-        !winnerRef.current &&
-        !noWinnerRedirectedRef.current
-      ) {
-        scheduleReturnToPlay(6000);
-        return;
-      }
-
       if (typeof data.server_time === "number") {
         const offset = data.server_time - Date.now();
         serverOffsetRef.current = serverOffsetRef.current * 0.8 + offset * 0.2;
@@ -442,13 +430,11 @@ export default function GamePage() {
           winnerSyncTimeoutRef.current = null;
         }
         showWinner(msg.winner, msg.index, msg);
-      } else if (
-        msg.type === "restarted" ||
-        msg.type === "finished" ||
-        msg.type === "disqualified"
-      ) {
+      } else if (msg.type === "disqualified") {
         if (winnerRef.current) return;
-        scheduleReturnToPlay(6000);
+        if (String(msg.tid || "") === String(TID || "")) {
+          scheduleReturnToPlay(6000);
+        }
       }
     });
 
@@ -530,16 +516,20 @@ export default function GamePage() {
         }
         const idx = myIndices?.[slot ?? 0];
         if (data?.ok && idx != null) {
+          const fallbackDetails = {
+            ...data,
+            picks: [...picks].map(String),
+          };
           if (socketRef.current?.connected) {
             if (winnerSyncTimeoutRef.current) {
               clearTimeout(winnerSyncTimeoutRef.current);
               winnerSyncTimeoutRef.current = null;
             }
             winnerSyncTimeoutRef.current = setTimeout(() => {
-              if (!winnerRef.current) showWinner("You", idx, data);
+              if (!winnerRef.current) showWinner("You", idx, fallbackDetails);
             }, 1500);
           } else {
-            showWinner("You", idx, data);
+            showWinner("You", idx, fallbackDetails);
           }
         }
       })
@@ -565,6 +555,11 @@ export default function GamePage() {
   }
 
   const winCardRows = winner ? buildCard(Number(winner.index || 1)) : null;
+  const winnerPickList = winner?.details?.picks
+    ? Array.from(new Set(winner.details.picks.map(String))).sort(
+        (a, b) => Number(a) - Number(b),
+      )
+    : [];
 
   return (
     <>
@@ -865,6 +860,9 @@ export default function GamePage() {
               </div>
               <div className="text-center mt-1.5 font-bold text-gray-700">
                 Board number {winner.index}
+              </div>
+              <div className="mt-2 text-center text-[11px] sm:text-xs text-gray-700">
+                Selected numbers: {winnerPickList.length ? winnerPickList.join(", ") : "—"}
               </div>
             </div>
             <div className="bg-accent text-white text-center font-black rounded-[10px] py-2.5 mt-2 text-xl">
