@@ -58,7 +58,8 @@ export default function PlayPage() {
   const STAKE = parseInt(stakeQ || "10", 10);
   const TID = tidQ || "";
 
-  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashVisible, setSplashVisible] = useState(false);
+  const [splashError, setSplashError] = useState("");
   const [taken, setTaken] = useState(new Set());
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [totalGames, setTotalGames] = useState("-");
@@ -130,13 +131,26 @@ export default function PlayPage() {
   }
 
   const refreshState = useCallback(async () => {
-    if (!TID) return;
+    if (!TID) {
+      setSplashError("Missing player id.");
+      setSplashVisible(false);
+      return;
+    }
     try {
+      const controller = new AbortController();
+      const to = setTimeout(() => controller.abort(), 7000);
       const res = await fetch(
         `/api/game_state?stake=${STAKE}&tid=${encodeURIComponent(TID)}`,
+        { signal: controller.signal },
       );
-      if (!res.ok) return;
+      clearTimeout(to);
+      if (!res.ok) {
+        setSplashError("Server unavailable. Try again.");
+        setSplashVisible(false);
+        return;
+      }
       const data = await res.json();
+      setSplashError("");
 
       lastPlayState.current = data;
 
@@ -180,7 +194,16 @@ export default function PlayPage() {
       }
 
       setSplashVisible(false);
-    } catch (_) {}
+    } catch (err) {
+      const isAbort =
+        err &&
+        (err.name === "AbortError" ||
+          String(err.message || "").includes("aborted"));
+      setSplashError(
+        isAbort ? "Server timeout. Try again." : "Network error. Try again.",
+      );
+      setSplashVisible(false);
+    }
   }, [STAKE, TID, router]);
 
   function startCountdown(iso) {
@@ -225,6 +248,9 @@ export default function PlayPage() {
   const cardRowsA = selectedA ? buildCard(selectedA) : null;
   const cardRowsB = selectedB ? buildCard(selectedB) : null;
   const totalBalance = wallet + gift;
+  const selectedCount = (selectedA ? 1 : 0) + (selectedB ? 1 : 0);
+  const selectedCost = selectedCount * STAKE;
+  const remainingBalance = Math.max(0, totalBalance - selectedCost);
   const startsInText =
     countdown === "-"
       ? "00:--"
@@ -255,6 +281,21 @@ export default function PlayPage() {
         </div>
       )}
 
+      {splashError && (
+        <div className="mx-auto max-w-[420px] px-2.5 sm:px-3 pt-2">
+          <div className="bg-amber-200/90 text-amber-950 border border-amber-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between gap-2">
+            <span>{splashError}</span>
+            <button
+              type="button"
+              onClick={refreshState}
+              className="bg-amber-700/90 text-amber-100 font-bold rounded-md px-2.5 py-1"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-[420px] mx-auto min-h-[100svh]">
         <div className="bg-slate-900 text-slate-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
           <div className="h-4 sm:h-5" />
@@ -275,6 +316,16 @@ export default function PlayPage() {
               Derash: {Math.round(derash)} ETB
             </div>
           </div>
+
+          <div className="mt-2 text-[10px] sm:text-xs text-slate-300 flex items-center justify-between">
+            <span>
+              Selected: {selectedCount} card{selectedCount === 1 ? "" : "s"}
+            </span>
+            <span>Cost: {Number(selectedCost || 0).toFixed(2)} Birr</span>
+            <span>
+              Remaining: {Number(remainingBalance || 0).toFixed(2)} Birr
+            </span>
+          </div>
         </div>
 
         <div className="p-2 sm:p-3">
@@ -288,71 +339,71 @@ export default function PlayPage() {
             <div className="mt-2.5 sm:mt-3 max-h-[52vh] overflow-y-auto pr-1">
               <div className="grid grid-cols-10 gap-[2px] sm:gap-1">
                 {numbers.map((n) => {
-                const key = String(n);
-                const isTaken = taken.has(key);
-                const isSelected = selectedA === n || selectedB === n;
-                const base =
-                  "relative font-bold rounded-sm sm:rounded-md aspect-square flex items-center justify-center select-none text-[10px] sm:text-sm leading-none border";
-                const cls = isTaken
-                  ? "bg-rose-900/60 border-rose-700 text-rose-200"
-                  : isSelected
-                    ? "bg-rose-600 border-rose-300 text-white"
-                    : "bg-teal-900/50 border-teal-700 text-teal-100";
+                  const key = String(n);
+                  const isTaken = taken.has(key);
+                  const isSelected = selectedA === n || selectedB === n;
+                  const base =
+                    "relative font-bold rounded-sm sm:rounded-md aspect-square flex items-center justify-center select-none text-[10px] sm:text-sm leading-none border";
+                  const cls = isTaken
+                    ? "bg-rose-900/60 border-rose-700 text-rose-200"
+                    : isSelected
+                      ? "bg-rose-600 border-rose-300 text-white"
+                      : "bg-teal-900/50 border-teal-700 text-teal-100";
 
-                return (
-                  <button
-                    key={n}
-                    type="button"
-                    className={`${base} ${cls}`}
-                    disabled={isTaken && !isSelected}
-                    onClick={() => {
-                      if (selectedA === n) {
-                        cancelCard(0, n);
-                        setSelectedA(null);
-                        return;
-                      }
-                      if (selectedB === n) {
-                        cancelCard(1, n);
-                        setSelectedB(null);
-                        return;
-                      }
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`${base} ${cls}`}
+                      disabled={isTaken && !isSelected}
+                      onClick={() => {
+                        if (selectedA === n) {
+                          cancelCard(0, n);
+                          setSelectedA(null);
+                          return;
+                        }
+                        if (selectedB === n) {
+                          cancelCard(1, n);
+                          setSelectedB(null);
+                          return;
+                        }
 
-                      const bal = wallet + gift;
-                      const currentSelectedCount =
-                        (selectedA ? 1 : 0) + (selectedB ? 1 : 0);
-                      const nextCost = (currentSelectedCount + 1) * STAKE;
-                      if (bal < nextCost) {
-                        setInsufficientNeed(Math.max(0, nextCost - bal));
-                        setShowInsufficient(true);
-                        return;
-                      }
-                      setShowInsufficient(false);
+                        const bal = wallet + gift;
+                        const currentSelectedCount =
+                          (selectedA ? 1 : 0) + (selectedB ? 1 : 0);
+                        const nextCost = (currentSelectedCount + 1) * STAKE;
+                        if (bal < nextCost) {
+                          setInsufficientNeed(Math.max(0, nextCost - bal));
+                          setShowInsufficient(true);
+                          return;
+                        }
+                        setShowInsufficient(false);
 
-                      if (!selectedA) {
-                        setSelectedA(n);
-                        acceptCard(n, 0);
-                        return;
-                      }
+                        if (!selectedA) {
+                          setSelectedA(n);
+                          acceptCard(n, 0);
+                          return;
+                        }
 
-                      if (!selectedB) {
+                        if (!selectedB) {
+                          setSelectedB(n);
+                          acceptCard(n, 1);
+                          return;
+                        }
+
+                        cancelCard(1, selectedB);
                         setSelectedB(n);
                         acceptCard(n, 1);
-                        return;
-                      }
-
-                      cancelCard(1, selectedB);
-                      setSelectedB(n);
-                      acceptCard(n, 1);
-                    }}
-                  >
-                    {n}
-                    {isSelected && (
-                      <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">
-                        ✓
-                      </span>
-                    )}
-                  </button>
-                );
+                      }}
+                    >
+                      {n}
+                      {isSelected && (
+                        <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
                 })}
               </div>
             </div>

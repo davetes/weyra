@@ -235,6 +235,8 @@ async function handleGameState(req, res, io) {
       ? game.chargedCount
       : acceptedPlayersCount;
 
+    const recentWinner = cache.get(`winner_${stake}`) || null;
+
     return res.json({
       ok: true,
       stake,
@@ -260,6 +262,7 @@ async function handleGameState(req, res, io) {
       wallet,
       gift,
       players_display: playersDisplay,
+      winner: recentWinner,
       server_time: Date.now(),
     });
   } catch (err) {

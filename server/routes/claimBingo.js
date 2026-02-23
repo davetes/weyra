@@ -2,6 +2,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const { getCard } = require("../utils");
+const cache = require("../cache");
 
 const prisma = new PrismaClient();
 
@@ -176,6 +177,21 @@ async function handleClaimBingo(req, res, io) {
       col: result.col,
       picks: picks.map(String),
     });
+
+    cache.set(
+      `winner_${stake}`,
+      {
+        winner: winnerName,
+        index: sel.index,
+        slot,
+        pattern: result.pattern,
+        row: result.row,
+        col: result.col,
+        picks: picks.map(String),
+        at: Date.now(),
+      },
+      10,
+    );
 
     // Create new game for next round
     await prisma.game.create({ data: { stake } });

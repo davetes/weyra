@@ -94,6 +94,8 @@ export default function GamePage() {
   const autoBaseline0Ref = useRef(null);
   const autoBaseline1Ref = useRef(null);
   const gameStartedRef = useRef(false);
+  const endRedirectTimeoutRef = useRef(null);
+  const winnerSyncTimeoutRef = useRef(null);
 
   const derash = Math.max(0, players * STAKE * 0.8);
 
@@ -306,6 +308,22 @@ export default function GamePage() {
     for (let n = base; n <= end; n += 1) preloadNumber(n);
   }
 
+  function scheduleReturnToPlay(delayMs) {
+    if (endRedirectTimeoutRef.current) {
+      clearTimeout(endRedirectTimeoutRef.current);
+      endRedirectTimeoutRef.current = null;
+    }
+    endRedirectTimeoutRef.current = setTimeout(
+      () => {
+        try {
+          localStorage.clear();
+        } catch (_) {}
+        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+      },
+      Math.max(0, delayMs),
+    );
+  }
+
   const refresh = useCallback(async () => {
     if (!TID) return;
     try {
@@ -315,15 +333,20 @@ export default function GamePage() {
       if (!res.ok) return;
       const data = await res.json();
 
+      if (data?.winner && !winnerRef.current) {
+        const w = data.winner;
+        showWinner(w.winner, w.index, w);
+      }
+
       // If we were in a started game and now the server reports not started,
       // treat it as game ended/restarted and return the player to /play.
       if (
         gameStartedRef.current &&
         !data.started &&
+        !winnerRef.current &&
         !noWinnerRedirectedRef.current
       ) {
-        noWinnerRedirectedRef.current = true;
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        scheduleReturnToPlay(6000);
         return;
       }
 
@@ -366,13 +389,11 @@ export default function GamePage() {
       const reached75 =
         (callNum != null && Number.isFinite(callNum) && callNum >= 75) ||
         calledCount >= 75 ||
-        (callCountNum != null && Number.isFinite(callCountNum) && callCountNum >= 75);
+        (callCountNum != null &&
+          Number.isFinite(callCountNum) &&
+          callCountNum >= 75);
 
-      if (
-        noWinner &&
-        !noWinnerRedirectedRef.current &&
-        reached75
-      ) {
+      if (noWinner && !noWinnerRedirectedRef.current && reached75) {
         noWinnerRedirectedRef.current = true;
         router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
       }
@@ -416,16 +437,18 @@ export default function GamePage() {
       } else if (msg.type === "winner") {
         setSuppressCalls(true);
         setAudioOn(false);
+        if (winnerSyncTimeoutRef.current) {
+          clearTimeout(winnerSyncTimeoutRef.current);
+          winnerSyncTimeoutRef.current = null;
+        }
         showWinner(msg.winner, msg.index, msg);
       } else if (
         msg.type === "restarted" ||
         msg.type === "finished" ||
         msg.type === "disqualified"
       ) {
-        try {
-          localStorage.clear();
-        } catch (_) {}
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        if (winnerRef.current) return;
+        scheduleReturnToPlay(6000);
       }
     });
 
@@ -440,17 +463,16 @@ export default function GamePage() {
 
   function showWinner(name, index, details) {
     setSuppressCalls(true);
-    setWinner({ name: name || "Player", index, details, countdown: 5 });
+    const payload = { name: name || "Player", index, details, countdown: 5 };
+    winnerRef.current = payload;
+    setWinner(payload);
     let left = 5;
     if (winCountdownRef.current) clearInterval(winCountdownRef.current);
     winCountdownRef.current = setInterval(() => {
       left--;
       if (left <= 0) {
         clearInterval(winCountdownRef.current);
-        try {
-          localStorage.clear();
-        } catch (_) {}
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        scheduleReturnToPlay(0);
       }
       setWinner((prev) =>
         prev ? { ...prev, countdown: Math.max(0, left) } : null,
@@ -494,7 +516,8 @@ export default function GamePage() {
           throw new Error(msg);
         }
         if (!data?.ok) {
-          if (data?.disqualified) return { disqualified: true, error: data?.error };
+          if (data?.disqualified)
+            return { disqualified: true, error: data?.error };
           const msg = data?.error || "Failed to claim bingo";
           throw new Error(msg);
         }
@@ -506,7 +529,19 @@ export default function GamePage() {
           return;
         }
         const idx = myIndices?.[slot ?? 0];
-        if (data?.ok && idx != null) showWinner("You", idx, data);
+        if (data?.ok && idx != null) {
+          if (socketRef.current?.connected) {
+            if (winnerSyncTimeoutRef.current) {
+              clearTimeout(winnerSyncTimeoutRef.current);
+              winnerSyncTimeoutRef.current = null;
+            }
+            winnerSyncTimeoutRef.current = setTimeout(() => {
+              if (!winnerRef.current) showWinner("You", idx, data);
+            }, 1500);
+          } else {
+            showWinner("You", idx, data);
+          }
+        }
       })
       .catch((err) => {
         alert(err?.message || "Failed to claim bingo");
@@ -531,14 +566,10 @@ export default function GamePage() {
 
   const winCardRows = winner ? buildCard(Number(winner.index || 1)) : null;
 
-  function leaveGame() {
-    router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
-  }
-
   return (
     <>
       <Head>
-        <title>Bingo - Game</title>
+        <title>Game</title>
       </Head>
       <audio ref={audioRef} preload="auto" />
 
@@ -774,14 +805,6 @@ export default function GamePage() {
                 })}
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={leaveGame}
-              className="mt-3.5 sm:mt-4 w-full bg-red-600 text-white font-bold rounded-xl py-2.5 sm:py-3 text-sm"
-            >
-              Leave Game
-            </button>
           </div>
         </div>
       </div>
@@ -819,7 +842,7 @@ export default function GamePage() {
                     const isWin = isWinningCell(r, c, winner.details);
                     const winPicks = winner.details?.picks
                       ? new Set(winner.details.picks.map(String))
-                      : picks;
+                      : new Set();
                     const isP = !isFree && winPicks.has(String(val));
                     return (
                       <div
