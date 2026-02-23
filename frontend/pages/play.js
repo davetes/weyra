@@ -70,7 +70,6 @@ export default function PlayPage() {
   const [activeSlot, setActiveSlot] = useState(0);
   const [showInsufficient, setShowInsufficient] = useState(false);
   const [insufficientNeed, setInsufficientNeed] = useState(0);
-  const [page, setPage] = useState(0);
 
   const countdownTimerRef = useRef(null);
   const pollRef = useRef(null);
@@ -225,14 +224,6 @@ export default function PlayPage() {
   const derash = Math.max(0, acceptedCount * STAKE * 0.8);
   const cardRowsA = selectedA ? buildCard(selectedA) : null;
   const cardRowsB = selectedB ? buildCard(selectedB) : null;
-
-  const pageSize = 100;
-  const totalPages = Math.max(1, Math.ceil(numbers.length / pageSize));
-  const safePage = Math.min(Math.max(0, page), totalPages - 1);
-  const pagedNumbers = numbers.slice(
-    safePage * pageSize,
-    safePage * pageSize + pageSize,
-  );
   const totalBalance = wallet + gift;
   const startsInText =
     countdown === "-"
@@ -294,8 +285,9 @@ export default function PlayPage() {
               </div>
             </div>
 
-            <div className="mt-2.5 sm:mt-3 grid grid-cols-10 gap-[2px] sm:gap-1">
-              {pagedNumbers.map((n) => {
+            <div className="mt-2.5 sm:mt-3 max-h-[52vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-10 gap-[2px] sm:gap-1">
+                {numbers.map((n) => {
                 const key = String(n);
                 const isTaken = taken.has(key);
                 const isSelected = selectedA === n || selectedB === n;
@@ -361,7 +353,8 @@ export default function PlayPage() {
                     )}
                   </button>
                 );
-              })}
+                })}
+              </div>
             </div>
 
             {showInsufficient && (
@@ -370,28 +363,6 @@ export default function PlayPage() {
                 Birr)
               </div>
             )}
-
-            <div className="mt-2.5 sm:mt-3 flex items-center justify-between text-slate-300 text-xs sm:text-sm">
-              <button
-                type="button"
-                className="px-2.5 py-1 sm:px-3 sm:py-1.5"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={safePage <= 0}
-              >
-                «
-              </button>
-              <div>
-                Page {safePage + 1} of {totalPages}
-              </div>
-              <button
-                type="button"
-                className="px-2.5 py-1 sm:px-3 sm:py-1.5"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={safePage >= totalPages - 1}
-              >
-                »
-              </button>
-            </div>
 
             {(selectedA || selectedB) && (
               <div className="mt-3.5 sm:mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
@@ -485,7 +456,7 @@ export default function PlayPage() {
           </div>
 
           <div className="text-muted text-[10px] text-center mt-3">
-            Copyright roha Bingo 2025
+            Copyright weyra Bingo 2026
           </div>
         </div>
       </div>
