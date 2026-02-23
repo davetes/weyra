@@ -271,8 +271,8 @@ export default function PlayPage() {
             <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
               Players: {acceptedCount}
             </div>
-            <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Prize: {Math.round(derash)} Br
+            <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 derash-float">
+              Derash: {Math.round(derash)} ETB
             </div>
           </div>
         </div>
@@ -280,7 +280,7 @@ export default function PlayPage() {
         <div className="p-2 sm:p-3">
           <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 sm:p-3">
             <div className="mt-2 flex items-center justify-end text-[10px] sm:text-xs">
-              <div className="text-amber-400 font-semibold">
+              <div className="text-amber-400 font-black derash-float">
                 Starts In: {startsInText}
               </div>
             </div>

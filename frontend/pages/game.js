@@ -71,9 +71,12 @@ export default function GamePage() {
   const [calledSet, setCalledSet] = useState(new Set());
   const [myCards, setMyCards] = useState([null, null]);
   const [myIndices, setMyIndices] = useState([null, null]);
+  const [gameStarted, setGameStarted] = useState(false);
   const [activeSlot, setActiveSlot] = useState(0);
   const [picks0, setPicks0] = useState(new Set());
   const [picks1, setPicks1] = useState(new Set());
+  const [autoSelect0, setAutoSelect0] = useState(false);
+  const [autoSelect1, setAutoSelect1] = useState(false);
   const [winner, setWinner] = useState(null);
   const [audioOn, setAudioOn] = useState(false);
   const [suppressCalls, setSuppressCalls] = useState(false);
@@ -88,12 +91,19 @@ export default function GamePage() {
   const winCountdownRef = useRef(null);
   const winnerRef = useRef(null);
   const noWinnerRedirectedRef = useRef(false);
+  const autoBaseline0Ref = useRef(null);
+  const autoBaseline1Ref = useRef(null);
+  const gameStartedRef = useRef(false);
 
   const derash = Math.max(0, players * STAKE * 0.8);
 
   useEffect(() => {
     winnerRef.current = winner;
   }, [winner]);
+
+  useEffect(() => {
+    gameStartedRef.current = !!gameStarted;
+  }, [gameStarted]);
 
   function loadSlotPicks(slot, idx) {
     if (idx == null) return new Set();
@@ -114,12 +124,108 @@ export default function GamePage() {
     } catch (_) {}
   }
 
+  function loadAutoSelect(slot) {
+    try {
+      const raw = localStorage.getItem(`bingo_auto_${STAKE}_${slot}`);
+      return raw === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function saveAutoSelect(slot, val) {
+    try {
+      localStorage.setItem(`bingo_auto_${STAKE}_${slot}`, val ? "1" : "0");
+    } catch (_) {}
+  }
+
+  useEffect(() => {
+    setAutoSelect0(loadAutoSelect(0));
+    setAutoSelect1(loadAutoSelect(1));
+  }, [STAKE]);
+
+  function autoPickSetForCard(card, called) {
+    const out = new Set();
+    if (!card || !called) return out;
+    for (const v of card.flat()) {
+      if (v === "FREE") continue;
+      const vs = String(v);
+      if (called.has(vs)) out.add(vs);
+    }
+    return out;
+  }
+
+  function cardNumberSet(card) {
+    const s = new Set();
+    if (!card) return s;
+    for (const v of card.flat()) {
+      if (v === "FREE") continue;
+      s.add(String(v));
+    }
+    return s;
+  }
+
   useEffect(() => {
     const idx0 = myIndices?.[0] != null ? Number(myIndices[0]) : null;
     const idx1 = myIndices?.[1] != null ? Number(myIndices[1]) : null;
     setPicks0(loadSlotPicks(0, idx0));
     setPicks1(loadSlotPicks(1, idx1));
   }, [STAKE, myIndices]);
+
+  useEffect(() => {
+    const idx0 = myIndices?.[0] != null ? Number(myIndices[0]) : null;
+    const idx1 = myIndices?.[1] != null ? Number(myIndices[1]) : null;
+    const c0 = myCards?.[0] || null;
+    const c1 = myCards?.[1] || null;
+
+    if (autoSelect0 && c0 && idx0 != null) {
+      if (!autoBaseline0Ref.current) {
+        autoBaseline0Ref.current = new Set(calledSet);
+      } else {
+        const baseline = autoBaseline0Ref.current;
+        const cardSet = cardNumberSet(c0);
+        const add = [];
+        for (const n of calledSet) {
+          if (baseline.has(n)) continue;
+          if (cardSet.has(n)) add.push(n);
+        }
+        if (add.length) {
+          setPicks0((prev) => {
+            const next = new Set(prev);
+            for (const v of add) next.add(String(v));
+            if (next.size === prev.size) return prev;
+            saveSlotPicks(0, idx0, next);
+            return next;
+          });
+        }
+        autoBaseline0Ref.current = new Set(calledSet);
+      }
+    }
+
+    if (autoSelect1 && c1 && idx1 != null) {
+      if (!autoBaseline1Ref.current) {
+        autoBaseline1Ref.current = new Set(calledSet);
+      } else {
+        const baseline = autoBaseline1Ref.current;
+        const cardSet = cardNumberSet(c1);
+        const add = [];
+        for (const n of calledSet) {
+          if (baseline.has(n)) continue;
+          if (cardSet.has(n)) add.push(n);
+        }
+        if (add.length) {
+          setPicks1((prev) => {
+            const next = new Set(prev);
+            for (const v of add) next.add(String(v));
+            if (next.size === prev.size) return prev;
+            saveSlotPicks(1, idx1, next);
+            return next;
+          });
+        }
+        autoBaseline1Ref.current = new Set(calledSet);
+      }
+    }
+  }, [autoSelect0, autoSelect1, calledSet, myCards, myIndices, STAKE]);
 
   function togglePick(slot, val) {
     const idx = myIndices?.[slot] != null ? Number(myIndices[slot]) : null;
@@ -209,6 +315,18 @@ export default function GamePage() {
       if (!res.ok) return;
       const data = await res.json();
 
+      // If we were in a started game and now the server reports not started,
+      // treat it as game ended/restarted and return the player to /play.
+      if (
+        gameStartedRef.current &&
+        !data.started &&
+        !noWinnerRedirectedRef.current
+      ) {
+        noWinnerRedirectedRef.current = true;
+        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        return;
+      }
+
       if (typeof data.server_time === "number") {
         const offset = data.server_time - Date.now();
         serverOffsetRef.current = serverOffsetRef.current * 0.8 + offset * 0.2;
@@ -216,6 +334,7 @@ export default function GamePage() {
 
       setPlayers(data.players ?? 0);
       setTotalGames(data.total_games ?? "-");
+      setGameStarted(!!data.started);
 
       if (
         data.current_call != null &&
@@ -242,19 +361,23 @@ export default function GamePage() {
         : 0;
       const noWinner = !winnerRef.current && !suppressCalls;
 
+      const callCountNum =
+        data.call_count != null ? Number(data.call_count) : null;
+      const reached75 =
+        (callNum != null && Number.isFinite(callNum) && callNum >= 75) ||
+        calledCount >= 75 ||
+        (callCountNum != null && Number.isFinite(callCountNum) && callCountNum >= 75);
+
       if (
         noWinner &&
         !noWinnerRedirectedRef.current &&
-        callNum != null &&
-        Number.isFinite(callNum) &&
-        callNum >= 75 &&
-        calledCount >= 75
+        reached75
       ) {
         noWinnerRedirectedRef.current = true;
         router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
       }
     } catch (_) {}
-  }, [STAKE, TID, suppressCalls, audioOn]);
+  }, [STAKE, TID, suppressCalls, audioOn, router]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -336,6 +459,14 @@ export default function GamePage() {
   }
 
   function claimBingo(slot) {
+    if (!TID) {
+      alert("Missing player id.");
+      return;
+    }
+    if (!gameStarted) {
+      alert("Game not started yet.");
+      return;
+    }
     const picks = slot === 1 ? picks1 : picks0;
     if (socketRef.current?.connected) {
       socketRef.current.emit("message", {
@@ -351,12 +482,35 @@ export default function GamePage() {
     form.set("slot", String(slot ?? 0));
     form.set("picks", JSON.stringify([...picks]));
     fetch("/api/claim_bingo", { method: "POST", body: form })
-      .then((r) => r.json())
-      .then((data) => {
-        const idx = myIndices?.[slot ?? 0];
-        if (data.ok && idx != null) showWinner("You", idx, data);
+      .then(async (r) => {
+        let data = null;
+        try {
+          data = await r.json();
+        } catch (_) {
+          data = null;
+        }
+        if (!r.ok) {
+          const msg = data?.error || "Failed to claim bingo";
+          throw new Error(msg);
+        }
+        if (!data?.ok) {
+          if (data?.disqualified) return { disqualified: true, error: data?.error };
+          const msg = data?.error || "Failed to claim bingo";
+          throw new Error(msg);
+        }
+        return data;
       })
-      .catch(() => {});
+      .then((data) => {
+        if (data?.disqualified) {
+          alert(data?.error || "No valid bingo");
+          return;
+        }
+        const idx = myIndices?.[slot ?? 0];
+        if (data?.ok && idx != null) showWinner("You", idx, data);
+      })
+      .catch((err) => {
+        alert(err?.message || "Failed to claim bingo");
+      });
   }
 
   function isWinningCell(r, c, d) {
@@ -404,8 +558,8 @@ export default function GamePage() {
               <div className="bg-emerald-500/90 text-emerald-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
                 Stake Birr {STAKE}
               </div>
-              <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-                Prize Birr {Math.round(derash)}
+              <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 derash-float">
+                Derash: {Math.round(derash)} ETB
               </div>
               <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
                 Players {players}
@@ -507,8 +661,11 @@ export default function GamePage() {
 
                 {[0, 1].map((slot) => {
                   const card = myCards?.[slot] || null;
+                  if (!card) return null;
+
                   const slotPicks = slot === 1 ? picks1 : picks0;
                   const enabled = !!card;
+                  const autoOn = slot === 1 ? autoSelect1 : autoSelect0;
 
                   return (
                     <div
@@ -523,37 +680,79 @@ export default function GamePage() {
                       onClick={() => setActiveSlot(slot)}
                       onKeyDown={() => setActiveSlot(slot)}
                     >
-                      <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
-                        {card ? (
-                          card.flat().map((val, i) => {
-                            const vs = String(val);
-                            const isFree = val === "FREE";
-                            const isPicked = slotPicks.has(vs);
-                            return (
-                              <div
-                                key={i}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isFree) togglePick(slot, vs);
-                                }}
-                                className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none select-none ${
-                                  isFree
-                                    ? "bg-amber-400 text-amber-950 border-amber-200"
-                                    : isPicked
-                                      ? "bg-indigo-500 text-indigo-950 border-indigo-200"
-                                      : "bg-teal-900/50 border-teal-700 text-teal-100"
-                                }`}
-                              >
-                                {isFree ? "★" : val}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="col-span-5 text-center text-slate-400 py-3 text-[11px] sm:text-sm">
-                            No card
+                      <div className="grid grid-cols-5 gap-1">
+                        {LETTERS.map((l) => (
+                          <div
+                            key={l}
+                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}
+                          >
+                            {l}
                           </div>
-                        )}
+                        ))}
                       </div>
+
+                      <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                        {card.flat().map((val, i) => {
+                          const vs = String(val);
+                          const isFree = val === "FREE";
+                          const isPicked = slotPicks.has(vs);
+                          return (
+                            <div
+                              key={i}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isFree) togglePick(slot, vs);
+                              }}
+                              className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none select-none ${
+                                isFree
+                                  ? "bg-amber-400 text-amber-950 border-amber-200"
+                                  : isPicked
+                                    ? "bg-indigo-500 text-indigo-950 border-indigo-200"
+                                    : "bg-teal-900/50 border-teal-700 text-teal-100"
+                              }`}
+                            >
+                              {isFree ? "★" : val}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!enabled) return;
+                          if (slot === 1) {
+                            setAutoSelect1((p) => {
+                              const next = !p;
+                              saveAutoSelect(1, next);
+                              autoBaseline1Ref.current = next
+                                ? new Set(calledSet)
+                                : null;
+                              return next;
+                            });
+                          } else {
+                            setAutoSelect0((p) => {
+                              const next = !p;
+                              saveAutoSelect(0, next);
+                              autoBaseline0Ref.current = next
+                                ? new Set(calledSet)
+                                : null;
+                              return next;
+                            });
+                          }
+                        }}
+                        disabled={!enabled}
+                        className={`mt-2 w-full font-extrabold rounded-lg py-1.5 text-xs sm:text-sm border ${
+                          enabled ? "active:scale-[0.99]" : "opacity-60"
+                        } ${
+                          autoOn
+                            ? "bg-emerald-500/90 text-emerald-950 border-emerald-200"
+                            : "bg-slate-900/40 text-slate-200 border-slate-700"
+                        }`}
+                      >
+                        Auto Select: {autoOn ? "ON" : "OFF"}
+                      </button>
 
                       <button
                         type="button"
@@ -561,9 +760,11 @@ export default function GamePage() {
                           e.stopPropagation();
                           claimBingo(slot);
                         }}
-                        disabled={!enabled}
+                        disabled={!enabled || !gameStarted}
                         className={`mt-2.5 sm:mt-3 w-full bg-amber-700/90 text-amber-100 font-black rounded-lg py-1.5 sm:py-2 text-xs sm:text-sm border border-amber-500 ${
-                          enabled ? "active:scale-[0.99]" : "opacity-60"
+                          enabled && gameStarted
+                            ? "active:scale-[0.99]"
+                            : "opacity-60"
                         }`}
                       >
                         BINGO
