@@ -247,7 +247,7 @@ function setupCommands(bot) {
   bot.onText(/\/contact/, async (msg) => {
     await bot.sendMessage(
       msg.chat.id,
-      "Telegram - @Rohabingosupport\nPhone - +251981959155",
+      
     );
   });
 
@@ -537,7 +537,7 @@ function setupCommands(bot) {
       await bot.answerCallbackQuery(query.id).catch(() => {});
       await bot.sendMessage(
         chatId,
-        "Telegram - @Rohabingosupport\nPhone - +251981959155",
+        /* "Telegram - @username\nPhone - phone" */
       );
       return;
     }

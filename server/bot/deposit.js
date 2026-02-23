@@ -16,11 +16,11 @@ function buildDepositKeyboard() {
 }
 
 function buildDepositMessage(data) {
-  const support = process.env.SUPPORT_HANDLE || "@Rohabingosupport";
+  const support = process.env.SUPPORT_HANDLE || "supprort username";
 
   if (data === "deposit_cbe") {
     const acc = process.env.CBE_ACCOUNT || "1000 0000 0000";
-    const name = process.env.CBE_ACCOUNT_NAME || "LuckyBet Bingo";
+    const name = process.env.CBE_ACCOUNT_NAME || "weyra bingo";
     return (
       `<b>ለ CBE ሒሳብ</b>\n` +
       `<code>${acc}</code> - <b>${name}</b>\n\n` +
@@ -34,7 +34,7 @@ function buildDepositMessage(data) {
 
   if (data === "deposit_boa") {
     const acc = process.env.BOA_ACCOUNT || "2000 0000 0000";
-    const name = process.env.BOA_ACCOUNT_NAME || "LuckyBet Bingo";
+    const name = process.env.BOA_ACCOUNT_NAME || "weyra Bingo";
     return (
       `<b>ለ BOA ሒሳብ</b>\n` +
       `<code>${acc}</code> - <b>${name}</b>\n\n` +
@@ -48,7 +48,7 @@ function buildDepositMessage(data) {
 
   if (data === "deposit_cbe_birr") {
     const phone = process.env.CBE_BIRR_PHONE || "+251900000000";
-    const name = process.env.CBE_BIRR_NAME || "LuckyBet Bingo";
+    const name = process.env.CBE_BIRR_NAME || "weyra Bingo";
     return (
       `<b>ለ CBE-Birr ሒሳብ</b>\n` +
       `<code>${phone}</code> - <b>${name}</b>\n\n` +
@@ -62,7 +62,7 @@ function buildDepositMessage(data) {
 
   if (data === "deposit_telebirr") {
     const phone = process.env.TELEBIRR_PHONE || "+251900000000";
-    const name = process.env.TELEBIRR_NAME || "LuckyBet Bingo";
+    const name = process.env.TELEBIRR_NAME || "weyra Bingo";
     return (
       `<b>ለ Telebirr ሒሳብ</b>\n` +
       `<code>${phone}</code> - <b>${name}</b>\n\n` +

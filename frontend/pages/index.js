@@ -13,7 +13,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>LuckyBet Bingo</title>
+        <title>weyra Bingo</title>
       </Head>
       <div className="flex items-center justify-center h-screen text-muted text-sm font-medium">
         Redirecting...
