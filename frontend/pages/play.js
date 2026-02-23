@@ -112,8 +112,15 @@ export default function PlayPage() {
     await refreshState();
   }
 
-  async function cancelCard(slot) {
+  async function cancelCard(slot, index) {
     if (!TID) return;
+    if (index != null) {
+      setTaken((prev) => {
+        const next = new Set(prev);
+        next.delete(String(index));
+        return next;
+      });
+    }
     const form = new URLSearchParams();
     form.set("tid", String(TID));
     form.set("stake", String(STAKE));
@@ -237,7 +244,7 @@ export default function PlayPage() {
   return (
     <>
       <Head>
-        <title>Awash Bingo</title>
+        <title>Bingo</title>
       </Head>
 
       {splashVisible && (
@@ -297,7 +304,7 @@ export default function PlayPage() {
                 const cls = isTaken
                   ? "bg-rose-900/60 border-rose-700 text-rose-200"
                   : isSelected
-                    ? "bg-indigo-600 border-indigo-300 text-white"
+                    ? "bg-rose-600 border-rose-300 text-white"
                     : "bg-teal-900/50 border-teal-700 text-teal-100";
 
                 return (
@@ -308,12 +315,12 @@ export default function PlayPage() {
                     disabled={isTaken && !isSelected}
                     onClick={() => {
                       if (selectedA === n) {
-                        cancelCard(0);
+                        cancelCard(0, n);
                         setSelectedA(null);
                         return;
                       }
                       if (selectedB === n) {
-                        cancelCard(1);
+                        cancelCard(1, n);
                         setSelectedB(null);
                         return;
                       }
@@ -341,7 +348,7 @@ export default function PlayPage() {
                         return;
                       }
 
-                      cancelCard(1);
+                      cancelCard(1, selectedB);
                       setSelectedB(n);
                       acceptCard(n, 1);
                     }}
@@ -415,7 +422,7 @@ export default function PlayPage() {
                       cardRowsA.flat().map((val, i) => (
                         <div
                           key={i}
-                          className={`rounded-md flex items-center justify-center h-7 sm:h-9 font-bold border text-[11px] sm:text-sm ${
+                          className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none ${
                             val === "FREE"
                               ? "bg-slate-700 border-slate-600 text-white"
                               : "bg-teal-900/50 border-teal-700 text-teal-100"
@@ -455,7 +462,7 @@ export default function PlayPage() {
                         cardRowsB.flat().map((val, i) => (
                           <div
                             key={i}
-                            className={`rounded-md flex items-center justify-center h-7 sm:h-9 font-bold border text-[11px] sm:text-sm ${
+                            className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none ${
                               val === "FREE"
                                 ? "bg-slate-700 border-slate-600 text-white"
                                 : "bg-teal-900/50 border-teal-700 text-teal-100"

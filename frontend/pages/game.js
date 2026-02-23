@@ -536,12 +536,12 @@ export default function GamePage() {
                                   e.stopPropagation();
                                   if (!isFree) togglePick(slot, vs);
                                 }}
-                                className={`rounded-md flex items-center justify-center h-7 sm:h-9 font-bold border text-[11px] sm:text-sm select-none ${
+                                className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none select-none ${
                                   isFree
                                     ? "bg-amber-400 text-amber-950 border-amber-200"
                                     : isPicked
-                                      ? "bg-violet-500 text-violet-950 border-violet-200"
-                                      : "bg-slate-950/30 text-slate-100 border-slate-700"
+                                      ? "bg-indigo-500 text-indigo-950 border-indigo-200"
+                                      : "bg-teal-900/50 border-teal-700 text-teal-100"
                                 }`}
                               >
                                 {isFree ? "★" : val}
@@ -603,7 +603,7 @@ export default function GamePage() {
                 {LETTERS.map((l) => (
                   <div
                     key={l}
-                    className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1.5 rounded-md`}
+                    className={`${LETTER_BG[l]} text-white font-extrabold text-center rounded-md aspect-square flex items-center justify-center text-[11px] sm:text-sm leading-none`}
                   >
                     {l}
                   </div>
@@ -623,15 +623,15 @@ export default function GamePage() {
                     return (
                       <div
                         key={i}
-                        className={`rounded-lg flex items-center justify-center h-11 font-bold border
+                        className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[11px] sm:text-sm leading-none
                       ${
                         isWin
-                          ? "bg-card-free border-card-free-border text-white"
+                          ? "bg-indigo-500 text-indigo-950 border-indigo-200"
                           : isP
-                            ? "bg-yellow-300 border-yellow-500 text-gray-800"
+                            ? "bg-emerald-500 text-emerald-950 border-emerald-200"
                             : isFree
-                              ? "bg-card-free border-card-free-border text-white"
-                              : "bg-white border-gray-300 text-black"
+                              ? "bg-amber-400 text-amber-950 border-amber-200"
+                              : "bg-teal-900/50 border-teal-700 text-teal-100"
                       }`}
                       >
                         {isFree ? "⭐" : val}
