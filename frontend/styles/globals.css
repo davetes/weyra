@@ -33,6 +33,13 @@
     ::-webkit-scrollbar-thumb:hover {
         @apply bg-muted;
     }
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
     input, select, textarea {
         @apply bg-surface border border-border rounded-lg px-3 py-2 text-white outline-none;
     }

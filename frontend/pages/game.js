@@ -97,6 +97,14 @@ export default function GamePage() {
   const endRedirectTimeoutRef = useRef(null);
   const winnerSyncTimeoutRef = useRef(null);
 
+  const lastPlayersRef = useRef(null);
+  const lastTotalGamesRef = useRef(null);
+  const lastStartedRef = useRef(null);
+  const lastCurrentCallRef = useRef(null);
+  const lastCalledSigRef = useRef("");
+  const lastMyCardsSigRef = useRef("");
+  const lastMyIndicesSigRef = useRef("");
+
   const derash = Math.max(0, players * STAKE * 0.8);
 
   useEffect(() => {
@@ -343,9 +351,23 @@ export default function GamePage() {
         serverOffsetRef.current = serverOffsetRef.current * 0.8 + offset * 0.2;
       }
 
-      setPlayers(data.players ?? 0);
-      setTotalGames(data.total_games ?? "-");
-      setGameStarted(!!data.started);
+      const nextPlayers = data.players ?? 0;
+      if (lastPlayersRef.current !== nextPlayers) {
+        lastPlayersRef.current = nextPlayers;
+        setPlayers(nextPlayers);
+      }
+
+      const nextTotalGames = data.total_games ?? "-";
+      if (lastTotalGamesRef.current !== nextTotalGames) {
+        lastTotalGamesRef.current = nextTotalGames;
+        setTotalGames(nextTotalGames);
+      }
+
+      const nextStarted = !!data.started;
+      if (lastStartedRef.current !== nextStarted) {
+        lastStartedRef.current = nextStarted;
+        setGameStarted(nextStarted);
+      }
 
       if (
         data.current_call != null &&
@@ -353,17 +375,37 @@ export default function GamePage() {
       ) {
         playNumber(data.current_call);
       }
-      setCurrentCall(data.current_call);
+      const nextCurrentCall = data.current_call;
+      if (lastCurrentCallRef.current !== nextCurrentCall) {
+        lastCurrentCallRef.current = nextCurrentCall;
+        setCurrentCall(nextCurrentCall);
+      }
 
       if (audioOn && data.current_call != null)
         preloadNextNumbers(data.current_call);
 
-      const called = new Set((data.called_numbers || []).map(String));
-      if (data.current_call != null) called.add(String(data.current_call));
-      setCalledSet(called);
+      const calledArr = (data.called_numbers || []).map(String);
+      if (data.current_call != null) calledArr.push(String(data.current_call));
+      const calledSig = calledArr.join(",");
+      if (calledSig !== lastCalledSigRef.current) {
+        lastCalledSigRef.current = calledSig;
+        setCalledSet(new Set(calledArr));
+      }
 
-      if (Array.isArray(data.my_cards)) setMyCards(data.my_cards);
-      if (Array.isArray(data.my_indices)) setMyIndices(data.my_indices);
+      if (Array.isArray(data.my_cards)) {
+        const sig = JSON.stringify(data.my_cards);
+        if (sig !== lastMyCardsSigRef.current) {
+          lastMyCardsSigRef.current = sig;
+          setMyCards(data.my_cards);
+        }
+      }
+      if (Array.isArray(data.my_indices)) {
+        const sig = JSON.stringify(data.my_indices);
+        if (sig !== lastMyIndicesSigRef.current) {
+          lastMyIndicesSigRef.current = sig;
+          setMyIndices(data.my_indices);
+        }
+      }
 
       const callNum =
         data.current_call != null ? Number(data.current_call) : null;

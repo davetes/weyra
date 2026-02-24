@@ -76,6 +76,7 @@ export default function PlayPage() {
   const pollRef = useRef(null);
   const firstLoad = useRef(true);
   const lastPlayState = useRef({});
+  const lastTakenSigRef = useRef("");
 
   const numbers = Array.from({ length: 200 }, (_, i) => i + 1);
 
@@ -172,9 +173,19 @@ export default function PlayPage() {
       }
       firstLoad.current = false;
 
-      setTotalGames(data.total_games ?? "-");
-      setTaken(new Set((data.taken || []).map(String)));
-      setAcceptedCount(data.accepted_count || 0);
+      const nextTotalGames = data.total_games ?? "-";
+      if (nextTotalGames !== totalGames) setTotalGames(nextTotalGames);
+
+      const takenArr = (data.taken || []).map(String);
+      takenArr.sort((a, b) => Number(a) - Number(b));
+      const takenSig = takenArr.join(",");
+      if (takenSig !== lastTakenSigRef.current) {
+        lastTakenSigRef.current = takenSig;
+        setTaken(new Set(takenArr));
+      }
+
+      const nextAccepted = data.accepted_count || 0;
+      if (nextAccepted !== acceptedCount) setAcceptedCount(nextAccepted);
       if (Array.isArray(data.my_indices) && !data.started) {
         const a =
           data.my_indices[0] != null ? Number(data.my_indices[0]) : null;
@@ -183,8 +194,9 @@ export default function PlayPage() {
         setSelectedA(Number.isFinite(a) && a > 0 ? a : null);
         setSelectedB(Number.isFinite(b) && b > 0 ? b : null);
       }
-      if (typeof data.wallet === "number") setWallet(data.wallet);
-      if (typeof data.gift === "number") setGift(data.gift);
+      if (typeof data.wallet === "number" && data.wallet !== wallet)
+        setWallet(data.wallet);
+      if (typeof data.gift === "number" && data.gift !== gift) setGift(data.gift);
 
       if (data.countdown_started_at && !countdownTimerRef.current) {
         startCountdown(data.countdown_started_at);
@@ -204,7 +216,7 @@ export default function PlayPage() {
       );
       setSplashVisible(false);
     }
-  }, [STAKE, TID, router]);
+  }, [STAKE, TID, router, acceptedCount, gift, totalGames, wallet]);
 
   function startCountdown(iso) {
     const start = new Date(iso).getTime();
@@ -296,9 +308,16 @@ export default function PlayPage() {
         </div>
       )}
 
-      <div className="max-w-[420px] mx-auto min-h-[100svh]">
+      <div className="w-full min-h-[100svh]">
         <div className="bg-slate-900 text-slate-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
           <div className="h-4 sm:h-5" />
+          {countdown !== "-" && (
+            <div className="mb-2 flex justify-center">
+              <div className="bg-amber-400/95 text-amber-950 font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm derash-float">
+                Starts In: {startsInText}
+              </div>
+            </div>
+          )}
           <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-2 items-stretch">
             <div className="bg-teal-500/90 text-teal-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
               Game: {totalGames}
@@ -316,39 +335,23 @@ export default function PlayPage() {
               Derash: {Math.round(derash)} ETB
             </div>
           </div>
-
-          <div className="mt-2 text-[10px] sm:text-xs text-slate-300 flex items-center justify-between">
-            <span>
-              Selected: {selectedCount} card{selectedCount === 1 ? "" : "s"}
-            </span>
-            <span>Cost: {Number(selectedCost || 0).toFixed(2)} Birr</span>
-            <span>
-              Remaining: {Number(remainingBalance || 0).toFixed(2)} Birr
-            </span>
-          </div>
         </div>
 
         <div className="p-2 sm:p-3">
           <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 sm:p-3">
-            <div className="mt-2 flex items-center justify-end text-[10px] sm:text-xs">
-              <div className="text-amber-400 font-black derash-float">
-                Starts In: {startsInText}
-              </div>
-            </div>
-
-            <div className="mt-2.5 sm:mt-3 max-h-[52vh] overflow-y-auto pr-1">
-              <div className="grid grid-cols-10 gap-[2px] sm:gap-1">
+            <div className="max-h-[52vh] overflow-y-auto no-scrollbar -mx-2 sm:-mx-3">
+              <div className="grid grid-cols-8 gap-1 sm:gap-2">
                 {numbers.map((n) => {
                   const key = String(n);
                   const isTaken = taken.has(key);
                   const isSelected = selectedA === n || selectedB === n;
                   const base =
-                    "relative font-bold rounded-sm sm:rounded-md aspect-square flex items-center justify-center select-none text-[10px] sm:text-sm leading-none border";
-                  const cls = isTaken
-                    ? "bg-rose-900/60 border-rose-700 text-rose-200"
-                    : isSelected
-                      ? "bg-rose-600 border-rose-300 text-white"
-                      : "bg-teal-900/50 border-teal-700 text-teal-100";
+                    "relative font-extrabold rounded-md sm:rounded-lg aspect-square flex items-center justify-center select-none text-xs sm:text-base leading-none border";
+                  const cls = isSelected
+                    ? "bg-[#f50707] border-[#f50707] text-white"
+                    : isTaken
+                      ? "bg-[#f50707] border-[#f50707] text-white"
+                      : "bg-emerald-500 border-emerald-200 text-emerald-950";
 
                   return (
                     <button
