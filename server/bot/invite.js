@@ -12,7 +12,7 @@ function setupInvite(bot) {
       `🎁 *Invite Friends*\n\n` +
         `Share your referral link:\n` +
         `\`${link}\`\n\n` +
-        `You'll receive *2 ETB* for each new player who joins using your link!`,
+        `You'll receive *3 ETB* for each new player who joins using your link!`,
       {
         parse_mode: "Markdown",
         reply_markup: {

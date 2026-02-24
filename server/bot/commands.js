@@ -302,7 +302,7 @@ function setupCommands(bot) {
             where: { telegramId: BigInt(refTid) },
           });
           if (referrer) {
-            const refBonus = new Decimal(2);
+            const refBonus = new Decimal(3);
             const updated = await prisma.player.update({
               where: { id: referrer.id },
               data: { wallet: { increment: parseFloat(refBonus.toString()) } },
@@ -318,7 +318,7 @@ function setupCommands(bot) {
             try {
               await bot.sendMessage(
                 refTid,
-                `🎉 Referral bonus received!\nA new player joined using your link. +2.00 ETB\nNew Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB`,
+                `🎉 Referral bonus received!\nA new player joined using your link. +3.00 ETB\nNew Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB`,
               );
             } catch (_) {}
           }
@@ -573,7 +573,7 @@ function setupCommands(bot) {
       const link = `https://t.me/${botInfo.username}?start=ref_${tid}`;
       await bot.sendMessage(
         chatId,
-        `🎁 *Invite Friends*\n\nShare your referral link:\n\`${link}\`\n\nYou'll receive *2 ETB* for each new player who joins using your link!`,
+        `🎁 *Invite Friends*\n\nShare your referral link:\n\`${link}\`\n\nYou'll receive *3 ETB* for each new player who joins using your link!`,
         {
           parse_mode: "Markdown",
           reply_markup: {
