@@ -130,11 +130,11 @@ function setupCommands(bot) {
     const imgUrl = process.env.START_IMAGE_URL;
     const imgPath = process.env.START_IMAGE_PATH;
     const welcome =
-      "🕹️ Every Square Counts – Grab Your roha, Join the Game, and Let the Fun Begin!";
+      "🕹️ Every Square Counts – Grab Your weyra, Join the Game, and Let the Fun Begin!";
     if (imgUrl) {
       try {
         await bot.sendPhoto(chatId, imgUrl, {
-          caption: "🎉 Welcome To roha Bingo! 🎉",
+          caption: "🎉 Welcome To Weyra Bingo! 🎉",
         });
       } catch (_) {}
     } else if (imgPath) {
@@ -144,7 +144,7 @@ function setupCommands(bot) {
           : path.join(process.cwd(), imgPath);
         if (fs.existsSync(resolved)) {
           await bot.sendPhoto(chatId, resolved, {
-            caption: "🎉 Welcome To roha Bingo! 🎉",
+            caption: "🎉 Welcome To weyra Bingo! 🎉",
           });
         }
       } catch (_) {}
@@ -239,7 +239,7 @@ function setupCommands(bot) {
         "1 የጨዋታ ማስጀመሪያ ሰከንድ (countdown) ሲያልቅ ያሉት ተጫዋች ብዛት ከ2 በታች ከሆነ ያ ጨዋታ አይጀመርም \n" +
         "2 ጨዋታ ከጀመረ በህዋላ ካርቴላ መምረጫ ቦርዱ ይፀዳል\n" +
         "3 እርሶ በዘጉበት ቁጥር ሌላ ተጫዋች ዘግቶ ቀድሞ bingo ካለ አሸናፊነትዋን ያጣሉ\n\n" +
-        "📝ስለሆነም እንዚህን ማሳሰቢያዎች ተመልክተው እንዲጠቀሙበት ካርቴላ ቢንጎ ያሳስባል",
+        "📝ስለሆነም እንዚህን ማሳሰቢያዎች ተመልክተው እንዲጠቀሙበት ወይራ ቢንጎ ያሳስባል",
     );
   });
 
@@ -247,7 +247,7 @@ function setupCommands(bot) {
   bot.onText(/\/contact/, async (msg) => {
     await bot.sendMessage(
       msg.chat.id,
-      
+      "For support, please contact us at: @Weyrabingosupportgroup",
     );
   });
 
@@ -581,7 +581,7 @@ function setupCommands(bot) {
               [
                 {
                   text: "📤 Share Link",
-                  switch_inline_query: `Join Roha Bingo! ${link}`,
+                  switch_inline_query: `Join weyra Bingo! ${link}`,
                 },
               ],
             ],

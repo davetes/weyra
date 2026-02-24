@@ -20,7 +20,7 @@ function setupInvite(bot) {
             [
               {
                 text: "📤 Share Link",
-                switch_inline_query: `Join Roha Bingo! ${link}`,
+                switch_inline_query: `Join weyra Bingo! ${link}`,
               },
             ],
           ],
