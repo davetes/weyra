@@ -293,7 +293,13 @@ function setupCommands(bot) {
         });
         await bot.sendMessage(
           msg.chat.id,
-          `Registration completed. You received 10 ETB. Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)}`,
+          "🎉 Welcome to Weyra Bingo! — እንኳን ወደ ወይራ ቢንጎ መጡ!\n" +
+            "━━━━━━━━━━━━━━━━━━\n" +
+            "✅ Registration Successful!\n" +
+            "🎁 Bonus: You’ve received 10.00 ETB as a gift!\n" +
+            `💰 Current Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB\n` +
+            "━━━━━━━━━━━━━━━━━━\n" +
+            "Good luck and have fun! / መልካም እድል!",
           { reply_markup: { remove_keyboard: true } },
         );
 
@@ -340,7 +346,7 @@ function setupCommands(bot) {
 
       await bot.sendMessage(
         msg.chat.id,
-        "🕹️ Every Square Counts – Grab Your luckbet, Join the Game, and Let the Fun Begin!",
+        "🌿 Rooted in Luck! - በዕድል ስር ይበቅሉ! > Pick your Weyra, join the game, and claim your win!\n\nወይራዎን ይምረጡ፣ ጨዋታውን ይቀላቀሉ እና ድልዎን ያረጋግጡ!",
         {
           parse_mode: "HTML",
           reply_markup: { inline_keyboard: BUTTON_ROWS },
@@ -468,10 +474,8 @@ function setupCommands(bot) {
       await handleDepositSelection(bot, chatId, data);
       await bot.sendMessage(
         chatId,
-        "💰 Enter Deposit Amount — የገንዘብ መጠን ያስገቡ\n" +
-          "Please send the amount you wish to deposit as a number (e.g., 100).\n" +
-          "እባክዎ ማስገባት የሚፈልጉትን የገንዘብ መጠን በቁጥር ብቻ ይላኩ (ምሳሌ፦ 100)።\n\n" +
-          "Type 'Cancel' to go back. / ለመመለስ 'Cancel' ብለው ይፃፉ።",
+        "💰 Enter Deposit Amount — የገንዘብ መጠን ያስገቡ\n",
+
         {
           reply_markup: {
             keyboard: [[{ text: "Cancel" }]],
@@ -605,7 +609,10 @@ function setupCommands(bot) {
     if (data === "win_patterns") {
       await bot.answerCallbackQuery(query.id).catch(() => {});
       const caption =
-        "🎯 From straight lines to funky shapes – every pattern is a chance to WIN BIG! Know the pattern, play smart, and shout BINGO when the stars align!";
+        "🎯 Master the Pattern — ዘዴውን ይወቁ!\n" +
+        "From straight lines to 4 corners—every pattern is a path to winning big!\n" +
+        "ከቀጥታ መስመር እስከ አራቱ ማዕዘኖች—እያንዳንዱ ቅርፅ የታላቅ ድል መንገድ ነው!\n\n" +
+        "💡 Play smart and shout BINGO! — በብልሃት ይጫወቱ፣ ቢንጎ ይበሉ!";
       const imgUrl = process.env.WIN_PATTERNS_IMAGE_URL;
       const imgPath = process.env.WIN_PATTERNS_IMAGE_PATH;
       if (imgUrl) {

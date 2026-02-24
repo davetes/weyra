@@ -62,7 +62,7 @@ export default function PlayPage() {
   const [splashError, setSplashError] = useState("");
   const [taken, setTaken] = useState(new Set());
   const [acceptedCount, setAcceptedCount] = useState(0);
-  const [totalGames, setTotalGames] = useState("-");
+  const [gameId, setGameId] = useState("-");
   const [wallet, setWallet] = useState(0);
   const [gift, setGift] = useState(0);
   const [countdown, setCountdown] = useState("-");
@@ -173,8 +173,8 @@ export default function PlayPage() {
       }
       firstLoad.current = false;
 
-      const nextTotalGames = data.total_games ?? "-";
-      if (nextTotalGames !== totalGames) setTotalGames(nextTotalGames);
+      const nextGameId = data.game_id ?? "-";
+      if (nextGameId !== gameId) setGameId(nextGameId);
 
       const takenArr = (data.taken || []).map(String);
       takenArr.sort((a, b) => Number(a) - Number(b));
@@ -217,7 +217,7 @@ export default function PlayPage() {
       );
       setSplashVisible(false);
     }
-  }, [STAKE, TID, router, acceptedCount, gift, totalGames, wallet]);
+  }, [STAKE, TID, router, acceptedCount, gift, gameId, wallet]);
 
   function startCountdown(iso) {
     const start = new Date(iso).getTime();
@@ -313,28 +313,29 @@ export default function PlayPage() {
         <div className="bg-slate-900 text-slate-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
           <div className="h-4 sm:h-5" />
           {countdown !== "-" && (
-            <div className="mb-2 flex justify-center">
-              <div className="bg-amber-400/95 text-amber-950 font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm">
-                Starts In: {startsInText}
-              </div>
-            </div>
-          )}
+  <div className="mb-2 flex justify-center">
+    <div className="bg-amber-400/95 text-amber-950 ring-2 ring-amber-500/30 animate-pulse font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm shadow-md">
+      Starts In: {startsInText}
+    </div>
+  </div>
+)}
           <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-2 items-stretch">
-            <div className="bg-teal-500/90 text-teal-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Game: {totalGames}
-            </div>
-            <div className="bg-emerald-500/90 text-emerald-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Bet: {STAKE} Birr
-            </div>
-            <div className="bg-indigo-500/90 text-indigo-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Balance: {Number(totalBalance || 0).toFixed(2)} Birr
-            </div>
-            <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Players: {acceptedCount}
-            </div>
-            <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Derash: {Math.round(derash)} ETB
-            </div>
+          <div className="bg-slate-200/90 text-slate-700 ring-1 ring-slate-300 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
+  Game ID: {gameId}
+</div>
+            <div className="bg-amber-500/90 text-amber-950 ring-1 ring-amber-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
+  Bet: {STAKE} Birr
+</div>
+           <div className="bg-blue-600/90 text-white ring-1 ring-blue-400/30 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
+  Balance: {Number(totalBalance || 0).toFixed(2)} Birr
+</div>
+            <div className="bg-indigo-500/90 text-indigo-950 ring-1 ring-indigo-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
+  Players: {acceptedCount}
+</div>
+            <div className="bg-emerald-500/90 text-emerald-950 ring-1 ring-emerald-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
+  Derash: {Math.round(derash)} ETB
+</div>
+              
           </div>
         </div>
 
