@@ -313,7 +313,7 @@ export default function PlayPage() {
           <div className="h-4 sm:h-5" />
           {countdown !== "-" && (
             <div className="mb-2 flex justify-center">
-              <div className="bg-amber-400/95 text-amber-950 font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm derash-float">
+              <div className="bg-amber-400/95 text-amber-950 font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm">
                 Starts In: {startsInText}
               </div>
             </div>
@@ -331,7 +331,7 @@ export default function PlayPage() {
             <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
               Players: {acceptedCount}
             </div>
-            <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 derash-float">
+            <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
               Derash: {Math.round(derash)} ETB
             </div>
           </div>

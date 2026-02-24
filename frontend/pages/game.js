@@ -610,7 +610,7 @@ export default function GamePage() {
       </Head>
       <audio ref={audioRef} preload="auto" />
 
-      <div className="max-w-[480px] mx-auto min-h-[100svh]">
+      <div className="w-full min-h-[100svh]">
         <div className="bg-slate-900 text-slate-100 px-2.5 py-2.5 sm:px-3 sm:py-3">
           <div className="flex items-center justify-end">
             <div className="w-6" />
@@ -626,7 +626,7 @@ export default function GamePage() {
               <div className="bg-emerald-500/90 text-emerald-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
                 Stake Birr {STAKE}
               </div>
-              <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 derash-float">
+              <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
                 Derash: {Math.round(derash)} ETB
               </div>
               <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
@@ -676,7 +676,7 @@ export default function GamePage() {
 
             <div className="mt-2.5 sm:mt-3 flex gap-2.5 sm:gap-3">
               <div className="flex-1">
-                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-2">
+                <div className="bg-gradient-to-b from-white to-slate-100 border border-slate-200 rounded-xl p-2">
                   <div className="grid grid-cols-5 gap-1">
                     {LETTERS.map((l) => (
                       <div
@@ -698,10 +698,10 @@ export default function GamePage() {
                             currentCall != null && ns === String(currentCall);
                           const isCalled = calledSet.has(ns) && !isCurrent;
                           const cellCls = isCurrent
-                            ? "bg-emerald-500 text-emerald-950 border-emerald-300"
+                            ? "bg-amber-400 text-amber-950 border-amber-200"
                             : isCalled
-                              ? "bg-pink-500 text-pink-950 border-pink-300"
-                              : "bg-slate-950/30 text-slate-100 border-slate-700";
+                              ? "bg-sky-500 text-sky-950 border-sky-200"
+                              : "bg-slate-900/40 text-slate-100 border-slate-700";
 
                           return (
                             <div
