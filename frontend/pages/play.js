@@ -196,7 +196,8 @@ export default function PlayPage() {
       }
       if (typeof data.wallet === "number" && data.wallet !== wallet)
         setWallet(data.wallet);
-      if (typeof data.gift === "number" && data.gift !== gift) setGift(data.gift);
+      if (typeof data.gift === "number" && data.gift !== gift)
+        setGift(data.gift);
 
       if (data.countdown_started_at && !countdownTimerRef.current) {
         startCountdown(data.countdown_started_at);

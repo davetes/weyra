@@ -253,7 +253,9 @@ function setupAdmin(bot) {
 
     const replyMarkup = playNowButton
       ? {
-          inline_keyboard: [[{ text: "/play", callback_data: "play_now" }]],
+          inline_keyboard: [
+            [{ text: "🎮 Play Now", callback_data: "play_now" }],
+          ],
         }
       : undefined;
 

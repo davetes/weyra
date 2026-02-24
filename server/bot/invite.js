@@ -19,7 +19,7 @@ function setupInvite(bot) {
           inline_keyboard: [
             [
               {
-                text: "📤 Share Link",
+                text: "📣 Share Link",
                 switch_inline_query: `Join weyra Bingo! ${link}`,
               },
             ],

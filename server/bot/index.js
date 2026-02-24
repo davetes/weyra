@@ -22,8 +22,6 @@ function startBot() {
         { command: 'balance', description: 'Check balance' },
         { command: 'deposit', description: 'Deposit money' },
         { command: 'withdraw', description: 'Withdraw money' },
-        { command: 'transfer', description: 'Transfer money' },
-        { command: 'convert', description: 'Convert gift balance' },
         { command: 'invite', description: 'Invite friends' },
         { command: 'instruction', description: 'How to play' },
         { command: 'contact', description: 'Contact support' },

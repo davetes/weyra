@@ -5,8 +5,6 @@ const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const { buildDepositKeyboard, handleDepositSelection } = require("./deposit");
 const { setupWithdraw } = require("./withdraw");
-const { setupTransfer } = require("./transfer");
-const { setupConvert } = require("./convert");
 const { setupInvite } = require("./invite");
 const { setupReport } = require("./report");
 
@@ -37,16 +35,16 @@ function clearUserState(uid) {
 const BUTTON_ROWS = [
   [{ text: "🎮 Play Now", callback_data: "play_now" }],
   [
-    { text: "💰 Check Balance", callback_data: "check_balance" },
-    { text: "💸 Make a Deposit", callback_data: "deposit" },
+    { text: "💳 Deposit", callback_data: "deposit" },
+    { text: "🧾 Balance", callback_data: "check_balance" },
   ],
   [
-    { text: "Support 📞", callback_data: "support" },
-    { text: "📖 Instructions", callback_data: "instructions" },
+    { text: "🎟️ Invite Friends", callback_data: "invite" },
+    { text: "🧩 Win Patterns", callback_data: "win_patterns" },
   ],
   [
-    { text: "✉️ Invite", callback_data: "invite" },
-    { text: "Win Patterns", callback_data: "win_patterns" },
+    { text: "📘 How to Play", callback_data: "instructions" },
+    { text: "🆘 Support", callback_data: "support" },
   ],
 ];
 
@@ -71,10 +69,6 @@ function buildStakeKeyboard(tid) {
         {
           text: "🎮 50 ETB",
           web_app: { url: `${WEBAPP_URL}/play?stake=50${withTid}` },
-        },
-        {
-          text: "🎮 100 ETB",
-          web_app: { url: `${WEBAPP_URL}/play?stake=100${withTid}` },
         },
       ],
     ],
@@ -130,7 +124,8 @@ function setupCommands(bot) {
     const imgUrl = process.env.START_IMAGE_URL;
     const imgPath = process.env.START_IMAGE_PATH;
     const welcome =
-      "🕹️ Every Square Counts – Grab Your weyra, Join the Game, and Let the Fun Begin!";
+      "🌿 Rooted in Luck! - በዕድል ስር ይበቅሉ! > Pick your Weyra, join the game, and claim your win!\n\n" +
+      "ወይራዎን ይምረጡ፣ ጨዋታውን ይቀላቀሉ እና ድልዎን ያረጋግጡ!";
     if (imgUrl) {
       try {
         await bot.sendPhoto(chatId, imgUrl, {
@@ -169,7 +164,7 @@ function setupCommands(bot) {
 
     await bot.sendMessage(
       chatId,
-      "💰 Choose Your Stake, Play Your Luck — The Bigger the Bet, The Bigger the Glory!",
+      "✨ Set Your Stake, Find Your Fate! - መወራረጃዎን ይወስኑ፣ ዕድልዎን ያግኙ! > Bigger bets lead to bigger wins at Weyra! — ከፍተኛ መወራረድ በወይራ የላቀ ድልን ያስገኛል!",
       {
         parse_mode: "HTML",
         reply_markup: buildStakeKeyboard(tid),
@@ -189,7 +184,7 @@ function setupCommands(bot) {
 
     await bot.sendMessage(
       chatId,
-      "Please select the bank option you wish to use for the top-up.",
+      "🏦 Select Your Bank - ባንክዎን ይምረጡ\nPlease choose your preferred bank to complete the deposit.\nክፍያውን ለመፈጸም የሚጠቀሙበትን ባንክ ይምረጡ።",
       {
         reply_markup: buildDepositKeyboard(),
       },
@@ -207,13 +202,11 @@ function setupCommands(bot) {
       return bot.sendMessage(chatId, "Please /start first to register.");
     }
     const wallet = new Decimal(player.wallet.toString()).toFixed(2);
-    const gift = new Decimal(player.gift.toString()).toFixed(2);
     await bot.sendMessage(
       chatId,
       "```\n" +
         `Username:      ${player.username || "-"}\n` +
         `Balance:       ${wallet} ETB\n` +
-        `Coin:          ${gift}\n` +
         "```",
       { parse_mode: "Markdown" },
     );
@@ -223,23 +216,33 @@ function setupCommands(bot) {
   bot.onText(/\/instruction/, async (msg) => {
     await bot.sendMessage(
       msg.chat.id,
-      "እንኮን ወደ ሮሃ ቢንጎ መጡ\n\n" +
-        "1 ለመጫወት ወደቦቱ ሲገቡ register የሚለውን በመንካት ስልክ ቁጥሮትን ያጋሩ\n\n" +
-        "2 menu ውስጥ በመግባት deposit fund የሚለውን በመንካት በሚፈልጉት የባንክ አካውንት ገንዘብ ገቢ ያድርጉ \n\n" +
-        "3 menu ውስጥ በመግባት start play የሚለውን በመንካት መወራረድ የሚፈልጉበትን የብር መጠን ይምረጡ።\n\n\n" +
-        "1 ወደጨዋታው እድገቡ ከሚመጣሎት 100 የመጫወቻ ቁጥሮች መርጠው accept የሚለውን በመንካት የቀጥሉ\n\n" +
-        "2 ጨዋታው ለመጀመር የተሰጠውን ጊዜ ሲያልቅ ቁጥሮች መውጣት ይጀምራል\n\n" +
-        "3 የሚወጡት ቁጥሮች የመረጡት ካርቴላ ላይ መኖሩን እያረጋገጡ ያቅልሙ\n\n" +
-        "4 ያቀለሙት አንድ መስመር ወይንም አራት ጠርዝ ላይ ሲመጣ ቢንጎ በማለት ማሸነፍ የችላሉ\n\n" +
-        " —አንድ መስመር ማለት\n" +
-        "    አንድ ወደጎን ወይንም ወደታች ወይንም ዲያጎናል ሲዘጉ\n\n" +
-        " — አራት ጠርዝ ልይ ሲመጣሎት \n\n" +
-        "5 እነዚህ ማሸነፊያ ቁጥሮች ሳይመጣሎት bingo እሚለውን ከነኩ ከጨዋታው ይባረራሉ\n\n" +
-        "ማሳሰቢያ\n\n" +
-        "1 የጨዋታ ማስጀመሪያ ሰከንድ (countdown) ሲያልቅ ያሉት ተጫዋች ብዛት ከ2 በታች ከሆነ ያ ጨዋታ አይጀመርም \n" +
-        "2 ጨዋታ ከጀመረ በህዋላ ካርቴላ መምረጫ ቦርዱ ይፀዳል\n" +
-        "3 እርሶ በዘጉበት ቁጥር ሌላ ተጫዋች ዘግቶ ቀድሞ bingo ካለ አሸናፊነትዋን ያጣሉ\n\n" +
-        "📝ስለሆነም እንዚህን ማሳሰቢያዎች ተመልክተው እንዲጠቀሙበት ወይራ ቢንጎ ያሳስባል",
+      "🎰 WEYRA BINGO | ወይራ ቢንጎ 🎰\n" +
+        "Fast • Fair • Fun\n\n" +
+        "GET STARTED | አጀማመር\n" +
+        "• REGISTER: Hit 'Register' to link your number.\n" +
+        "  መመዝገቢያ፦ 'Register' በመጫን ስልክዎን ያገናኙ።\n" +
+        "• DEPOSIT: Use 'Deposit Fund' to add balance.\n" +
+        "  ገንዘብ ለመሙላት፦ 'Deposit Fund' በመጠቀም ሂሳብ ይሙሉ፡፡\n" +
+        "• PLAY: Click 'Start Play' and set your bet.\n" +
+        "  ለመጫወት፦ 'Start Play' በመጫን መወራረጃ ይምረጡ።\n\n" +
+        "HOW TO WIN | የአሸናፊነት መንገዶች\n" +
+        "• Pick & Accept: Select your lucky numbers.\n" +
+        "  መምረጥ፦ የሚወዱትን የቁጥር ካርቴላ መርጠው 'Accept' ይበሉ።\n" +
+        "• Mark Your Card: Watch the draw and mark matching numbers.\n" +
+        "  ማቅለም፦ የሚወጡትን ቁጥሮች ካርቴላዎ ላይ ያቅልሙ።\n" +
+        "• Call BINGO: Win by completing:\n" +
+        "  ቢንጎ ለማለት፦ እነዚህን ሲያጠናቅቁ ያሸንፋሉ፡\n" +
+        "   - Horizontal / Vertical Row (ወደ ጎን ወይም ወደ ታች)\n" +
+        "   - Diagonal Line (ጋድም መስመር)\n" +
+        "   - The 4 Corners (አራቱ ጠርዞች)\n\n" +
+        "⚠️ RULES | ህግጋት\n" +
+        "• Don't Rush: Clicking 'Bingo' by mistake will disqualify you.\n" +
+        "  ጥንቃቄ፦ ሳይሞሉ 'Bingo' ቢሉ ከጨዋታው ይባረራሉ።\n" +
+        "• Minimum Players: A round needs 2+ players to start.\n" +
+        "  ተጫዋች፦ ጨዋታ ለመጀመር ቢያንስ 2 ተጫዋች ያስፈልጋል።\n" +
+        "• Be Fast: The first person to hit 'Bingo' takes the prize!\n" +
+        "  ፍጥነት፦ ቀድሞ 'Bingo' ያለ ተጫዋች አሸናፊ ይሆናል።\n\n" +
+        "Good Luck! | መልካም እድል!",
     );
   });
 
@@ -408,10 +411,9 @@ function setupCommands(bot) {
       });
       if (!player) return bot.sendMessage(chatId, "Please /start first.");
       const wallet = new Decimal(player.wallet.toString()).toFixed(2);
-      const gift = new Decimal(player.gift.toString()).toFixed(2);
       return bot.sendMessage(
         chatId,
-        `💰 Wallet: ${wallet} ETB | Gift: ${gift} ETB | Wins: ${player.wins}`,
+        `💰 Wallet: ${wallet} ETB | Wins: ${player.wins}`,
       );
     }
 
@@ -420,9 +422,6 @@ function setupCommands(bot) {
     }
     if (text === "📤 Withdraw") {
       return bot.processUpdate({ message: { ...msg, text: "/withdraw" } });
-    }
-    if (text === "🔄 Transfer") {
-      return bot.processUpdate({ message: { ...msg, text: "/transfer" } });
     }
     if (text === "🎁 Invite") {
       return bot.processUpdate({ message: { ...msg, text: "/invite" } });
@@ -469,7 +468,10 @@ function setupCommands(bot) {
       await handleDepositSelection(bot, chatId, data);
       await bot.sendMessage(
         chatId,
-        "How much do you want to deposit? (ETB). Send the amount as a number. Type Cancel to stop.",
+        "💰 Enter Deposit Amount — የገንዘብ መጠን ያስገቡ\n" +
+          "Please send the amount you wish to deposit as a number (e.g., 100).\n" +
+          "እባክዎ ማስገባት የሚፈልጉትን የገንዘብ መጠን በቁጥር ብቻ ይላኩ (ምሳሌ፦ 100)።\n\n" +
+          "Type 'Cancel' to go back. / ለመመለስ 'Cancel' ብለው ይፃፉ።",
         {
           reply_markup: {
             keyboard: [[{ text: "Cancel" }]],
@@ -486,7 +488,7 @@ function setupCommands(bot) {
       await bot.answerCallbackQuery(query.id).catch(() => {});
       await bot.sendMessage(
         chatId,
-        "💰 Choose Your Stake, Play Your Luck — The Bigger the Bet, The Bigger the Glory!",
+        "✨ Set Your Stake, Find Your Fate! - መወራረጃዎን ይወስኑ፣ ዕድልዎን ያግኙ! > Bigger bets lead to bigger wins at Weyra! — ከፍተኛ መወራረድ በወይራ የላቀ ድልን ያስገኛል!",
         {
           parse_mode: "HTML",
           reply_markup: buildStakeKeyboard(tid),
@@ -499,7 +501,7 @@ function setupCommands(bot) {
       await bot.answerCallbackQuery(query.id).catch(() => {});
       await bot.sendMessage(
         chatId,
-        "Please select the bank option you wish to use for the top-up.",
+        "🏦 Select Your Bank - ባንክዎን ይምረጡ\nPlease choose your preferred bank to complete the deposit.\nክፍያውን ለመፈጸም የሚጠቀሙበትን ባንክ ይምረጡ።",
         {
           reply_markup: buildDepositKeyboard(),
         },
@@ -520,13 +522,11 @@ function setupCommands(bot) {
         return;
       }
       const wallet = new Decimal(player.wallet.toString()).toFixed(2);
-      const gift = new Decimal(player.gift.toString()).toFixed(2);
       await bot.sendMessage(
         chatId,
         "```\n" +
           `Username:      ${player.username || "-"}\n` +
           `Balance:       ${wallet} ETB\n` +
-          `Coin:          ${gift}\n` +
           "```",
         { parse_mode: "Markdown" },
       );
@@ -546,23 +546,34 @@ function setupCommands(bot) {
       await bot.answerCallbackQuery(query.id).catch(() => {});
       await bot.sendMessage(
         chatId,
-        "እንኮን ወደ ሮሃ ቢንጎ መጡ\n\n" +
-          "1 ለመጫወት ወደቦቱ ሲገቡ register የሚለውን በመንካት ስልክ ቁጥሮትን ያጋሩ\n\n" +
-          "2 menu ውስጥ በመግባት deposit fund የሚለውን በመንካት በሚፈልጉት የባንክ አካውንት ገንዘብ ገቢ ያድርጉ \n\n" +
-          "3 menu ውስጥ በመግባት start play የሚለውን በመንካት መወራረድ የሚፈልጉበትን የብር መጠን ይምረጡ።\n\n\n" +
-          "1 ወደጨዋታው እድገቡ ከሚመጣሎት 100 የመጫወቻ ቁጥሮች መርጠው accept የሚለውን በመንካት የቀጥሉ\n\n" +
-          "2 ጨዋታው ለመጀመር የተሰጠውን ጊዜ ሲያልቅ ቁጥሮች መውጣት ይጀምራል\n\n" +
-          "3 የሚወጡት ቁጥሮች የመረጡት ካርቴላ ላይ መኖሩን እያረጋገጡ ያቅልሙ\n\n" +
-          "4 ያቀለሙት አንድ መስመር ወይንም አራት ጠርዝ ላይ ሲመጣ ቢንጎ በማለት ማሸነፍ የችላሉ\n\n" +
-          " —አንድ መስመር ማለት\n" +
-          "    አንድ ወደጎን ወይንም ወደታች ወይንም ዲያጎናል ሲዘጉ\n\n" +
-          " — አራት ጠርዝ ልይ ሲመጣሎት \n\n" +
-          "5 እነዚህ ማሸነፊያ ቁጥሮች ሳይመጣሎት bingo እሚለውን ከነኩ ከጨዋታው ይባረራሉ\n\n" +
-          "ማሳሰቢያ\n\n" +
-          "1 የጨዋታ ማስጀመሪያ ሰከንድ (countdown) ሲያልቅ ያሉት ተጫዋች ብዛት ከ2 በታች ከሆነ ያ ጨዋታ አይጀመርም \n" +
-          "2 ጨዋታ ከጀመረ በህዋላ ካርቴላ መምረጫ ቦርዱ ይፀዳል\n" +
-          "3 እርሶ በዘጉበት ቁጥር ሌላ ተጫዋች ዘግቶ ቀድሞ bingo ካለ አሸናፊነትዋን ያጣሉ\n\n" +
-          "📝ስለሆነም እንዚህን ማሳሰቢያዎች ተመልክተው እንዲጠቀሙበት ካርቴላ ቢንጎ ያሳስባል",
+        "<b>🎰 WEYRA BINGO | ወይራ ቢንጎ 🎰</b>\n" +
+          "<i>Fast • Fair • Fun</i>\n\n" +
+          "<b>GET STARTED | አጀማመር</b>\n" +
+          "• <b>REGISTER</b>: Hit 'Register' to link your number.\n" +
+          "  መመዝገቢያ፦ 'Register' በመጫን ስልክዎን ያገናኙ።\n" +
+          "• <b>DEPOSIT</b>: Use 'Deposit Fund' to add balance.\n" +
+          "  ገንዘብ ለመሙላት፦ 'Deposit Fund' በመጠቀም ሂሳብ ይሙሉ፡፡\n" +
+          "• <b>PLAY</b>: Click 'Start Play' and set your bet.\n" +
+          "  ለመጫወት፦ 'Start Play' በመጫን መወራረጃ ይምረጡ።\n\n" +
+          "<b>HOW TO WIN | የአሸናፊነት መንገዶች</b>\n" +
+          "• <b>Pick & Accept</b>: Select your lucky numbers.\n" +
+          "  መምረጥ፦ የሚወዱትን የቁጥር ካርቴላ መርጠው 'Accept' ይበሉ።\n" +
+          "• <b>Mark Your Card</b>: Watch the draw and mark matching numbers.\n" +
+          "  ማቅለም፦ የሚወጡትን ቁጥሮች ካርቴላዎ ላይ ያቅልሙ።\n" +
+          "• <b>Call BINGO</b>: Win by completing:\n" +
+          "  ቢንጎ ለማለት፦ እነዚህን ሲያጠናቅቁ ያሸንፋሉ፡\n" +
+          "   - Horizontal / Vertical Row (ወደ ጎን ወይም ወደ ታች)\n" +
+          "   - Diagonal Line (ጋድም መስመር)\n" +
+          "   - The 4 Corners (አራቱ ጠርዞች)\n\n" +
+          "<b>⚠️ RULES | ህግጋት</b>\n" +
+          "• <b>Don't Rush</b>: Clicking 'Bingo' by mistake will disqualify you.\n" +
+          "  ጥንቃቄ፦ ሳይሞሉ 'Bingo' ቢሉ ከጨዋታው ይባረራሉ።\n" +
+          "• <b>Minimum Players</b>: A round needs 2+ players to start.\n" +
+          "  ተጫዋች፦ ጨዋታ ለመጀመር ቢያንስ 2 ተጫዋች ያስፈልጋል።\n" +
+          "• <b>Be Fast</b>: The first person to hit 'Bingo' takes the prize!\n" +
+          "  ፍጥነት፦ ቀድሞ 'Bingo' ያለ ተጫዋች አሸናፊ ይሆናል።\n\n" +
+          "<b>Good Luck! | መልካም እድል!</b>",
+        { parse_mode: "HTML" },
       );
       return;
     }
@@ -580,7 +591,7 @@ function setupCommands(bot) {
             inline_keyboard: [
               [
                 {
-                  text: "📤 Share Link",
+                  text: "📣 Share Link",
                   switch_inline_query: `Join weyra Bingo! ${link}`,
                 },
               ],
@@ -619,8 +630,6 @@ function setupCommands(bot) {
 
   // Register sub-modules
   setupWithdraw(bot, userState);
-  setupTransfer(bot, userState);
-  setupConvert(bot, userState);
   setupInvite(bot);
   setupReport(bot);
 

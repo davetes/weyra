@@ -904,7 +904,8 @@ export default function GamePage() {
                 Board number {winner.index}
               </div>
               <div className="mt-2 text-center text-[11px] sm:text-xs text-gray-700">
-                Selected numbers: {winnerPickList.length ? winnerPickList.join(", ") : "—"}
+                Selected numbers:{" "}
+                {winnerPickList.length ? winnerPickList.join(", ") : "—"}
               </div>
             </div>
             <div className="bg-accent text-white text-center font-black rounded-[10px] py-2.5 mt-2 text-xl">

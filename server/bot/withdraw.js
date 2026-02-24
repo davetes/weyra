@@ -23,7 +23,11 @@ function setupWithdraw(bot, userState) {
 
     await bot.sendMessage(
       chatId,
-      "Please enter the amount you wish to withdraw.",
+      "Please enter the amount you wish to withdraw in ETB.\n" +
+        "እባክዎ ማውጣት የሚፈልጉትን የገንዘብ መጠን በብር ያስገቡ።\n\n" +
+        `Minimum withdraw amount is ${MIN_WITHDRAW.toFixed(0)} ETB.\n` +
+        `የማውጣት ከፍተኛ መጠን ${MIN_WITHDRAW.toFixed(0)} ብር ነው።\n\n` +
+        "Type 'Cancel' to stop. / ለመመለስ 'Cancel' ብለው ይፃፉ።",
       {
         reply_markup: { remove_keyboard: true },
       },
@@ -79,7 +83,9 @@ function setupWithdraw(bot, userState) {
       if (balance.lt(amount)) {
         await bot.sendMessage(
           chatId,
-          `Insufficient fund. user: ${tid}, amount: ${amount.toFixed(1)}.`,
+          `     ❌ Withdrawal Failed — ማውጣት አልተቻለም ❌
+                ምክንያት፦ በወይራ ቦርሳዎ ውስጥ በቂ ቀሪ ሂሳብ የለም። 
+                `,
         );
         return;
       }

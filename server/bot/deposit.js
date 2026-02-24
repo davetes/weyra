@@ -4,12 +4,8 @@ function buildDepositKeyboard() {
   return {
     inline_keyboard: [
       [
-        { text: "Telebirr", callback_data: "deposit_telebirr" },
-        { text: "BOA (Abyssinia)", callback_data: "deposit_boa" },
-      ],
-      [
-        { text: "CBE Birr", callback_data: "deposit_cbe_birr" },
-        { text: "CBE", callback_data: "deposit_cbe" },
+        { text: "📲 Telebirr", callback_data: "deposit_telebirr" },
+        { text: "💵 CBE Birr", callback_data: "deposit_cbe_birr" },
       ],
     ],
   };
@@ -48,29 +44,31 @@ function buildDepositMessage(data) {
 
   if (data === "deposit_cbe_birr") {
     const phone = process.env.CBE_BIRR_PHONE || "+251900000000";
-    const name = process.env.CBE_BIRR_NAME || "weyra Bingo";
+    const name = process.env.CBE_BIRR_NAME || "Weyra Bingo";
     return (
-      `<b>ለ CBE-Birr ሒሳብ</b>\n` +
-      `<code>${phone}</code> - <b>${name}</b>\n\n` +
-      `<b>መመሪያ</b>\n` +
-      `<pre>1. ከሚስጥር ቁጥር ወይም በ CBE-Birr መተግበሪያ ገንዘብ ይላኩ\n` +
-      `2. በክፍያ ከጨረሱ በኋላ የተላኩትን የክፍያ ማስረጃ (sms) ወይም ስክሪንሹት ይላኩ\n` +
-      `3. ደረሰኝ መልዕክት (sms) ጽሁፉን በኩፒ (copy) አድርገው እዚህ በፔስት (paste) ያስገቡ</pre>\n\n` +
-      `ማረጋገጫውን ወደ ድጋፍ ቡድኑ እና ${support} ወይም እዚህ ያስቀምጡ.`
+      `💰 CBEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
+      `📱 Target: ${phone}\n` +
+      `🏷️ Account: ${name}\n\n` +
+      `✅ To Verify / ለማረጋገጥ፦\n\n` +
+      `Copy the Receipt SMS / የደረሰኝ መልዕክቱን ኮፒ ያድርጉ።\n\n` +
+      `Paste it here / እዚህ ይላኩት።\n\n` +
+      `Or send a Screenshot / ወይም ስክሪንሹት ይላኩ።\n\n` +
+      `🆘 Help / እርዳታ: ${support}`
     );
   }
 
   if (data === "deposit_telebirr") {
     const phone = process.env.TELEBIRR_PHONE || "+251900000000";
-    const name = process.env.TELEBIRR_NAME || "weyra Bingo";
+    const name = process.env.TELEBIRR_NAME || "Weyra Bingo";
     return (
-      `<b>ለ Telebirr ሒሳብ</b>\n` +
-      `<code>${phone}</code> - <b>${name}</b>\n\n` +
-      `<b>መመሪያ</b>\n` +
-      `<pre>1. ከባንክ ወይም በ Telebirr መተግበሪያ ገንዘብ ይላኩ\n` +
-      `2. በክፍያ ከጨረሱ በኋላ የተላኩትን የክፍያ ማስረጃ (sms) ወይም ስክሪንሹት ይላኩ\n` +
-      `3. ደረሰኝ መልዕክት (sms) ጽሁፉን በኩፒ (copy) አድርገው እዚህ በፔስት (paste) ያስገቡ</pre>\n\n` +
-      `ማረጋገጫውን ወደ ድጋፍ ቡድኑ እና ${support} ወይም እዚህ ያስቀምጡ.`
+      `💰 TELEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
+      `📱 Target: ${phone}\n` +
+      `🏷️ Account: ${name}\n\n` +
+      `✅ To Verify / ለማረጋገጥ፦\n\n` +
+      `Copy the Receipt SMS / የደረሰኝ መልዕክቱን ኮፒ ያድርጉ።\n\n` +
+      `Paste it here / እዚህ ይላኩት።\n\n` +
+      `Or send a Screenshot / ወይም ስክሪንሹት ይላኩ።\n\n` +
+      `🆘 Help / እርዳታ: ${support}`
     );
   }
 
@@ -97,7 +95,7 @@ function setupDeposit(bot) {
     const chatId = msg.chat.id;
     await bot.sendMessage(
       chatId,
-      "Please select the bank option you wish to use for the top-up.",
+      "🏦 Select Your Bank - ባንክዎን ይምረጡ\nPlease choose your preferred bank to complete the deposit.\nክፍያውን ለመፈጸም የሚጠቀሙበትን ባንክ ይምረጡ።",
       {
         reply_markup: buildDepositKeyboard(),
       },
