@@ -620,60 +620,56 @@ export default function GamePage() {
         <div className="p-2.5 sm:p-3">
           <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 sm:p-3">
             <div className="grid grid-cols-5 gap-2 items-stretch">
-              <div className="bg-teal-500/90 text-teal-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-                Game Id #{totalGames}
-              </div>
-              <div className="bg-emerald-500/90 text-emerald-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-                Stake Birr {STAKE}
-              </div>
-              <div className="bg-pink-500/90 text-pink-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-                Derash: {Math.round(derash)} ETB
-              </div>
-              <div className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-                Players {players}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setAudioOn((p) => {
-                    const next = !p;
-                    if (next && currentCall != null) {
-                      lastAudioCallRef.current = String(currentCall);
-                      preloadNextNumbers(currentCall);
-                    }
-                    return next;
-                  });
-                }}
-                className="bg-amber-400/95 text-amber-950 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs flex items-center justify-center"
-                aria-label={audioOn ? "Mute" : "Unmute"}
-              >
-                {audioOn ? (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M4 9v6h4l5 4V5L8 9H4z" />
-                    <path d="M16.5 12c0-1.4-.5-2.7-1.4-3.7l1.4-1.4A7.48 7.48 0 0 1 19 12a7.48 7.48 0 0 1-2.5 5.6l-1.4-1.4c.9-1 1.4-2.3 1.4-3.7z" />
-                    <path d="M14.3 9.7 12.9 11.1a1.97 1.97 0 0 1 0 1.8l1.4 1.4a3.97 3.97 0 0 0 0-4.6z" />
-                  </svg>
-                ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M16.5 12c0-1.4-.5-2.7-1.4-3.7l1.4-1.4A7.48 7.48 0 0 1 19 12a7.48 7.48 0 0 1-2.5 5.6l-1.4-1.4c.9-1 1.4-2.3 1.4-3.7z" />
-                    <path d="M14.3 9.7 12.9 11.1a1.97 1.97 0 0 1 0 1.8l1.4 1.4a3.97 3.97 0 0 0 0-4.6z" />
-                    <path d="M4 9v6h4l5 4V5L8 9H4z" />
-                    <path d="m3 3 18 18-1.4 1.4L2 4.4 3 3z" />
-                  </svg>
-                )}
-              </button>
+              <div className="bg-teal-500/90 text-teal-950 ring-1 ring-teal-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
+  Game ID: {totalGames}
+</div>
+             <div className="bg-amber-500/90 text-amber-950 ring-1 ring-amber-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
+  Bet: {STAKE} Birr
+</div>
+              <div className="bg-emerald-500/90 text-emerald-950 ring-1 ring-emerald-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
+  Derash: {Math.round(derash)} ETB
+</div>
+              <div className="bg-slate-200/90 text-slate-900 ring-1 ring-slate-300 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
+  Players: {players}
+</div>
+<button
+  type="button"
+  onClick={() => {
+    setAudioOn((p) => {
+      const next = !p;
+      if (next && currentCall != null) {
+        lastAudioCallRef.current = String(currentCall);
+        preloadNextNumbers(currentCall);
+      }
+      return next;
+    });
+  }}
+  className={`
+    transition-all duration-300 flex items-center justify-center rounded-xl px-3 py-2
+    ${audioOn 
+      ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] ring-2 ring-indigo-400" 
+      : "bg-slate-800/80 text-slate-500 ring-2 ring-slate-700 backdrop-blur-md"}
+    active:scale-90 hover:scale-105
+  `}
+  aria-label={audioOn ? "Mute" : "Unmute"}
+>
+  {audioOn ? (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
+      <path d="M13.5 4.06c-.22-.02-.44.05-.61.22l-4 4H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V4.84c0-.43-.31-.75-.75-.78zM18 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM15.5 3.12v2.06c2.89.86 5 3.54 5 6.82s-2.11 5.96-5 6.82v2.06c4-.9 7-4.51 7-8.88s-3-7.98-7-8.88z" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5 opacity-60">
+      <path d="M3.28 2.22 2.22 3.28 7.44 8.5H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V14.06l4.66 4.66c-.7.53-1.49.93-2.36 1.18v2.06c1.41-.33 2.69-.96 3.78-1.8l2.64 2.64 1.06-1.06L3.28 2.22zM15.5 3.12v2.06c1.35.4 2.53 1.14 3.46 2.11l-1.46 1.46c-.57-.61-1.25-1.08-2-1.37V3.12z" />
+    </svg>
+  )}
+</button>
+           
+           
+           
+           
             </div>
 
+{/* dashboard */}
             <div className="mt-2.5 sm:mt-3 flex gap-2.5 sm:gap-3">
               <div className="flex-1">
                 <div className="bg-gradient-to-b from-white to-slate-100 border border-slate-200 rounded-xl p-2">
@@ -717,6 +713,8 @@ export default function GamePage() {
                   </div>
                 </div>
               </div>
+              
+              {/* ui */}
 
               <div className="w-[168px] sm:w-[190px] space-y-2.5 sm:space-y-3">
                 <div className="bg-black/60 border border-slate-700 rounded-xl px-2.5 py-2.5 sm:px-3 sm:py-3 flex items-center justify-center">
@@ -842,78 +840,112 @@ export default function GamePage() {
                 })}
               </div>
             </div>
+
+
+
+
+
+
           </div>
         </div>
       </div>
 
       {/* Winner Modal */}
-      {winner && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-          <div className="bg-[#ede3f6] rounded-[14px] shadow-2xl p-3 max-w-[520px] w-[95vw]">
-            <div className="bg-accent text-white font-black text-center rounded-[10px] py-2.5 mb-2.5 text-xl">
-              BINGO!
-            </div>
-            <div className="flex items-center gap-2 justify-center my-2">
-              <span className="bg-green-bingo text-[#0b3018] font-extrabold rounded-lg px-2 py-0.5">
-                {winner.name}
-              </span>
-              <span className="text-gray-700">has won the game</span>
-            </div>
-            <div className="bg-[#d8c9ef] rounded-xl p-2 my-2">
-              <div className="grid grid-cols-5 gap-1.5 mb-1.5">
-                {LETTERS.map((l) => (
-                  <div
-                    key={l}
-                    className={`${LETTER_BG[l]} text-white font-extrabold text-center rounded-md aspect-square flex items-center justify-center text-[11px] sm:text-sm leading-none`}
-                  >
-                    {l}
-                  </div>
-                ))}
-              </div>
-              <div className="bg-white rounded-[10px] p-2.5 grid grid-cols-5 gap-2">
-                {winCardRows &&
-                  winCardRows.flat().map((val, i) => {
-                    const r = Math.floor(i / 5),
-                      c = i % 5;
-                    const isFree = val === "FREE";
-                    const isWin = isWinningCell(r, c, winner.details);
-                    const winPicks = winner.details?.picks
-                      ? new Set(winner.details.picks.map(String))
-                      : new Set();
-                    const isP = !isFree && winPicks.has(String(val));
-                    return (
-                      <div
-                        key={i}
-                        className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[11px] sm:text-sm leading-none
-                      ${
-                        isWin
-                          ? "bg-indigo-500 text-indigo-950 border-indigo-200"
-                          : isP
-                            ? "bg-emerald-500 text-emerald-950 border-emerald-200"
-                            : isFree
-                              ? "bg-amber-400 text-amber-950 border-amber-200"
-                              : "bg-teal-900/50 border-teal-700 text-teal-100"
-                      }`}
-                      >
-                        {isFree ? "⭐" : val}
-                      </div>
-                    );
-                  })}
-              </div>
-              <div className="text-center mt-1.5 font-bold text-gray-700">
-                Board number {winner.index}
-              </div>
-              <div className="mt-2 text-center text-[11px] sm:text-xs text-gray-700">
-                Selected numbers:{" "}
-                {winnerPickList.length ? winnerPickList.join(", ") : "—"}
-              </div>
-            </div>
-            <div className="bg-accent text-white text-center font-black rounded-[10px] py-2.5 mt-2 text-xl">
-              {winner.countdown ?? 5}
-            </div>
-          </div>
+{winner && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] animate-in fade-in duration-300">
+    <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-[24px] shadow-[0_0_50px_rgba(79,70,229,0.4)] p-4 max-w-[500px] w-[95vw] overflow-hidden">
+      
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white font-black text-center rounded-xl py-3 mb-4 text-3xl tracking-widest shadow-lg animate-bounce">
+        BINGO!
+      </div>
+
+      {/* Winner Name Section */}
+      <div className="flex flex-col items-center gap-1 justify-center my-4">
+        <div className="flex items-center gap-2">
+           <span className="text-2xl">🏆</span>
+           <span className="bg-gradient-to-b from-amber-200 to-amber-500 bg-clip-text text-transparent font-black text-2xl uppercase tracking-tighter">
+            {winner.name}
+          </span>
+          <span className="text-2xl">🏆</span>
         </div>
-      )}
+        <span className="text-slate-400 font-medium text-sm">HAS WON THE GAME</span>
+      </div>
+
+      {/* The Winning Card Container */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-3 my-2 shadow-inner">
+        {/* B-I-N-G-O Letters */}
+        <div className="grid grid-cols-5 gap-2 mb-2">
+          {LETTERS.map((l) => (
+            <div
+              key={l}
+              className={`${LETTER_BG[l]} text-white font-black text-center rounded-lg aspect-square flex items-center justify-center text-sm shadow-md`}
+            >
+              {l}
+            </div>
+          ))}
+        </div>
+
+        {/* The Card Grid */}
+        <div className="bg-slate-950/50 rounded-xl p-2 grid grid-cols-5 gap-2 border border-slate-800">
+          {winCardRows &&
+            winCardRows.flat().map((val, i) => {
+              const r = Math.floor(i / 5), c = i % 5;
+              const isFree = val === "FREE";
+              const isWin = isWinningCell(r, c, winner.details);
+              const winPicks = winner.details?.picks
+                ? new Set(winner.details.picks.map(String))
+                : new Set();
+              const isP = !isFree && winPicks.has(String(val));
+              
+              return (
+                <div
+                  key={i}
+                  className={`relative rounded-lg aspect-square flex items-center justify-center font-black border-2 text-xs sm:text-sm transition-all
+                  ${
+                    isWin
+                      ? "bg-indigo-500 border-indigo-300 text-white shadow-[0_0_15px_rgba(99,102,241,0.6)] z-10 scale-105"
+                      : isP
+                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                        : isFree
+                          ? "bg-amber-500 border-amber-300 text-white animate-pulse"
+                          : "bg-slate-800/50 border-slate-700 text-slate-500 opacity-40"
+                  }`}
+                >
+                  {isFree ? "⭐" : val}
+                </div>
+              );
+            })}
+        </div>
+
+        {/* Info Text */}
+        <div className="flex justify-between items-center mt-3 px-1">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Board #{winner.index}</span>
+            <div className="flex gap-1">
+                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+            </div>
+        </div>
+      </div>
+
+      {/* Numbers List */}
+      <div className="mt-3 p-2 bg-slate-950/30 rounded-lg text-center">
+        <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Winning Sequence</p>
+        <div className="text-[11px] sm:text-xs text-indigo-300 font-mono break-all leading-tight">
+          {winnerPickList.length ? winnerPickList.join(" • ") : "—"}
+        </div>
+      </div>
+
+      {/* Countdown Footer */}
+      <div className="relative mt-4 flex items-center justify-center">
+         <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full"></div>
+         <div className="relative bg-slate-950 border border-indigo-500/30 text-indigo-400 w-12 h-12 flex items-center justify-center rounded-full font-black text-xl shadow-xl">
+           {winner.countdown ?? 5}
+         </div>
+      </div>
+    </div>
+  </div>
+)}
     </>
   );
 }
