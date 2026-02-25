@@ -746,13 +746,33 @@ export default function GamePage() {
               {/* ui */}
 
               <div className="w-[168px] sm:w-[190px] space-y-2.5 sm:space-y-3">
-                <div className="bg-black/60 border border-slate-700 rounded-xl px-2.5 py-2.5 sm:px-3 sm:py-3 flex items-center justify-center">
-                  <div className="text-2xl sm:text-3xl font-black tracking-wide animate-bounce text-shadow-glow">
-                    {currentCall != null
-                      ? `${letterFor(currentCall)}-${currentCall}`
-                      : "—"}
+                <div className="bg-black/60 border border-slate-700 rounded-xl px-2.5 py-3 sm:px-3 sm:py-3.5 flex items-center justify-center">
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-full blur-xl bg-amber-400/40" />
+                    <div className="relative w-[88px] h-[88px] sm:w-[98px] sm:h-[98px] rounded-full bg-white border-[5px] border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.55)] flex items-center justify-center">
+                      <div className="text-2xl sm:text-[28px] font-black tracking-wide text-violet-700">
+                        {currentCall != null
+                          ? `${letterFor(currentCall)}-${currentCall}`
+                          : "—"}
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {gameStarted && !myCards?.[0] && !myCards?.[1] && (
+                  <div className="border border-slate-700 rounded-xl p-3 sm:p-3.5 bg-indigo-950/30">
+                    <div className="text-center text-slate-100 font-black text-lg sm:text-xl">
+                      Watching Only
+                    </div>
+                    <div className="mt-6 text-center text-slate-200/90 text-sm leading-relaxed">
+                      ይህ ዙር ተጀምሯል።
+                      <br />
+                      ቢያንስ አንድ ካርድ ካልመረጡ ለመወዳደር አይችሉም።
+                      <br />
+                      ቀጣይ ዙር ለመጫወት ካርድ ይምረጡ።
+                    </div>
+                  </div>
+                )}
 
                 {[0, 1].map((slot) => {
                   const card = myCards?.[slot] || null;
