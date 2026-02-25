@@ -59,7 +59,7 @@ function buildDepositMessage(data) {
 
   if (data === "deposit_telebirr") {
     const phone = process.env.TELEBIRR_PHONE || "0909146096";
-    const name = process.env.TELEBIRR_NAME || "Weyra Bingo";
+    const name = process.env.TELEBIRR_NAME || "kaletsidike";
     return (
       `💰 TELEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
       `📱 Target: ${phone}\n` +
