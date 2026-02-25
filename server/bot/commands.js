@@ -202,11 +202,13 @@ function setupCommands(bot) {
       return bot.sendMessage(chatId, "Please /start first to register.");
     }
     const wallet = new Decimal(player.wallet.toString()).toFixed(2);
+    const gift = new Decimal(player.gift.toString()).toFixed(2);
     await bot.sendMessage(
       chatId,
       "```\n" +
         `Username:      ${player.username || "-"}\n` +
-        `Balance:       ${wallet} ETB\n` +
+        `Wallet:        ${wallet} ETB\n` +
+        `Gift:          ${gift} ETB\n` +
         "```",
       { parse_mode: "Markdown" },
     );
@@ -311,10 +313,10 @@ function setupCommands(bot) {
             where: { telegramId: BigInt(refTid) },
           });
           if (referrer) {
-            const refBonus = new Decimal(3);
-            const updated = await prisma.player.update({
+            const refBonus = new Decimal(100);
+            await prisma.player.update({
               where: { id: referrer.id },
-              data: { wallet: { increment: parseFloat(refBonus.toString()) } },
+              data: { gift: { increment: parseFloat(refBonus.toString()) } },
             });
             await prisma.transaction.create({
               data: {
@@ -327,7 +329,9 @@ function setupCommands(bot) {
             try {
               await bot.sendMessage(
                 refTid,
-                `🎉 Referral bonus received!\nA new player joined using your link. +3.00 ETB\nNew Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB`,
+                "🎉 Referral bonus received!\n" +
+                  "A new player joined using your link. +3.00 ETB\n" +
+                  "Bonus added to Play gift Wallet.",
               );
             } catch (_) {}
           }
@@ -417,9 +421,10 @@ function setupCommands(bot) {
       });
       if (!player) return bot.sendMessage(chatId, "Please /start first.");
       const wallet = new Decimal(player.wallet.toString()).toFixed(2);
+      const gift = new Decimal(player.gift.toString()).toFixed(2);
       return bot.sendMessage(
         chatId,
-        `💰 Wallet: ${wallet} ETB | Wins: ${player.wins}`,
+        `💰 Wallet: ${wallet} ETB | Gift: ${gift} ETB | Wins: ${player.wins}`,
       );
     }
 
@@ -526,11 +531,13 @@ function setupCommands(bot) {
         return;
       }
       const wallet = new Decimal(player.wallet.toString()).toFixed(2);
+      const gift = new Decimal(player.gift.toString()).toFixed(2);
       await bot.sendMessage(
         chatId,
         "```\n" +
           `Username:      ${player.username || "-"}\n` +
-          `Balance:       ${wallet} ETB\n` +
+          `Wallet:        ${wallet} ETB\n` +
+          `Gift:          ${gift} ETB\n` +
           "```",
         { parse_mode: "Markdown" },
       );

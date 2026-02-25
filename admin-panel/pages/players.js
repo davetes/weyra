@@ -301,7 +301,7 @@ function PlayersInner({ token, admin }) {
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
               <div className="text-slate-300">
                 {" "}
-                Points:{" "}
+                Gift:{" "}
                 <span className="font-semibold text-slate-100">
                   {" "}
                   {formatMoney(selected?.gift)}{" "}
@@ -441,7 +441,8 @@ function PlayersInner({ token, admin }) {
               <div className="text-xs text-muted">
                 {txRows.length ? (
                   <>
-                    Page {txPage} of {Math.max(1, Math.ceil(txRows.length / txPageSize))}
+                    Page {txPage} of{" "}
+                    {Math.max(1, Math.ceil(txRows.length / txPageSize))}
                   </>
                 ) : (
                   ""
@@ -517,43 +518,43 @@ function PlayersInner({ token, admin }) {
                         (txPage - 1) * txPageSize + txPageSize,
                       )
                       .map((t) => {
-                      const amt = Number(t.amount || 0);
-                      const amtText = `${amt >= 0 ? "+" : ""}${formatMoney(amt)} ETB`;
-                      const amtClass =
-                        amt >= 0 ? "text-success" : "text-danger";
-                      return (
-                        <tr key={t.id} className="border-b border-border/40">
-                          <td className="px-5 py-3 text-muted whitespace-nowrap">
-                            {" "}
-                            {formatDateTime(t.createdAt)}{" "}
-                          </td>{" "}
-                          <td className="pr-3 py-3 text-slate-200 whitespace-nowrap">
-                            {" "}
-                            {t.kind || "-"}{" "}
-                          </td>{" "}
-                          <td className="pr-3 py-3 text-muted max-w-[420px] truncate">
-                            {" "}
-                            {t.note || "-"}{" "}
-                          </td>{" "}
-                          <td
-                            className={`pr-3 py-3 font-medium whitespace-nowrap ${amtClass}`}
-                          >
-                            {" "}
-                            {amtText}{" "}
-                          </td>{" "}
-                          <td className="pr-3 py-3 text-slate-300 whitespace-nowrap">
-                            {" "}
-                            {formatMoney(t.balanceBefore)}
-                            ETB{" "}
-                          </td>{" "}
-                          <td className="pr-5 py-3 text-slate-300 whitespace-nowrap">
-                            {" "}
-                            {formatMoney(t.balanceAfter)}
-                            ETB{" "}
-                          </td>{" "}
-                        </tr>
-                      );
-                    })
+                        const amt = Number(t.amount || 0);
+                        const amtText = `${amt >= 0 ? "+" : ""}${formatMoney(amt)} ETB`;
+                        const amtClass =
+                          amt >= 0 ? "text-success" : "text-danger";
+                        return (
+                          <tr key={t.id} className="border-b border-border/40">
+                            <td className="px-5 py-3 text-muted whitespace-nowrap">
+                              {" "}
+                              {formatDateTime(t.createdAt)}{" "}
+                            </td>{" "}
+                            <td className="pr-3 py-3 text-slate-200 whitespace-nowrap">
+                              {" "}
+                              {t.kind || "-"}{" "}
+                            </td>{" "}
+                            <td className="pr-3 py-3 text-muted max-w-[420px] truncate">
+                              {" "}
+                              {t.note || "-"}{" "}
+                            </td>{" "}
+                            <td
+                              className={`pr-3 py-3 font-medium whitespace-nowrap ${amtClass}`}
+                            >
+                              {" "}
+                              {amtText}{" "}
+                            </td>{" "}
+                            <td className="pr-3 py-3 text-slate-300 whitespace-nowrap">
+                              {" "}
+                              {formatMoney(t.balanceBefore)}
+                              ETB{" "}
+                            </td>{" "}
+                            <td className="pr-5 py-3 text-slate-300 whitespace-nowrap">
+                              {" "}
+                              {formatMoney(t.balanceAfter)}
+                              ETB{" "}
+                            </td>{" "}
+                          </tr>
+                        );
+                      })
                   )}{" "}
                 </tbody>{" "}
               </table>{" "}
@@ -595,7 +596,7 @@ function PlayersInner({ token, admin }) {
               <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
                 <div className="text-slate-300">
                   {" "}
-                  Points:{" "}
+                  Gift:{" "}
                   <span className="font-semibold text-slate-100">
                     {" "}
                     {formatMoney(selected.gift)}{" "}

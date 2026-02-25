@@ -208,8 +208,9 @@ export default function PlayPage() {
       if (typeof remaining === "number") {
         if (remaining <= 0) setCountdown("Starting...");
         else setCountdown(String(remaining));
-        if (data.countdown_started_at && !countdownTimerRef.current) {
-          startCountdown(data.countdown_started_at);
+        if (!countdownTimerRef.current) {
+          if (data.countdown_started_at) startCountdown(data.countdown_started_at);
+          else startCountdownFromRemaining(remaining);
         }
       } else {
         if (!data.started) setCountdown("-");
@@ -246,6 +247,20 @@ export default function PlayPage() {
         countdownTimerRef.current = null;
       }
     }, 500);
+  }
+
+  function startCountdownFromRemaining(remainingSeconds) {
+    let rem = Math.max(0, Math.floor(Number(remainingSeconds) || 0));
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    setCountdown(rem <= 0 ? "Starting..." : String(rem));
+    countdownTimerRef.current = setInterval(() => {
+      rem = Math.max(0, rem - 1);
+      setCountdown(rem <= 0 ? "Starting..." : String(rem));
+      if (rem <= 0) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    }, 1000);
   }
 
   useEffect(() => {
@@ -336,22 +351,21 @@ export default function PlayPage() {
             </div>
           )}
           <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-2 items-stretch">
-          <div className="bg-slate-200/90 text-slate-700 ring-1 ring-slate-300 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-  Game ID: {gameId}
-</div>
+            <div className="bg-slate-200/90 text-slate-700 ring-1 ring-slate-300 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
+              Game ID: {gameId}
+            </div>
             <div className="bg-amber-500/90 text-amber-950 ring-1 ring-amber-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-  Bet: {STAKE} Birr
-</div>
-           <div className="bg-blue-600/90 text-white ring-1 ring-blue-400/30 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-  Balance: {Number(totalBalance || 0).toFixed(2)} Birr
-</div>
+              Bet: {STAKE} Birr
+            </div>
+            <div className="bg-blue-600/90 text-white ring-1 ring-blue-400/30 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
+              <div>Wallet: {Number(wallet || 0).toFixed(2)} Birr</div>
+            </div>
             <div className="bg-indigo-500/90 text-indigo-950 ring-1 ring-indigo-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-  Players: {acceptedCount}
-</div>
+              Gift: {Number(gift || 0).toFixed(2)} Birr
+            </div>
             <div className="bg-emerald-500/90 text-emerald-950 ring-1 ring-emerald-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-  Derash: {Math.round(derash)} ETB
-</div>
-              
+              Derash: {Math.round(derash)} ETB
+            </div>
           </div>
         </div>
 

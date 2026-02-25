@@ -19,7 +19,10 @@ const ADMIN_COMMANDS = [
 ];
 
 const ENTERTAINER_COMMANDS = [
-  { cmd: "/balances <id|@username>", desc: "Check player wallet balance" },
+  {
+    cmd: "/balances <id|@username>",
+    desc: "Check player wallet + gift balance",
+  },
   { cmd: "/add <id|@username> <amount>", desc: "Add amount to player wallet" },
   {
     cmd: "/subtract <id|@username> <amount>",

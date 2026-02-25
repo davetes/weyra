@@ -125,7 +125,10 @@ function setupSocket(io) {
 
         if (!result) {
           await prisma.selection.delete({ where: { id: sel.id } });
-          socket.emit("message", { type: "disqualified", tid: String(msg.tid || "") });
+          socket.emit("message", {
+            type: "disqualified",
+            tid: String(msg.tid || ""),
+          });
           return;
         }
 

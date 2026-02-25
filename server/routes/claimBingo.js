@@ -129,7 +129,8 @@ async function handleClaimBingo(req, res, io) {
       return res.json({
         ok: false,
         disqualified: true,
-        error: "No valid bingo",
+        error:
+          "Invalid Bingo. You have been disqualified. | የተሳሳተ ቢንጎ። ከጨዋታው ውጭ ሆነዋል።",
       });
     }
 
