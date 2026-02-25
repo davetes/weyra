@@ -104,6 +104,8 @@ function PlayersInner({ token, admin }) {
   const [txError, setTxError] = useState("");
   const [txRows, setTxRows] = useState([]);
   const [txReferralTotal, setTxReferralTotal] = useState(0);
+  const [txPage, setTxPage] = useState(1);
+  const txPageSize = 25;
   const [adjOpen, setAdjOpen] = useState(false);
   const [adjKind, setAdjKind] = useState("add");
   const [adjAmount, setAdjAmount] = useState("");
@@ -224,10 +226,11 @@ function PlayersInner({ token, admin }) {
     setTxError("");
     setTxRows([]);
     setTxReferralTotal(0);
+    setTxPage(1);
 
     try {
       const res = await apiFetch(
-        `/api/admin/players/${p.id}/transactions?limit=200`,
+        `/api/admin/players/${p.id}/transactions?limit=500`,
         { token },
       );
       setTxRows(res.transactions || []);
@@ -410,6 +413,7 @@ function PlayersInner({ token, admin }) {
             setTxError("");
             setTxRows([]);
             setTxReferralTotal(0);
+            setTxPage(1);
           }}
           title={`Transaction History (User ID: ${selected?.telegramId || "-"})`}
           maxWidth="max-w-5xl"
@@ -433,7 +437,46 @@ function PlayersInner({ token, admin }) {
                 {txError}{" "}
               </div>
             )}
-            <div className="overflow-auto border border-border rounded-xl">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted">
+                {txRows.length ? (
+                  <>
+                    Page {txPage} of {Math.max(1, Math.ceil(txRows.length / txPageSize))}
+                  </>
+                ) : (
+                  ""
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="h-9 px-3 rounded-lg border border-border bg-bg-secondary text-slate-200 text-sm font-semibold disabled:opacity-50"
+                  disabled={txLoading || txPage <= 1}
+                  onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  className="h-9 px-3 rounded-lg border border-border bg-bg-secondary text-slate-200 text-sm font-semibold disabled:opacity-50"
+                  disabled={
+                    txLoading ||
+                    txPage >= Math.max(1, Math.ceil(txRows.length / txPageSize))
+                  }
+                  onClick={() =>
+                    setTxPage((p) =>
+                      Math.min(
+                        Math.max(1, Math.ceil(txRows.length / txPageSize)),
+                        p + 1,
+                      ),
+                    )
+                  }
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[60vh] overflow-auto border border-border rounded-xl">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs font-medium text-muted uppercase tracking-wider border-b border-border bg-bg-secondary/40">
@@ -468,7 +511,12 @@ function PlayersInner({ token, admin }) {
                       </td>{" "}
                     </tr>
                   ) : (
-                    txRows.map((t) => {
+                    txRows
+                      .slice(
+                        (txPage - 1) * txPageSize,
+                        (txPage - 1) * txPageSize + txPageSize,
+                      )
+                      .map((t) => {
                       const amt = Number(t.amount || 0);
                       const amtText = `${amt >= 0 ? "+" : ""}${formatMoney(amt)} ETB`;
                       const amtClass =

@@ -62,6 +62,7 @@ export default function PlayPage() {
   const [splashError, setSplashError] = useState("");
   const [taken, setTaken] = useState(new Set());
   const [acceptedCount, setAcceptedCount] = useState(0);
+  const [acceptedCards, setAcceptedCards] = useState(0);
   const [gameId, setGameId] = useState("-");
   const [wallet, setWallet] = useState(0);
   const [gift, setGift] = useState(0);
@@ -186,6 +187,10 @@ export default function PlayPage() {
 
       const nextAccepted = data.accepted_count || 0;
       if (nextAccepted !== acceptedCount) setAcceptedCount(nextAccepted);
+
+      const nextAcceptedCards = data.accepted_cards || 0;
+      if (nextAcceptedCards !== acceptedCards)
+        setAcceptedCards(nextAcceptedCards);
       if (Array.isArray(data.my_indices) && !data.started) {
         const a =
           data.my_indices[0] != null ? Number(data.my_indices[0]) : null;
@@ -199,8 +204,19 @@ export default function PlayPage() {
       if (typeof data.gift === "number" && data.gift !== gift)
         setGift(data.gift);
 
-      if (data.countdown_started_at && !countdownTimerRef.current) {
-        startCountdown(data.countdown_started_at);
+      const remaining = data.countdown_remaining;
+      if (typeof remaining === "number") {
+        if (remaining <= 0) setCountdown("Starting...");
+        else setCountdown(String(remaining));
+        if (data.countdown_started_at && !countdownTimerRef.current) {
+          startCountdown(data.countdown_started_at);
+        }
+      } else {
+        if (!data.started) setCountdown("-");
+        if (countdownTimerRef.current) {
+          clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
+        }
       }
       if (data.started) {
         router.push(`/game?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
@@ -217,7 +233,7 @@ export default function PlayPage() {
       );
       setSplashVisible(false);
     }
-  }, [STAKE, TID, router, acceptedCount, gift, gameId, wallet]);
+  }, [STAKE, TID, router, acceptedCards, acceptedCount, gift, gameId, wallet]);
 
   function startCountdown(iso) {
     const start = new Date(iso).getTime();
@@ -257,7 +273,7 @@ export default function PlayPage() {
     return () => window.removeEventListener("beforeunload", handle);
   }, [TID, STAKE]);
 
-  const derash = Math.max(0, acceptedCount * STAKE * 0.8);
+  const derash = Math.max(0, acceptedCards * STAKE * 0.8);
   const cardRowsA = selectedA ? buildCard(selectedA) : null;
   const cardRowsB = selectedB ? buildCard(selectedB) : null;
   const totalBalance = wallet + gift;
@@ -313,12 +329,12 @@ export default function PlayPage() {
         <div className="bg-slate-900 text-slate-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
           <div className="h-4 sm:h-5" />
           {countdown !== "-" && (
-  <div className="mb-2 flex justify-center">
-    <div className="bg-amber-400/95 text-amber-950 ring-2 ring-amber-500/30 animate-pulse font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm shadow-md">
-      Starts In: {startsInText}
-    </div>
-  </div>
-)}
+            <div className="mb-2 flex justify-center">
+              <div className="bg-amber-400/95 text-amber-950 ring-2 ring-amber-500/30 animate-pulse font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm shadow-md">
+                Starts In: {startsInText}
+              </div>
+            </div>
+          )}
           <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-2 items-stretch">
           <div className="bg-slate-200/90 text-slate-700 ring-1 ring-slate-300 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
   Game ID: {gameId}

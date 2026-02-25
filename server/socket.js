@@ -125,16 +125,22 @@ function setupSocket(io) {
 
         if (!result) {
           await prisma.selection.delete({ where: { id: sel.id } });
-          socket.emit("message", { type: "disqualified" });
+          socket.emit("message", { type: "disqualified", tid: String(msg.tid || "") });
           return;
         }
 
         // Valid bingo
         const { Decimal } = require("decimal.js");
-        const allSels = await prisma.selection.count({
-          where: { gameId: game.id, accepted: true },
-        });
-        const pot = new Decimal(allSels).times(stake).times(0.8);
+        let eligibleCount = game.stakesCharged
+          ? Number(game.chargedCount || 0)
+          : null;
+        if (!Number.isFinite(eligibleCount) || eligibleCount <= 0) {
+          const allSels = await prisma.selection.count({
+            where: { gameId: game.id, accepted: true },
+          });
+          eligibleCount = allSels;
+        }
+        const pot = new Decimal(eligibleCount).times(stake).times(0.8);
 
         await prisma.player.update({
           where: { id: player.id },

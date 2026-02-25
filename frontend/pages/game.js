@@ -66,6 +66,7 @@ export default function GamePage() {
   const TID = tidQ || "";
 
   const [players, setPlayers] = useState(0);
+  const [acceptedCards, setAcceptedCards] = useState(0);
   const [totalGames, setTotalGames] = useState("-");
   const [currentCall, setCurrentCall] = useState(null);
   const [calledSet, setCalledSet] = useState(new Set());
@@ -80,6 +81,7 @@ export default function GamePage() {
   const [winner, setWinner] = useState(null);
   const [audioOn, setAudioOn] = useState(false);
   const [suppressCalls, setSuppressCalls] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   const socketRef = useRef(null);
   const audioRef = useRef(null);
@@ -98,6 +100,7 @@ export default function GamePage() {
   const winnerSyncTimeoutRef = useRef(null);
 
   const lastPlayersRef = useRef(null);
+  const lastAcceptedCardsRef = useRef(null);
   const lastTotalGamesRef = useRef(null);
   const lastStartedRef = useRef(null);
   const lastCurrentCallRef = useRef(null);
@@ -105,7 +108,7 @@ export default function GamePage() {
   const lastMyCardsSigRef = useRef("");
   const lastMyIndicesSigRef = useRef("");
 
-  const derash = Math.max(0, players * STAKE * 0.8);
+  const derash = Math.max(0, acceptedCards * STAKE * 0.8);
 
   useEffect(() => {
     winnerRef.current = winner;
@@ -114,6 +117,12 @@ export default function GamePage() {
   useEffect(() => {
     gameStartedRef.current = !!gameStarted;
   }, [gameStarted]);
+
+  useEffect(() => {
+    if (!toastMessage) return undefined;
+    const timer = setTimeout(() => setToastMessage(""), 3000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   function loadSlotPicks(slot, idx) {
     if (idx == null) return new Set();
@@ -357,6 +366,12 @@ export default function GamePage() {
         setPlayers(nextPlayers);
       }
 
+      const nextAcceptedCards = data.accepted_cards ?? 0;
+      if (lastAcceptedCardsRef.current !== nextAcceptedCards) {
+        lastAcceptedCardsRef.current = nextAcceptedCards;
+        setAcceptedCards(nextAcceptedCards);
+      }
+
       const nextTotalGames = data.total_games ?? "-";
       if (lastTotalGamesRef.current !== nextTotalGames) {
         lastTotalGamesRef.current = nextTotalGames;
@@ -474,6 +489,7 @@ export default function GamePage() {
       } else if (msg.type === "disqualified") {
         if (winnerRef.current) return;
         if (String(msg.tid || "") === String(TID || "")) {
+          setToastMessage("No valid bingo. You are disqualified.");
           scheduleReturnToPlay(6000);
         }
       }
@@ -552,7 +568,7 @@ export default function GamePage() {
       })
       .then((data) => {
         if (data?.disqualified) {
-          alert(data?.error || "No valid bingo");
+          setToastMessage(data?.error || "No valid bingo");
           return;
         }
         const idx = myIndices?.[slot ?? 0];
@@ -575,7 +591,7 @@ export default function GamePage() {
         }
       })
       .catch((err) => {
-        alert(err?.message || "Failed to claim bingo");
+        setToastMessage(err?.message || "Failed to claim bingo");
       });
   }
 
@@ -608,6 +624,14 @@ export default function GamePage() {
         <title>Game</title>
       </Head>
       <audio ref={audioRef} preload="auto" />
+
+      {toastMessage && (
+        <div className="fixed top-4 left-1/2 z-[10000] -translate-x-1/2 px-3">
+          <div className="bg-rose-600 text-white font-semibold text-xs sm:text-sm px-3 py-2 rounded-lg shadow-lg">
+            {toastMessage}
+          </div>
+        </div>
+      )}
 
       <div className="w-full min-h-[100svh]">
         <div className="bg-slate-900 text-slate-100 px-2.5 py-2.5 sm:px-3 sm:py-3">
@@ -782,58 +806,71 @@ export default function GamePage() {
                         })}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!enabled) return;
-                          if (slot === 1) {
-                            setAutoSelect1((p) => {
-                              const next = !p;
-                              saveAutoSelect(1, next);
-                              autoBaseline1Ref.current = next
-                                ? new Set(calledSet)
-                                : null;
-                              return next;
-                            });
-                          } else {
-                            setAutoSelect0((p) => {
-                              const next = !p;
-                              saveAutoSelect(0, next);
-                              autoBaseline0Ref.current = next
-                                ? new Set(calledSet)
-                                : null;
-                              return next;
-                            });
-                          }
-                        }}
-                        disabled={!enabled}
-                        className={`mt-2 w-full font-extrabold rounded-lg py-1.5 text-xs sm:text-sm border ${
-                          enabled ? "active:scale-[0.99]" : "opacity-60"
-                        } ${
-                          autoOn
-                            ? "bg-emerald-500/90 text-emerald-950 border-emerald-200"
-                            : "bg-slate-900/40 text-slate-200 border-slate-700"
-                        }`}
-                      >
-                        Auto Select: {autoOn ? "ON" : "OFF"}
-                      </button>
+                    <button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    if (!enabled) return;
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          claimBingo(slot);
-                        }}
-                        disabled={!enabled || !gameStarted}
-                        className={`mt-2.5 sm:mt-3 w-full bg-amber-700/90 text-amber-100 font-black rounded-lg py-1.5 sm:py-2 text-xs sm:text-sm border border-amber-500 ${
-                          enabled && gameStarted
-                            ? "active:scale-[0.99]"
-                            : "opacity-60"
-                        }`}
-                      >
-                        BINGO
-                      </button>
+    const toggleAuto = (setter, slotIndex, ref) => {
+      setter((p) => {
+        const next = !p;
+        saveAutoSelect(slotIndex, next);
+        ref.current = next ? new Set(calledSet) : null;
+        return next;
+      });
+    };
+
+    if (slot === 1) toggleAuto(setAutoSelect1, 1, autoBaseline1Ref);
+    else toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
+  }}
+  disabled={!enabled}
+  className={`mt-2 flex items-center gap-2 px-2.5 py-1 rounded-full border transition-all ${
+    enabled ? "active:scale-95" : "opacity-50"
+  } ${
+    autoOn 
+      ? "bg-emerald-500/10 border-emerald-500/40" 
+      : "bg-slate-900/40 border-slate-700"
+  }`}
+>
+  {/* Left Side: Labels */}
+  <div className="flex flex-col items-start leading-none pointer-events-none">
+    <span className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? 'text-emerald-400' : 'text-slate-400'}`}>
+      AUTO
+    </span>
+    <span className="text-[8px] font-medium opacity-60 text-slate-300">ራስ-ሰር</span>
+  </div>
+
+  {/* Right Side: The Toggle Switch */}
+  <div className={`relative flex h-4 w-7 items-center rounded-full transition-colors duration-200 ${
+    autoOn ? 'bg-emerald-500' : 'bg-slate-600'
+  }`}>
+    <div
+      className={`absolute h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+        autoOn ? 'translate-x-3.5' : 'translate-x-0.5'
+      }`}
+    />
+  </div>
+</button>
+
+                    <button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    claimBingo(slot);
+  }}
+  disabled={!enabled || !gameStarted}
+  className={`mt-2.5 sm:mt-3 w-full font-black rounded-lg py-2 sm:py-2.5 text-sm sm:text-base border-2 transition-all duration-150 uppercase tracking-widest ${
+    enabled && gameStarted
+      ? "bg-gradient-to-t from-yellow-600 to-yellow-400 text-yellow-950 border-yellow-300 shadow-[0_0_15px_rgba(250,204,21,0.4)] active:scale-[0.96] animate-pulse"
+      : "bg-slate-800/50 text-slate-500 border-slate-700 opacity-60 cursor-not-allowed"
+  }`}
+>
+  <div className="flex flex-col leading-none">
+    <span>BINGO!</span>
+    <span className="text-[9px] sm:text-[10px] mt-1 opacity-80">ድልዎን ያውጁ</span>
+  </div>
+</button>
                     </div>
                   );
                 })}

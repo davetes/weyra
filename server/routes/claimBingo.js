@@ -134,10 +134,16 @@ async function handleClaimBingo(req, res, io) {
     }
 
     // Valid bingo! Calculate payout
-    const allSels = await prisma.selection.findMany({
-      where: { gameId: game.id, accepted: true },
-    });
-    const pot = new Decimal(allSels.length).times(stake).times(0.8);
+    let eligibleCount = game.stakesCharged
+      ? Number(game.chargedCount || 0)
+      : null;
+    if (!Number.isFinite(eligibleCount) || eligibleCount <= 0) {
+      const allSels = await prisma.selection.count({
+        where: { gameId: game.id, accepted: true },
+      });
+      eligibleCount = allSels;
+    }
+    const pot = new Decimal(eligibleCount).times(stake).times(0.8);
 
     // Credit winner
     await prisma.player.update({
