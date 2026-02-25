@@ -348,7 +348,7 @@ export default function PlayPage() {
                   const isTaken = taken.has(key);
                   const isSelected = selectedA === n || selectedB === n;
                   const base =
-                    "relative font-extrabold rounded-md sm:rounded-lg aspect-square flex items-center justify-center select-none text-xs sm:text-base leading-none border";
+                    "relative font-black rounded-md sm:rounded-lg aspect-square flex items-center justify-center select-none text-xs sm:text-base leading-none border";
                   const cls = isSelected
                     ? "bg-[#f50707] border-[#f50707] text-white"
                     : isTaken
@@ -449,7 +449,7 @@ export default function PlayPage() {
                       cardRowsA.flat().map((val, i) => (
                         <div
                           key={i}
-                          className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none ${
+                          className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-black border text-[10px] sm:text-sm leading-none ${
                             val === "FREE"
                               ? "bg-slate-700 border-slate-600 text-white"
                               : "bg-teal-900/50 border-teal-700 text-teal-100"
@@ -489,7 +489,7 @@ export default function PlayPage() {
                         cardRowsB.flat().map((val, i) => (
                           <div
                             key={i}
-                            className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none ${
+                            className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-black border text-[10px] sm:text-sm leading-none ${
                               val === "FREE"
                                 ? "bg-slate-700 border-slate-600 text-white"
                                 : "bg-teal-900/50 border-teal-700 text-teal-100"
