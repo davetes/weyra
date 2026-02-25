@@ -313,7 +313,7 @@ function setupCommands(bot) {
             where: { telegramId: BigInt(refTid) },
           });
           if (referrer) {
-            const refBonus = new Decimal(100);
+            const refBonus = new Decimal(5);
             await prisma.player.update({
               where: { id: referrer.id },
               data: { gift: { increment: parseFloat(refBonus.toString()) } },
