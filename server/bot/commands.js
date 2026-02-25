@@ -124,8 +124,8 @@ function setupCommands(bot) {
     const imgUrl = process.env.START_IMAGE_URL;
     const imgPath = process.env.START_IMAGE_PATH;
     const welcome =
-      "🌿 Rooted in Luck! - በዕድል ስር ይበቅሉ! > Pick your Weyra, join the game, and claim your win!\n\n" +
-      "ወይራዎን ይምረጡ፣ ጨዋታውን ይቀላቀሉ እና ድልዎን ያረጋግጡ!";
+      "PLAY AND WIN! - ይጫወቱ ያሸንፉ!! > Pick your Weyra, join the game, and claim your win!\n\n" +
+      "ወይራን ይምረጡ፣ ጨዋታውን ይቀላቀሉ እና ድልዎን ያረጋግጡ!";
     if (imgUrl) {
       try {
         await bot.sendPhoto(chatId, imgUrl, {
@@ -350,7 +350,7 @@ function setupCommands(bot) {
 
       await bot.sendMessage(
         msg.chat.id,
-        "🌿 Rooted in Luck! - በዕድል ስር ይበቅሉ! > Pick your Weyra, join the game, and claim your win!\n\nወይራዎን ይምረጡ፣ ጨዋታውን ይቀላቀሉ እና ድልዎን ያረጋግጡ!",
+        "PLAY AND WIN! - ይጫወቱ ያሸንፉ!! > Pick your Weyra, join the game, and claim your win!\n\nወይራዎን ይምረጡ፣ ጨዋታውን ይቀላቀሉ እና ድልዎን ያረጋግጡ!",
         {
           parse_mode: "HTML",
           reply_markup: { inline_keyboard: BUTTON_ROWS },
