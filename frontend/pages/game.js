@@ -417,7 +417,6 @@ export default function GamePage() {
       const callCountNum =
         data.call_count != null ? Number(data.call_count) : null;
       const reached75 =
-        (callNum != null && Number.isFinite(callNum) && callNum >= 75) ||
         calledCount >= 75 ||
         (callCountNum != null &&
           Number.isFinite(callCountNum) &&
