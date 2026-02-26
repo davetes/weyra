@@ -385,8 +385,8 @@ export default function PlayPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-1.5 sm:p-2">
-          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border border-white/10 rounded-xl p-1.5 sm:p-2 shadow-xl h-full flex flex-col">
+        <div className="flex-1 overflow-y-auto py-1.5 sm:py-2">
+          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border-y border-white/10 py-1.5 sm:py-2 shadow-xl h-full flex flex-col">
             <div className="flex-1 overflow-y-auto no-scrollbar">
               <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
                 {numbers.map((n) => {
@@ -467,7 +467,7 @@ export default function PlayPage() {
             )}
 
             {(selectedA || selectedB) && (
-              <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 flex-none">
+              <div className="mt-2 grid grid-cols-2 gap-1 sm:gap-1.5 flex-none">
                 <div
                   className={`border-2 rounded-xl p-1.5 sm:p-2 transition-all duration-300 ${
                     activeSlot === 0
@@ -490,7 +490,7 @@ export default function PlayPage() {
                     ))}
                   </div>
 
-                  <div className="mt-1 sm:mt-1.5 grid grid-cols-5 gap-0.5">
+                  <div className="mt-1 sm:mt-1.5 grid grid-cols-5 gap-1 sm:gap-1.5">
                     {cardRowsA &&
                       cardRowsA.flat().map((val, i) => (
                         <div
@@ -530,7 +530,7 @@ export default function PlayPage() {
                       ))}
                     </div>
 
-                    <div className="mt-1 sm:mt-1.5 grid grid-cols-5 gap-0.5">
+                    <div className="mt-1 sm:mt-1.5 grid grid-cols-5 gap-1 sm:gap-1.5">
                       {cardRowsB &&
                         cardRowsB.flat().map((val, i) => (
                           <div

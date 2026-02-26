@@ -56,4 +56,9 @@ function letterFor(n) {
   return 'O';
 }
 
-module.exports = { RANGES, mulberry32, shuffle, getCard, letterFor };
+function generateGameId() {
+  // Generate random 5-digit number (10000-99999)
+  return Math.floor(10000 + Math.random() * 90000);
+}
+
+module.exports = { RANGES, mulberry32, shuffle, getCard, letterFor, generateGameId };

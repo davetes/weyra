@@ -1,6 +1,6 @@
 // Socket.IO handler — port of bingo/consumers.py (GameConsumer)
 const { PrismaClient } = require("@prisma/client");
-const { getCard } = require("./utils");
+const { getCard, generateGameId } = require("./utils");
 const cache = require("./cache");
 
 const prisma = new PrismaClient();
@@ -193,7 +193,7 @@ function setupSocket(io) {
           10,
         );
 
-        await prisma.game.create({ data: { stake } });
+        await prisma.game.create({ data: { id: generateGameId(), stake } });
       }
     });
   });

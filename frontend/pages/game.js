@@ -381,7 +381,7 @@ export default function GamePage() {
         setChargedCards(nextChargedCards);
       }
 
-      const nextTotalGames = data.total_games ?? "-";
+      const nextTotalGames = data.game_id ?? "-";
       if (lastTotalGamesRef.current !== nextTotalGames) {
         lastTotalGamesRef.current = nextTotalGames;
         setTotalGames(nextTotalGames);

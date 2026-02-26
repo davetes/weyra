@@ -2,7 +2,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const cache = require("../cache");
-const { getCard } = require("../utils");
+const { getCard, generateGameId } = require("../utils");
 const { ensureAdminWins } = require("../checker");
 
 const prisma = new PrismaClient();
@@ -28,7 +28,7 @@ async function handleGameState(req, res, io) {
       orderBy: { createdAt: "desc" },
     });
     if (!game) {
-      game = await prisma.game.create({ data: { stake } });
+      game = await prisma.game.create({ data: { id: generateGameId(), stake } });
     }
 
     // Track heartbeat + presence
@@ -86,7 +86,7 @@ async function handleGameState(req, res, io) {
             data: { active: false, finished: true },
           });
           await prisma.selection.deleteMany({ where: { gameId: game.id } });
-          await prisma.game.create({ data: { stake } });
+          await prisma.game.create({ data: { id: generateGameId(), stake } });
           cache.del(idleKey);
           io.to(`game_${stake}`).emit("message", { type: "restarted" });
           return handleGameState(req, res, io);
@@ -102,7 +102,7 @@ async function handleGameState(req, res, io) {
         where: { id: game.id },
         data: { active: false, finished: true },
       });
-      await prisma.game.create({ data: { stake } });
+      await prisma.game.create({ data: { id: generateGameId(), stake } });
       io.to(`game_${stake}`).emit("message", {
         type: "game_ended_no_winner",
         reason: "All players disqualified",
@@ -239,7 +239,7 @@ async function handleGameState(req, res, io) {
           data: { active: false, finished: true },
         });
         // Create new game
-        await prisma.game.create({ data: { stake } });
+        await prisma.game.create({ data: { id: generateGameId(), stake } });
         io.to(`game_${stake}`).emit("message", { type: "restarted" });
       }
     }

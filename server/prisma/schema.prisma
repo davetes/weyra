@@ -64,7 +64,7 @@ model AppSetting {
 }
 
 model Game {
-  id                 Int       @id @default(autoincrement())
+  id                 Int       @id
   stake              Int
   active             Boolean   @default(true)
   finished           Boolean   @default(false)

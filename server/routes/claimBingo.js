@@ -1,7 +1,7 @@
 // POST /api/claim_bingo — port of views.api_claim_bingo
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
-const { getCard } = require("../utils");
+const { getCard, generateGameId } = require("../utils");
 const cache = require("../cache");
 
 const prisma = new PrismaClient();
@@ -139,7 +139,7 @@ async function handleClaimBingo(req, res, io) {
           data: { active: false, finished: true },
         });
         // Create new game for next round
-        await prisma.game.create({ data: { stake } });
+        await prisma.game.create({ data: { id: generateGameId(), stake } });
         io.to(`game_${stake}`).emit("message", {
           type: "game_ended_no_winner",
           reason: "All players disqualified",
@@ -221,7 +221,7 @@ async function handleClaimBingo(req, res, io) {
     );
 
     // Create new game for next round
-    await prisma.game.create({ data: { stake } });
+    await prisma.game.create({ data: { id: generateGameId(), stake } });
 
     return res.json({
       ok: true,
