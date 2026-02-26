@@ -120,7 +120,7 @@ async function handleClaimBingo(req, res, io) {
 
     if (!result) {
       // Disqualify player — remove selection
-      await prisma.selection.delete({ where: { id: sel.id } });
+      await prisma.selection.deleteMany({ where: { id: sel.id } });
       io.to(`game_${stake}`).emit("message", {
         type: "disqualified",
         tid: tidStr,

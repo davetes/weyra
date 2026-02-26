@@ -95,7 +95,8 @@ export default function PlayPage() {
       const data = await res.json();
       setTaken(new Set((data.taken || []).map(String)));
       setAcceptedCount(data.accepted_count || 0);
-      if (data.countdown_started_at) startCountdown(data.countdown_started_at);
+      if (data.countdown_started_at)
+        startCountdown(data.countdown_started_at, data.countdown_remaining);
       return;
     }
 
@@ -206,11 +207,9 @@ export default function PlayPage() {
 
       const remaining = data.countdown_remaining;
       if (typeof remaining === "number") {
-        if (remaining <= 0) setCountdown("Starting...");
-        else setCountdown(String(remaining));
         if (!countdownTimerRef.current) {
           if (data.countdown_started_at)
-            startCountdown(data.countdown_started_at);
+            startCountdown(data.countdown_started_at, remaining);
           else startCountdownFromRemaining(remaining);
         }
       } else {
@@ -242,9 +241,14 @@ export default function PlayPage() {
     }
   }, [STAKE, TID, router, acceptedCards, acceptedCount, gift, gameId, wallet]);
 
-  function startCountdown(iso) {
+  function startCountdown(iso, initialRemaining) {
     const start = new Date(iso).getTime();
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    const initial =
+      typeof initialRemaining === "number"
+        ? initialRemaining
+        : Math.max(0, 30 - Math.floor((Date.now() - start) / 1000));
+    setCountdown(initial <= 0 ? "Starting..." : String(initial));
     countdownTimerRef.current = setInterval(() => {
       const rem = Math.max(0, 30 - Math.floor((Date.now() - start) / 1000));
       setCountdown(rem <= 0 ? "Starting..." : String(rem));

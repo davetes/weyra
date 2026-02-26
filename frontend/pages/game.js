@@ -97,6 +97,7 @@ export default function GamePage() {
   const noWinnerRedirectedRef = useRef(false);
   const autoBaseline0Ref = useRef(null);
   const autoBaseline1Ref = useRef(null);
+  const autoClaimedRef = useRef([false, false]);
   const gameStartedRef = useRef(false);
   const endRedirectTimeoutRef = useRef(null);
   const winnerSyncTimeoutRef = useRef(null);
@@ -120,6 +121,20 @@ export default function GamePage() {
   useEffect(() => {
     gameStartedRef.current = !!gameStarted;
   }, [gameStarted]);
+
+  useEffect(() => {
+    if (!gameStarted || winner) {
+      autoClaimedRef.current = [false, false];
+    }
+  }, [gameStarted, winner]);
+
+  useEffect(() => {
+    if (!autoSelect0) autoClaimedRef.current[0] = false;
+  }, [autoSelect0]);
+
+  useEffect(() => {
+    if (!autoSelect1) autoClaimedRef.current[1] = false;
+  }, [autoSelect1]);
 
   useEffect(() => {
     if (!toastMessage) return undefined;
@@ -414,9 +429,13 @@ export default function GamePage() {
       if (calledSig !== lastCalledSigRef.current) {
         lastCalledSigRef.current = calledSig;
         setCalledSet(new Set(calledArr));
-        // Keep last 3 calls before current (or all if less than 3)
-        const prevCalls = data.called_numbers || [];
-        setRecentCalls(prevCalls.slice(-3).map(String));
+        // Keep last 2 calls before current and order newest-to-older for display
+        const currentCallStr =
+          data.current_call != null ? String(data.current_call) : null;
+        const prevCalls = (data.called_numbers || [])
+          .map(String)
+          .filter((num) => num !== currentCallStr);
+        setRecentCalls(prevCalls.slice(-2).reverse());
       }
 
       if (Array.isArray(data.my_cards)) {
@@ -614,6 +633,75 @@ export default function GamePage() {
       });
   }
 
+  function checkBingo(card, called) {
+    if (!card || !called || called.size === 0) return null;
+
+    for (let r = 0; r < 5; r += 1) {
+      if (
+        [0, 1, 2, 3, 4].every((c) => {
+          const v = card[r][c];
+          return v === "FREE" || called.has(String(v));
+        })
+      ) {
+        return { pattern: "row", row: r };
+      }
+    }
+
+    for (let c = 0; c < 5; c += 1) {
+      if (
+        [0, 1, 2, 3, 4].every((r) => {
+          const v = card[r][c];
+          return v === "FREE" || called.has(String(v));
+        })
+      ) {
+        return { pattern: "col", col: c };
+      }
+    }
+
+    if (
+      [0, 1, 2, 3, 4].every((i) => {
+        const v = card[i][i];
+        return v === "FREE" || called.has(String(v));
+      })
+    ) {
+      return { pattern: "diag_main" };
+    }
+
+    if (
+      [0, 1, 2, 3, 4].every((i) => {
+        const v = card[i][4 - i];
+        return v === "FREE" || called.has(String(v));
+      })
+    ) {
+      return { pattern: "diag_anti" };
+    }
+
+    const corners = [card[0][0], card[0][4], card[4][0], card[4][4]];
+    if (corners.every((v) => v === "FREE" || called.has(String(v)))) {
+      return { pattern: "four_corners" };
+    }
+
+    return null;
+  }
+
+  useEffect(() => {
+    if (!gameStarted || winner) return;
+
+    const tryAutoClaim = (slot) => {
+      const autoOn = slot === 1 ? autoSelect1 : autoSelect0;
+      if (!autoOn || autoClaimedRef.current[slot]) return;
+      const card = myCards?.[slot];
+      if (!card) return;
+      const result = checkBingo(card, calledSet);
+      if (!result) return;
+      autoClaimedRef.current[slot] = true;
+      claimBingo(slot);
+    };
+
+    tryAutoClaim(0);
+    tryAutoClaim(1);
+  }, [autoSelect0, autoSelect1, calledSet, myCards, gameStarted, winner]);
+
   function isWinningCell(r, c, d) {
     if (!d) return false;
     if (d.pattern === "row") return r === Number(d.row);
@@ -694,7 +782,7 @@ export default function GamePage() {
     ${
       audioOn
         ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30 border-indigo-300/50 ring-2 ring-indigo-400/30"
-        : "bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 border-slate-600/50 shadow-md"
+        : "bg-gradient-to-br from-slate-600 to-slate-800 text-slate-100 border-slate-400/60 shadow-md shadow-slate-700/40 ring-1 ring-slate-400/40"
     }
     active:scale-90 hover:scale-105
   `}
@@ -769,9 +857,8 @@ export default function GamePage() {
 
               <div className="flex-1 min-w-0 basis-1/2 flex flex-col gap-1.5 sm:gap-2">
                 <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-xl">
-                  <div className="flex flex-col items-center gap-1.5">
-                    {/* Current call */}
-                    <div className="relative">
+                  <div className="flex items-center justify-center gap-2 sm:gap-3">
+                    <div className="relative shrink-0">
                       <div className="absolute inset-0 rounded-full blur-lg bg-gradient-to-r from-amber-400/40 to-yellow-400/40" />
                       <div className="relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] rounded-full bg-gradient-to-br from-white via-slate-50 to-slate-100 border-3 sm:border-4 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center">
                         <div className="text-xs sm:text-base font-black tracking-wide bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
@@ -781,8 +868,7 @@ export default function GamePage() {
                         </div>
                       </div>
                     </div>
-                    {/* Recent 3 calls below */}
-                    <div className="flex gap-1 items-center justify-center">
+                    <div className="flex gap-1 items-center justify-center shrink-0">
                       {recentCalls.map((num, idx) => {
                         const letter = letterFor(Number(num));
                         const colorMap = {
@@ -796,7 +882,7 @@ export default function GamePage() {
                           letter === "N" ? "text-yellow-900" : "text-white";
                         return (
                           <div
-                            key={idx}
+                            key={`${num}-${idx}`}
                             className={`w-[26px] h-[26px] sm:w-[32px] sm:h-[32px] rounded-full border-2 shadow-md flex items-center justify-center ${colorMap[letter]}`}
                           >
                             <span
@@ -847,6 +933,64 @@ export default function GamePage() {
                       onClick={() => setActiveSlot(slot)}
                       onKeyDown={() => setActiveSlot(slot)}
                     >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!enabled) return;
+
+                          const toggleAuto = (setter, slotIndex, ref) => {
+                            setter((p) => {
+                              const next = !p;
+                              saveAutoSelect(slotIndex, next);
+                              ref.current = next ? new Set(calledSet) : null;
+                              return next;
+                            });
+                          };
+
+                          if (slot === 1)
+                            toggleAuto(setAutoSelect1, 1, autoBaseline1Ref);
+                          else toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
+                        }}
+                        disabled={!enabled}
+                        className={`mb-2 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
+                          enabled
+                            ? "active:scale-95 hover:scale-102"
+                            : "opacity-50"
+                        } ${
+                          autoOn
+                            ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-400/50 shadow-sm shadow-emerald-400/20"
+                            : "bg-gradient-to-r from-slate-800/60 to-slate-900/60 border-slate-600/50"
+                        }`}
+                      >
+                        <div className="flex flex-col items-start leading-none pointer-events-none">
+                          <span
+                            className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
+                          >
+                            AUTO
+                          </span>
+                          <span className="text-[8px] font-medium opacity-60 text-slate-400">
+                            ራስ-ሰር
+                          </span>
+                        </div>
+
+                        <div
+                          className={`relative flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
+                            autoOn
+                              ? "bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40"
+                              : "bg-slate-600"
+                          }`}
+                        >
+                          <div
+                            className={`absolute h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                              autoOn
+                                ? "translate-x-[18px]"
+                                : "translate-x-[2px]"
+                            }`}
+                          />
+                        </div>
+                      </button>
+
                       <div className="grid grid-cols-5 gap-1">
                         {LETTERS.map((l) => (
                           <div
@@ -884,87 +1028,31 @@ export default function GamePage() {
                         })}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!enabled) return;
-
-                          const toggleAuto = (setter, slotIndex, ref) => {
-                            setter((p) => {
-                              const next = !p;
-                              saveAutoSelect(slotIndex, next);
-                              ref.current = next ? new Set(calledSet) : null;
-                              return next;
-                            });
-                          };
-
-                          if (slot === 1)
-                            toggleAuto(setAutoSelect1, 1, autoBaseline1Ref);
-                          else toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
-                        }}
-                        disabled={!enabled}
-                        className={`mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
-                          enabled
-                            ? "active:scale-95 hover:scale-102"
-                            : "opacity-50"
-                        } ${
-                          autoOn
-                            ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-400/50 shadow-sm shadow-emerald-400/20"
-                            : "bg-gradient-to-r from-slate-800/60 to-slate-900/60 border-slate-600/50"
-                        }`}
-                      >
-                        {/* Left Side: Labels */}
-                        <div className="flex flex-col items-start leading-none pointer-events-none">
-                          <span
-                            className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
-                          >
-                            AUTO
-                          </span>
-                          <span className="text-[8px] font-medium opacity-60 text-slate-400">
-                            ራስ-ሰር
-                          </span>
-                        </div>
-
-                        {/* Right Side: The Toggle Switch */}
-                        <div
-                          className={`relative flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
-                            autoOn
-                              ? "bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40"
-                              : "bg-slate-600"
+                      {!autoOn && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            claimBingo(slot);
+                          }}
+                          disabled={!enabled || !gameStarted}
+                          className={`mt-2 w-full font-black rounded-lg py-2 sm:py-2.5 text-xs sm:text-sm border transition-all duration-200 uppercase tracking-wider overflow-hidden relative ${
+                            enabled && gameStarted
+                              ? "bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-amber-950 border-amber-300 shadow-md shadow-amber-400/40 active:scale-[0.96] hover:shadow-lg hover:shadow-amber-400/50"
+                              : "bg-slate-800/50 text-slate-500 border-slate-700 opacity-60 cursor-not-allowed"
                           }`}
                         >
-                          <div
-                            className={`absolute h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
-                              autoOn ? "translate-x-4.5" : "translate-x-0.5"
-                            }`}
-                          />
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          claimBingo(slot);
-                        }}
-                        disabled={!enabled || !gameStarted}
-                        className={`mt-2 w-full font-black rounded-lg py-2 sm:py-2.5 text-xs sm:text-sm border transition-all duration-200 uppercase tracking-wider overflow-hidden relative ${
-                          enabled && gameStarted
-                            ? "bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-amber-950 border-amber-300 shadow-md shadow-amber-400/40 active:scale-[0.96] hover:shadow-lg hover:shadow-amber-400/50"
-                            : "bg-slate-800/50 text-slate-500 border-slate-700 opacity-60 cursor-not-allowed"
-                        }`}
-                      >
-                        {enabled && gameStarted && (
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                        )}
-                        <div className="flex flex-col leading-none relative z-10">
-                          <span className="text-shadow-sm">🎯 BINGO!</span>
-                          <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
-                            ድልዎን ያውጁ
-                          </span>
-                        </div>
-                      </button>
+                          {enabled && gameStarted && (
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                          )}
+                          <div className="flex flex-col leading-none relative z-10">
+                            <span className="text-shadow-sm">🎯 BINGO!</span>
+                            <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
+                              ድልዎን ያውጁ
+                            </span>
+                          </div>
+                        </button>
+                      )}
                     </div>
                   );
                 })}
