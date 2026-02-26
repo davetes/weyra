@@ -68,7 +68,7 @@ function setupAdmin(bot) {
         `Username:      ${updated.username || "-"}\n` +
         `Phone:         ${updated.phone || "-"}\n` +
         `Balance:       ${wallet} ETB\n` +
-        `Coin:          ${gift}\n` +
+        `Play Wallet:   ${gift}\n` +
         "```",
       { parse_mode: "Markdown" },
     );

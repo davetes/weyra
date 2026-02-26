@@ -36,7 +36,7 @@ function setupConvert(bot, userState) {
       "```\n" +
         `Username:     ${player.username || "-"}\n` +
         `Balance:      ${wallet.toFixed(2)} ETB\n` +
-        `Coin:         ${gift.toFixed(2)}\n` +
+        `Play Wallet:  ${gift.toFixed(2)}\n` +
         "```",
       { parse_mode: "Markdown" },
     );

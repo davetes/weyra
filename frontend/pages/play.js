@@ -209,7 +209,8 @@ export default function PlayPage() {
         if (remaining <= 0) setCountdown("Starting...");
         else setCountdown(String(remaining));
         if (!countdownTimerRef.current) {
-          if (data.countdown_started_at) startCountdown(data.countdown_started_at);
+          if (data.countdown_started_at)
+            startCountdown(data.countdown_started_at);
           else startCountdownFromRemaining(remaining);
         }
       } else {
@@ -309,30 +310,30 @@ export default function PlayPage() {
       </Head>
 
       {splashVisible && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-bg text-muted font-extrabold text-base transition-opacity duration-300">
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex gap-1.5">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-300 font-extrabold text-base transition-opacity duration-300">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex gap-2">
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="w-2 h-2 rounded-full bg-purple-glow animate-pulse3"
+                  className="w-3 h-3 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 animate-pulse3"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 />
               ))}
             </div>
-            <div>Loading...</div>
+            <div className="text-slate-400 tracking-wide">Loading...</div>
           </div>
         </div>
       )}
 
       {splashError && (
-        <div className="mx-auto max-w-[420px] px-2.5 sm:px-3 pt-2">
-          <div className="bg-amber-200/90 text-amber-950 border border-amber-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold flex items-center justify-between gap-2">
+        <div className="mx-auto max-w-[420px] px-2.5 sm:px-3 pt-3">
+          <div className="bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-amber-950 border border-amber-400/50 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold flex items-center justify-between gap-3 shadow-lg shadow-amber-500/20">
             <span>{splashError}</span>
             <button
               type="button"
               onClick={refreshState}
-              className="bg-amber-700/90 text-amber-100 font-bold rounded-md px-2.5 py-1"
+              className="bg-amber-950/90 text-amber-100 font-bold rounded-lg px-4 py-1.5 hover:bg-amber-900 transition-colors"
             >
               Retry
             </button>
@@ -340,50 +341,59 @@ export default function PlayPage() {
         </div>
       )}
 
-      <div className="w-full min-h-[100svh]">
-        <div className="bg-slate-900 text-slate-100 px-2.5 py-2 sm:px-3 sm:py-2.5">
-          <div className="h-4 sm:h-5" />
+      <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl text-slate-100 px-1.5 py-1.5 sm:px-2 sm:py-2 border-b border-white/5 flex-none">
           {countdown !== "-" && (
-            <div className="mb-2 flex justify-center">
-              <div className="bg-amber-400/95 text-amber-950 ring-2 ring-amber-500/30 animate-pulse font-black rounded-lg px-3 py-1.5 text-xs sm:text-sm shadow-md">
-                Starts In: {startsInText}
+            <div className="mb-1.5 flex justify-center">
+              <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 text-amber-950 ring-2 ring-amber-300/50 animate-pulse font-black rounded-lg px-3 py-1 text-xs sm:text-sm shadow-lg shadow-amber-500/30">
+                <span className="mr-1">⏱️</span>Starts In: {startsInText}
               </div>
             </div>
           )}
-          <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-2 items-stretch">
-            <div className="bg-slate-200/90 text-slate-700 ring-1 ring-slate-300 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Game ID: {gameId}
+          <div className="grid grid-cols-5 gap-1 sm:gap-1.5 items-stretch">
+            <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-700 ring-1 ring-white/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md">
+              <span className="opacity-70">Game ID:</span>
+              <br />
+              {gameId}
             </div>
-            <div className="bg-amber-500/90 text-amber-950 ring-1 ring-amber-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-              Bet: {STAKE} Birr
+            <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
+              <span className="opacity-70">Bet:</span>
+              <br />
+              {STAKE} Birr
             </div>
-            <div className="bg-blue-600/90 text-white ring-1 ring-blue-400/30 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-              <div>Wallet: {Number(wallet || 0).toFixed(2)} Birr</div>
+            <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white ring-1 ring-blue-300/40 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-blue-500/20">
+              <span className="opacity-80">Wallet:</span>
+              <br />
+              {Number(wallet || 0).toFixed(2)} Birr
             </div>
-            <div className="bg-indigo-500/90 text-indigo-950 ring-1 ring-indigo-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Gift: {Number(gift || 0).toFixed(2)} Birr
+            <div className="bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white ring-1 ring-violet-300/40 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-purple-500/20">
+              <span className="opacity-80">play wallet:</span>
+              <br />
+              {Number(gift || 0).toFixed(2)} Birr
             </div>
-            <div className="bg-emerald-500/90 text-emerald-950 ring-1 ring-emerald-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-              Derash: {Math.round(derash)} ETB
+            <div className="bg-gradient-to-br from-emerald-400 via-emerald-500 to-green-600 text-emerald-950 ring-1 ring-emerald-300/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-emerald-500/20">
+              <span className="opacity-70">Derash:</span>
+              <br />
+              {Math.round(derash)} ETB
             </div>
           </div>
         </div>
 
-        <div className="p-2 sm:p-3">
-          <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 sm:p-3">
-            <div className="max-h-[52vh] overflow-y-auto no-scrollbar -mx-2 sm:-mx-3">
-              <div className="grid grid-cols-8 gap-1 sm:gap-2">
+        <div className="flex-1 overflow-y-auto p-1.5 sm:p-2">
+          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border border-white/10 rounded-xl p-1.5 sm:p-2 shadow-xl h-full flex flex-col">
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
                 {numbers.map((n) => {
                   const key = String(n);
                   const isTaken = taken.has(key);
                   const isSelected = selectedA === n || selectedB === n;
                   const base =
-                    "relative font-black rounded-md sm:rounded-lg aspect-square flex items-center justify-center select-none text-xs sm:text-base leading-none border";
+                    "relative font-black rounded-xl sm:rounded-xl aspect-square flex items-center justify-center select-none text-sm sm:text-lg leading-none border-2 transition-all duration-200";
                   const cls = isSelected
-                    ? "bg-[#f50707] border-[#f50707] text-white"
+                    ? "bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 border-violet-300 text-white shadow-lg shadow-purple-500/30 scale-105"
                     : isTaken
-                      ? "bg-[#f50707] border-[#f50707] text-white"
-                      : "bg-emerald-500 border-emerald-200 text-emerald-950";
+                      ? "bg-gradient-to-br from-rose-600 via-red-600 to-rose-700 border-red-400/50 text-white shadow-md shadow-red-500/20"
+                      : "bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 border-emerald-300/40 text-white shadow-md shadow-emerald-500/15 hover:from-emerald-400 hover:via-emerald-500 hover:to-green-600 hover:border-emerald-200 hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/25 active:scale-95";
 
                   return (
                     <button
@@ -433,7 +443,7 @@ export default function PlayPage() {
                     >
                       {n}
                       {isSelected && (
-                        <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">
+                        <span className="absolute top-0.5 right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-white/90 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] text-purple-600 font-black shadow-md">
                           ✓
                         </span>
                       )}
@@ -444,45 +454,45 @@ export default function PlayPage() {
             </div>
 
             {showInsufficient && (
-              <div className="mt-3 bg-amber-200/80 text-amber-900 rounded-lg px-3 py-2 text-center text-sm font-semibold">
-                Insufficient Funds - ({Number(insufficientNeed || 0).toFixed(2)}{" "}
-                Birr)
+              <div className="mt-2 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-400/40 text-amber-200 rounded-lg px-2 py-1.5 text-center text-[10px] sm:text-xs font-bold backdrop-blur-sm flex-none">
+                <span className="mr-1">⚠️</span>Insufficient Funds - (
+                {Number(insufficientNeed || 0).toFixed(2)} Birr)
               </div>
             )}
 
             {(selectedA || selectedB) && (
-              <div className="mt-3.5 sm:mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
+              <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 flex-none">
                 <div
-                  className={`border rounded-xl p-1.5 sm:p-2 ${
+                  className={`border-2 rounded-xl p-1.5 sm:p-2 transition-all duration-300 ${
                     activeSlot === 0
-                      ? "bg-slate-900/80 border-indigo-500/70"
-                      : "bg-slate-900/70 border-slate-700"
+                      ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
+                      : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
                   }`}
                   role="button"
                   tabIndex={0}
                   onClick={() => setActiveSlot(0)}
                   onKeyDown={() => setActiveSlot(0)}
                 >
-                  <div className="grid grid-cols-5 gap-1">
+                  <div className="grid grid-cols-5 gap-0.5">
                     {LETTERS.map((l) => (
                       <div
                         key={l}
-                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}
+                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded text-xs sm:text-sm shadow-sm`}
                       >
                         {l}
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                  <div className="mt-1 sm:mt-1.5 grid grid-cols-5 gap-0.5">
                     {cardRowsA &&
                       cardRowsA.flat().map((val, i) => (
                         <div
                           key={i}
-                          className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-black border text-[10px] sm:text-sm leading-none ${
+                          className={`rounded aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
                             val === "FREE"
-                              ? "bg-slate-700 border-slate-600 text-white"
-                              : "bg-teal-900/50 border-teal-700 text-teal-100"
+                              ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
+                              : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
                           }`}
                         >
                           {val === "FREE" ? "★" : val}
@@ -493,36 +503,36 @@ export default function PlayPage() {
 
                 {selectedB ? (
                   <div
-                    className={`border rounded-xl p-1.5 sm:p-2 ${
+                    className={`border-2 rounded-xl p-1.5 sm:p-2 transition-all duration-300 ${
                       activeSlot === 1
-                        ? "bg-slate-900/80 border-indigo-500/70"
-                        : "bg-slate-900/70 border-slate-700"
+                        ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
+                        : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
                     }`}
                     role="button"
                     tabIndex={0}
                     onClick={() => setActiveSlot(1)}
                     onKeyDown={() => setActiveSlot(1)}
                   >
-                    <div className="grid grid-cols-5 gap-1">
+                    <div className="grid grid-cols-5 gap-0.5">
                       {LETTERS.map((l) => (
                         <div
                           key={l}
-                          className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}
+                          className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded text-xs sm:text-sm shadow-sm`}
                         >
                           {l}
                         </div>
                       ))}
                     </div>
 
-                    <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                    <div className="mt-1 sm:mt-1.5 grid grid-cols-5 gap-0.5">
                       {cardRowsB &&
                         cardRowsB.flat().map((val, i) => (
                           <div
                             key={i}
-                            className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-black border text-[10px] sm:text-sm leading-none ${
+                            className={`rounded aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
                               val === "FREE"
-                                ? "bg-slate-700 border-slate-600 text-white"
-                                : "bg-teal-900/50 border-teal-700 text-teal-100"
+                                ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
+                                : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
                             }`}
                           >
                             {val === "FREE" ? "★" : val}
@@ -531,19 +541,20 @@ export default function PlayPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="border border-dashed border-slate-600 rounded-xl p-3 bg-slate-900/40 flex items-center justify-center text-center">
-                    <div className="text-xs text-slate-300 leading-relaxed">
-                      If you want, select a second card to play with
+                  <div className="border-2 border-dashed border-slate-500/50 rounded-xl p-2 bg-gradient-to-br from-slate-900/40 to-slate-800/40 flex items-center justify-center text-center backdrop-blur-sm">
+                    <div className="text-[10px] text-slate-400 leading-tight">
+                      <span className="text-sm mb-1 block">➕</span>
+                      Select 2nd card
                     </div>
                   </div>
                 )}
               </div>
             )}
           </div>
+        </div>
 
-          <div className="text-muted text-[10px] text-center mt-3">
-            Copyright weyra Bingo 2026
-          </div>
+        <div className="text-slate-500 text-[8px] text-center py-1 font-medium tracking-wider flex-none">
+          Copyright weyra Bingo 2026
         </div>
       </div>
     </>

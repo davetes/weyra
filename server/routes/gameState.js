@@ -126,9 +126,10 @@ async function handleGameState(req, res, io) {
               const walletDec = new Decimal(player.wallet.toString());
               const giftDec = new Decimal(player.gift.toString());
               const stakeDec = new Decimal(stake);
-              let deductFromWallet = Decimal.min(walletDec, stakeDec);
-              let remainder = stakeDec.minus(deductFromWallet);
-              let deductFromGift = Decimal.min(giftDec, remainder);
+              // Use play wallet (gift) first, then main wallet
+              let deductFromGift = Decimal.min(giftDec, stakeDec);
+              let remainder = stakeDec.minus(deductFromGift);
+              let deductFromWallet = Decimal.min(walletDec, remainder);
 
               await prisma.player.update({
                 where: { id: player.id },

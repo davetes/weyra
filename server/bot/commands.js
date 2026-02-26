@@ -208,7 +208,7 @@ function setupCommands(bot) {
       "```\n" +
         `Username:      ${player.username || "-"}\n` +
         `Wallet:        ${wallet} ETB\n` +
-        `Gift:          ${gift} ETB\n` +
+        `Play Wallet:   ${gift} ETB\n` +
         "```",
       { parse_mode: "Markdown" },
     );
@@ -298,7 +298,7 @@ function setupCommands(bot) {
           "🎉 Welcome to Weyra Bingo! — እንኳን ወደ ወይራ ቢንጎ መጡ!\n" +
             "━━━━━━━━━━━━━━━━━━\n" +
             "✅ Registration Successful!\n" +
-            "🎁 Bonus: You’ve received 10.00 ETB as a gift!\n" +
+            "🎁 Bonus: You've received 10.00 ETB in your Play Wallet!\n" +
             `💰 Current Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB\n` +
             "━━━━━━━━━━━━━━━━━━\n" +
             "Good luck and have fun! / መልካም እድል!",
@@ -331,7 +331,7 @@ function setupCommands(bot) {
                 refTid,
                 "🎉 Referral bonus received!\n" +
                   "A new player joined using your link. +3.00 ETB\n" +
-                  "Bonus added to Play gift Wallet.",
+                  "Bonus added to Play Wallet.",
               );
             } catch (_) {}
           }
@@ -424,7 +424,7 @@ function setupCommands(bot) {
       const gift = new Decimal(player.gift.toString()).toFixed(2);
       return bot.sendMessage(
         chatId,
-        `💰 Wallet: ${wallet} ETB | Gift: ${gift} ETB | Wins: ${player.wins}`,
+        `💰 Wallet: ${wallet} ETB | Play Wallet: ${gift} ETB | Wins: ${player.wins}`,
       );
     }
 
@@ -537,7 +537,7 @@ function setupCommands(bot) {
         "```\n" +
           `Username:      ${player.username || "-"}\n` +
           `Wallet:        ${wallet} ETB\n` +
-          `Gift:          ${gift} ETB\n` +
+          `Play Wallet:   ${gift} ETB\n` +
           "```",
         { parse_mode: "Markdown" },
       );

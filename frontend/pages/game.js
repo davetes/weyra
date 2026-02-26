@@ -70,6 +70,7 @@ export default function GamePage() {
   const [totalGames, setTotalGames] = useState("-");
   const [currentCall, setCurrentCall] = useState(null);
   const [calledSet, setCalledSet] = useState(new Set());
+  const [recentCalls, setRecentCalls] = useState([]);
   const [myCards, setMyCards] = useState([null, null]);
   const [myIndices, setMyIndices] = useState([null, null]);
   const [gameStarted, setGameStarted] = useState(false);
@@ -405,6 +406,9 @@ export default function GamePage() {
       if (calledSig !== lastCalledSigRef.current) {
         lastCalledSigRef.current = calledSig;
         setCalledSet(new Set(calledArr));
+        // Keep last 3 calls before current (or all if less than 3)
+        const prevCalls = data.called_numbers || [];
+        setRecentCalls(prevCalls.slice(-3).map(String));
       }
 
       if (Array.isArray(data.my_cards)) {
@@ -627,33 +631,36 @@ export default function GamePage() {
 
       {toastMessage && (
         <div className="fixed top-4 left-1/2 z-[10000] -translate-x-1/2 px-3">
-          <div className="bg-rose-600 text-white font-semibold text-xs sm:text-sm px-3 py-2 rounded-lg shadow-lg">
+          <div className="bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-xl shadow-xl shadow-rose-500/30 border border-rose-400/30">
+            <span className="mr-2">⚠️</span>
             {toastMessage}
           </div>
         </div>
       )}
 
-      <div className="w-full min-h-[100svh]">
-        <div className="bg-slate-900 text-slate-100 px-2.5 py-2.5 sm:px-3 sm:py-3">
-          <div className="flex items-center justify-end">
-            <div className="w-6" />
-          </div>
-        </div>
-
-        <div className="p-2.5 sm:p-3">
-          <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 sm:p-3">
-            <div className="grid grid-cols-5 gap-2 items-stretch">
-              <div className="bg-teal-500/90 text-teal-950 ring-1 ring-teal-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-                Game ID: {totalGames}
+      <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-y-auto p-1 sm:p-1.5">
+          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border border-white/10 rounded-xl flex-1 flex flex-col p-1.5 sm:p-2 shadow-xl">
+            <div className="grid grid-cols-5 gap-1 sm:gap-1.5 items-stretch w-full">
+              <div className="bg-gradient-to-br from-teal-400 via-teal-500 to-cyan-600 text-teal-950 ring-1 ring-teal-300/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-teal-500/20">
+                <span className="opacity-70">Game ID:</span>
+                <br />
+                {totalGames}
               </div>
-              <div className="bg-amber-500/90 text-amber-950 ring-1 ring-amber-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-                Bet: {STAKE} Birr
+              <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
+                <span className="opacity-70">Bet:</span>
+                <br />
+                {STAKE} Birr
               </div>
-              <div className="bg-emerald-500/90 text-emerald-950 ring-1 ring-emerald-600/20 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-                Derash: {Math.round(derash)} ETB
+              <div className="bg-gradient-to-br from-emerald-400 via-emerald-500 to-green-600 text-emerald-950 ring-1 ring-emerald-300/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-emerald-500/20">
+                <span className="opacity-70">Derash:</span>
+                <br />
+                {Math.round(derash)} ETB
               </div>
-              <div className="bg-slate-200/90 text-slate-900 ring-1 ring-slate-300 font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0">
-                Players: {players}
+              <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-800 ring-1 ring-white/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md">
+                <span className="opacity-70">Players:</span>
+                <br />
+                {players}
               </div>
               <button
                 type="button"
@@ -668,11 +675,11 @@ export default function GamePage() {
                   });
                 }}
                 className={`
-    transition-all duration-300 flex items-center justify-center rounded-xl px-3 py-2
+    transition-all duration-300 flex items-center justify-center rounded-xl px-3 py-2 border-2
     ${
       audioOn
-        ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] ring-2 ring-indigo-400"
-        : "bg-slate-950 text-slate-200 ring-2 ring-slate-500 shadow-[0_0_12px_rgba(15,23,42,0.7)]"
+        ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30 border-indigo-300/50 ring-2 ring-indigo-400/30"
+        : "bg-gradient-to-br from-slate-800 to-slate-900 text-slate-300 border-slate-600/50 shadow-md"
     }
     active:scale-90 hover:scale-105
   `}
@@ -699,21 +706,21 @@ export default function GamePage() {
             </div>
 
             {/* dashboard */}
-            <div className="mt-2.5 sm:mt-3 flex gap-2.5 sm:gap-3">
-              <div className="flex-1">
-                <div className="bg-gradient-to-b from-white to-slate-100 border border-slate-200 rounded-xl p-2">
-                  <div className="grid grid-cols-5 gap-1">
+            <div className="mt-1.5 sm:mt-2 flex gap-1.5 sm:gap-2 w-full flex-1">
+              <div className="flex-1 min-w-0 basis-1/2">
+                <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 border-2 border-white/80 rounded-xl p-1.5 sm:p-2 shadow-xl w-full h-full">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {LETTERS.map((l) => (
                       <div
                         key={l}
-                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}
+                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs shadow-sm`}
                       >
                         {l}
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-1.5 grid grid-cols-5 gap-1">
+                  <div className="mt-2 grid grid-cols-5 gap-1">
                     {Array.from({ length: 15 }, (_, r) => r + 1).map((r) => (
                       <div key={r} className="contents">
                         {LETTERS.map((l, c) => {
@@ -723,15 +730,15 @@ export default function GamePage() {
                             currentCall != null && ns === String(currentCall);
                           const isCalled = calledSet.has(ns) && !isCurrent;
                           const cellCls = isCurrent
-                            ? "bg-amber-400 text-amber-950 border-amber-200"
+                            ? "bg-gradient-to-br from-amber-300 via-amber-400 to-orange-400 text-amber-900 border-2 border-amber-200 shadow-lg shadow-amber-400/40 scale-110 z-10 animate-pulse"
                             : isCalled
-                              ? "bg-sky-500 text-sky-950 border-sky-200"
-                              : "bg-slate-900/40 text-slate-100 border-slate-700";
+                              ? "bg-gradient-to-br from-sky-400 via-sky-500 to-blue-500 text-white border border-sky-300/50 shadow-md shadow-sky-400/30"
+                              : "bg-gradient-to-br from-slate-800/60 to-slate-900/80 text-white border border-slate-600/30";
 
                           return (
                             <div
                               key={n}
-                              className={`aspect-square rounded-md flex items-center justify-center font-bold text-[10px] sm:text-sm leading-none border ${cellCls}`}
+                              className={`aspect-square rounded-lg flex items-center justify-center font-black text-xs sm:text-base leading-none transition-all duration-200 ${cellCls}`}
                             >
                               {n}
                             </div>
@@ -745,26 +752,56 @@ export default function GamePage() {
 
               {/* ui */}
 
-              <div className="w-[168px] sm:w-[190px] space-y-2.5 sm:space-y-3">
-                <div className="bg-black/60 border border-slate-700 rounded-xl px-2.5 py-3 sm:px-3 sm:py-3.5 flex items-center justify-center">
-                  <div className="relative">
-                    <div className="absolute inset-0 rounded-full blur-xl bg-amber-400/40" />
-                    <div className="relative w-[88px] h-[88px] sm:w-[98px] sm:h-[98px] rounded-full bg-white border-[5px] border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.55)] flex items-center justify-center">
-                      <div className="text-2xl sm:text-[28px] font-black tracking-wide text-violet-700">
-                        {currentCall != null
-                          ? `${letterFor(currentCall)}-${currentCall}`
-                          : "—"}
+              <div className="flex-1 min-w-0 basis-1/2 flex flex-col gap-1.5 sm:gap-2">
+                <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-xl">
+                  <div className="flex flex-col items-center gap-1.5">
+                    {/* Current call */}
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-full blur-lg bg-gradient-to-r from-amber-400/40 to-yellow-400/40" />
+                      <div className="relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] rounded-full bg-gradient-to-br from-white via-slate-50 to-slate-100 border-3 sm:border-4 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center">
+                        <div className="text-xs sm:text-base font-black tracking-wide bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                          {currentCall != null
+                            ? `${letterFor(currentCall)}-${currentCall}`
+                            : "—"}
+                        </div>
                       </div>
+                    </div>
+                    {/* Recent 3 calls below */}
+                    <div className="flex gap-1 items-center justify-center">
+                      {recentCalls.map((num, idx) => {
+                        const letter = letterFor(Number(num));
+                        const colorMap = {
+                          B: "bg-green-bingo border-green-400/50 shadow-green-400/30",
+                          I: "bg-red-bingo border-red-400/50 shadow-red-400/30",
+                          N: "bg-yellow-bingo border-yellow-400/50 shadow-yellow-400/30 text-yellow-900",
+                          G: "bg-blue-bingo border-blue-400/50 shadow-blue-400/30",
+                          O: "bg-pink-bingo border-pink-400/50 shadow-pink-400/30",
+                        };
+                        const textColor =
+                          letter === "N" ? "text-yellow-900" : "text-white";
+                        return (
+                          <div
+                            key={idx}
+                            className={`w-[26px] h-[26px] sm:w-[32px] sm:h-[32px] rounded-full border-2 shadow-md flex items-center justify-center ${colorMap[letter]}`}
+                          >
+                            <span
+                              className={`text-[7px] sm:text-[9px] font-black ${textColor}`}
+                            >
+                              {letter}-{num}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
 
                 {gameStarted && !myCards?.[0] && !myCards?.[1] && (
-                  <div className="border border-slate-700 rounded-xl p-3 sm:p-3.5 bg-indigo-950/30">
-                    <div className="text-center text-slate-100 font-black text-lg sm:text-xl">
-                      Watching Only
+                  <div className="border-2 border-slate-600/50 rounded-xl p-2 sm:p-3 bg-gradient-to-br from-indigo-950/50 via-slate-900/50 to-purple-950/50">
+                    <div className="text-center text-slate-100 font-black text-sm sm:text-base">
+                      <span className="mr-1">👁️</span>Watching Only
                     </div>
-                    <div className="mt-6 text-center text-slate-200/90 text-sm leading-relaxed">
+                    <div className="mt-2 text-center text-slate-300/90 text-[10px] sm:text-xs leading-relaxed">
                       ይህ ዙር ተጀምሯል።
                       <br />
                       ቢያንስ አንድ ካርድ ካልመረጡ ለመወዳደር አይችሉም።
@@ -785,10 +822,10 @@ export default function GamePage() {
                   return (
                     <div
                       key={slot}
-                      className={`border border-slate-700 rounded-xl p-1.5 sm:p-2 ${
+                      className={`border-2 rounded-xl p-2 sm:p-2.5 transition-all duration-300 ${
                         activeSlot === slot
-                          ? "bg-slate-950/40"
-                          : "bg-slate-900/40"
+                          ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
+                          : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
                       }`}
                       role="button"
                       tabIndex={0}
@@ -799,7 +836,7 @@ export default function GamePage() {
                         {LETTERS.map((l) => (
                           <div
                             key={l}
-                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs`}
+                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded text-xs sm:text-sm shadow-sm`}
                           >
                             {l}
                           </div>
@@ -818,12 +855,12 @@ export default function GamePage() {
                                 e.stopPropagation();
                                 if (!isFree) togglePick(slot, vs);
                               }}
-                              className={`rounded-sm sm:rounded-md aspect-square flex items-center justify-center font-bold border text-[10px] sm:text-sm leading-none select-none ${
+                              className={`rounded-lg aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
                                 isFree
-                                  ? "bg-amber-400 text-amber-950 border-amber-200"
+                                  ? "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 border-amber-300 shadow-sm shadow-amber-400/30"
                                   : isPicked
-                                    ? "bg-indigo-500 text-indigo-950 border-indigo-200"
-                                    : "bg-teal-900/50 border-teal-700 text-teal-100"
+                                    ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white border-indigo-300 shadow-sm shadow-indigo-400/30 scale-105"
+                                    : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-teal-100 hover:border-teal-400 hover:scale-105"
                               }`}
                             >
                               {isFree ? "★" : val}
@@ -852,35 +889,39 @@ export default function GamePage() {
                           else toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
                         }}
                         disabled={!enabled}
-                        className={`mt-2 flex items-center gap-2 px-2.5 py-1 rounded-full border transition-all ${
-                          enabled ? "active:scale-95" : "opacity-50"
+                        className={`mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
+                          enabled
+                            ? "active:scale-95 hover:scale-102"
+                            : "opacity-50"
                         } ${
                           autoOn
-                            ? "bg-emerald-500/10 border-emerald-500/40"
-                            : "bg-slate-900/40 border-slate-700"
+                            ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-400/50 shadow-sm shadow-emerald-400/20"
+                            : "bg-gradient-to-r from-slate-800/60 to-slate-900/60 border-slate-600/50"
                         }`}
                       >
                         {/* Left Side: Labels */}
                         <div className="flex flex-col items-start leading-none pointer-events-none">
                           <span
-                            className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-400" : "text-slate-400"}`}
+                            className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
                           >
                             AUTO
                           </span>
-                          <span className="text-[8px] font-medium opacity-60 text-slate-300">
+                          <span className="text-[8px] font-medium opacity-60 text-slate-400">
                             ራስ-ሰር
                           </span>
                         </div>
 
                         {/* Right Side: The Toggle Switch */}
                         <div
-                          className={`relative flex h-4 w-7 items-center rounded-full transition-colors duration-200 ${
-                            autoOn ? "bg-emerald-500" : "bg-slate-600"
+                          className={`relative flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
+                            autoOn
+                              ? "bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40"
+                              : "bg-slate-600"
                           }`}
                         >
                           <div
-                            className={`absolute h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                              autoOn ? "translate-x-3.5" : "translate-x-0.5"
+                            className={`absolute h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                              autoOn ? "translate-x-4.5" : "translate-x-0.5"
                             }`}
                           />
                         </div>
@@ -893,15 +934,18 @@ export default function GamePage() {
                           claimBingo(slot);
                         }}
                         disabled={!enabled || !gameStarted}
-                        className={`mt-2.5 sm:mt-3 w-full font-black rounded-lg py-2 sm:py-2.5 text-sm sm:text-base border-2 transition-all duration-150 uppercase tracking-widest ${
+                        className={`mt-2 w-full font-black rounded-lg py-2 sm:py-2.5 text-xs sm:text-sm border transition-all duration-200 uppercase tracking-wider overflow-hidden relative ${
                           enabled && gameStarted
-                            ? "bg-gradient-to-t from-yellow-600 to-yellow-400 text-yellow-950 border-yellow-300 shadow-[0_0_15px_rgba(250,204,21,0.4)] active:scale-[0.96] animate-pulse"
+                            ? "bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-amber-950 border-amber-300 shadow-md shadow-amber-400/40 active:scale-[0.96] hover:shadow-lg hover:shadow-amber-400/50"
                             : "bg-slate-800/50 text-slate-500 border-slate-700 opacity-60 cursor-not-allowed"
                         }`}
                       >
-                        <div className="flex flex-col leading-none">
-                          <span>BINGO!</span>
-                          <span className="text-[9px] sm:text-[10px] mt-1 opacity-80">
+                        {enabled && gameStarted && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                        )}
+                        <div className="flex flex-col leading-none relative z-10">
+                          <span className="text-shadow-sm">🎯 BINGO!</span>
+                          <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
                             ድልዎን ያውጁ
                           </span>
                         </div>
@@ -917,35 +961,41 @@ export default function GamePage() {
 
       {/* Winner Modal */}
       {winner && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] animate-in fade-in duration-300">
-          <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-[24px] shadow-[0_0_50px_rgba(79,70,229,0.4)] p-4 max-w-[500px] w-[95vw] overflow-hidden">
+        <div className="fixed inset-0 bg-gradient-to-br from-black/90 via-slate-950/95 to-black/90 backdrop-blur-xl flex items-center justify-center z-[9999] animate-in fade-in duration-300">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-2 border-indigo-400/40 rounded-[28px] shadow-[0_0_60px_rgba(99,102,241,0.3)] p-5 max-w-[520px] w-[95vw] overflow-hidden">
             {/* Header Banner */}
-            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white font-black text-center rounded-xl py-3 mb-4 text-3xl tracking-widest shadow-lg animate-bounce">
-              BINGO!
+            <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-violet-500 to-purple-600 text-white font-black text-center rounded-2xl py-4 mb-5 text-4xl tracking-widest shadow-xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+              <span className="relative z-10">🎉 BINGO! 🎉</span>
             </div>
 
             {/* Winner Name Section */}
-            <div className="flex flex-col items-center gap-1 justify-center my-4">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🏆</span>
-                <span className="bg-gradient-to-b from-amber-200 to-amber-500 bg-clip-text text-transparent font-black text-2xl uppercase tracking-tighter">
+            <div className="flex flex-col items-center gap-2 justify-center my-5">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl animate-bounce">🏆</span>
+                <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-black text-3xl uppercase tracking-tight">
                   {winner.name}
                 </span>
-                <span className="text-2xl">🏆</span>
+                <span
+                  className="text-3xl animate-bounce"
+                  style={{ animationDelay: "0.2s" }}
+                >
+                  🏆
+                </span>
               </div>
-              <span className="text-slate-400 font-medium text-sm">
-                HAS WON THE GAME
+              <span className="text-slate-400 font-bold text-sm tracking-wider uppercase">
+                Has Won The Game
               </span>
             </div>
 
             {/* The Winning Card Container */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-3 my-2 shadow-inner">
+            <div className="bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 border-2 border-slate-600/50 rounded-2xl p-4 my-3 shadow-inner">
               {/* B-I-N-G-O Letters */}
-              <div className="grid grid-cols-5 gap-2 mb-2">
+              <div className="grid grid-cols-5 gap-2 mb-3">
                 {LETTERS.map((l) => (
                   <div
                     key={l}
-                    className={`${LETTER_BG[l]} text-white font-black text-center rounded-lg aspect-square flex items-center justify-center text-sm shadow-md`}
+                    className={`${LETTER_BG[l]} text-white font-black text-center rounded-xl aspect-square flex items-center justify-center text-sm shadow-lg`}
                   >
                     {l}
                   </div>
@@ -953,7 +1003,7 @@ export default function GamePage() {
               </div>
 
               {/* The Card Grid */}
-              <div className="bg-slate-950/50 rounded-xl p-2 grid grid-cols-5 gap-2 border border-slate-800">
+              <div className="bg-gradient-to-br from-slate-950/70 to-slate-900/70 rounded-xl p-3 grid grid-cols-5 gap-2 border border-slate-700/50">
                 {winCardRows &&
                   winCardRows.flat().map((val, i) => {
                     const r = Math.floor(i / 5),
@@ -968,15 +1018,15 @@ export default function GamePage() {
                     return (
                       <div
                         key={i}
-                        className={`relative rounded-lg aspect-square flex items-center justify-center font-black border-2 text-xs sm:text-sm transition-all
+                        className={`relative rounded-xl aspect-square flex items-center justify-center font-black border-2 text-xs sm:text-sm transition-all
                   ${
                     isWin
-                      ? "bg-indigo-500 border-indigo-300 text-white shadow-[0_0_15px_rgba(99,102,241,0.6)] z-10 scale-105"
+                      ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 border-indigo-300 text-white shadow-[0_0_20px_rgba(99,102,241,0.6)] z-10 scale-110"
                       : isP
-                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                        ? "bg-gradient-to-br from-emerald-500/30 to-green-500/30 border-emerald-400/60 text-emerald-300"
                         : isFree
-                          ? "bg-amber-500 border-amber-300 text-white animate-pulse"
-                          : "bg-slate-800/50 border-slate-700 text-slate-500 opacity-40"
+                          ? "bg-gradient-to-br from-amber-400 to-orange-400 border-amber-300 text-amber-900 animate-pulse shadow-md shadow-amber-400/40"
+                          : "bg-slate-800/60 border-slate-700/60 text-slate-500 opacity-50"
                   }`}
                       >
                         {isFree ? "⭐" : val}
@@ -986,31 +1036,31 @@ export default function GamePage() {
               </div>
 
               {/* Info Text */}
-              <div className="flex justify-between items-center mt-3 px-1">
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              <div className="flex justify-between items-center mt-4 px-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                   Board #{winner.index}
                 </span>
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/50"></div>
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 shadow-sm shadow-indigo-400/50"></div>
                 </div>
               </div>
             </div>
 
             {/* Numbers List */}
-            <div className="mt-3 p-2 bg-slate-950/30 rounded-lg text-center">
-              <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">
+            <div className="mt-4 p-3 bg-gradient-to-br from-slate-950/60 to-slate-900/60 rounded-xl text-center border border-slate-700/30">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-2 tracking-widest">
                 Winning Sequence
               </p>
-              <div className="text-[11px] sm:text-xs text-indigo-300 font-mono break-all leading-tight">
+              <div className="text-[11px] sm:text-xs text-indigo-300 font-mono break-all leading-relaxed">
                 {winnerPickList.length ? winnerPickList.join(" • ") : "—"}
               </div>
             </div>
 
             {/* Countdown Footer */}
-            <div className="relative mt-4 flex items-center justify-center">
-              <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full"></div>
-              <div className="relative bg-slate-950 border border-indigo-500/30 text-indigo-400 w-12 h-12 flex items-center justify-center rounded-full font-black text-xl shadow-xl">
+            <div className="relative mt-5 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-indigo-500/30 blur-2xl rounded-full"></div>
+              <div className="relative bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-indigo-400/50 text-indigo-300 w-14 h-14 flex items-center justify-center rounded-full font-black text-2xl shadow-xl shadow-indigo-500/20">
                 {winner.countdown ?? 5}
               </div>
             </div>

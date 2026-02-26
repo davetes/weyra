@@ -38,7 +38,7 @@ function setupEntertainer(bot) {
         `Username:      ${player.username || "-"}\n` +
         `Telegram ID:   ${player.telegramId || "-"}\n` +
         `Wallet:        ${wallet.toFixed(2)} ETB\n` +
-        `Gift:          ${gift.toFixed(2)} ETB\n` +
+        `Play Wallet:   ${gift.toFixed(2)} ETB\n` +
         "```",
       { parse_mode: "Markdown" },
     );
@@ -147,7 +147,7 @@ function setupEntertainer(bot) {
     const text =
       "🔥 Entertainer Commands\n\n" +
       "1) /balances <id|@username>\n" +
-      "   • Show player's balances (Wallet ETB and Gift).\n" +
+      "   • Show player's balances (Wallet ETB and Play Wallet).\n" +
       "   • Example: /balances 911608626\n" +
       "             /balances @username\n\n" +
       "2) /add <id|@username> <amount>\n" +
