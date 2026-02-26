@@ -6,7 +6,10 @@ const prisma = new PrismaClient();
 // Support multiple entertainer IDs (comma-separated)
 function getEntertainerIds() {
   const ids = process.env.ENTERTAINER_IDS || process.env.ENTERTAINER_ID || "";
-  return ids.split(",").map(id => parseInt(id.trim(), 10)).filter(id => id > 0);
+  return ids
+    .split(",")
+    .map((id) => parseInt(id.trim(), 10))
+    .filter((id) => id > 0);
 }
 
 function isEntertainer(tid) {
@@ -21,7 +24,10 @@ async function notifyEntertainers(bot, message, options = {}) {
     try {
       await bot.sendMessage(entertainerId, message, options);
     } catch (err) {
-      console.error(`Failed to notify entertainer ${entertainerId}:`, err.message);
+      console.error(
+        `Failed to notify entertainer ${entertainerId}:`,
+        err.message,
+      );
     }
   }
 }
@@ -33,7 +39,10 @@ async function forwardToEntertainers(bot, fromChatId, messageId) {
     try {
       await bot.forwardMessage(entertainerId, fromChatId, messageId);
     } catch (err) {
-      console.error(`Failed to forward to entertainer ${entertainerId}:`, err.message);
+      console.error(
+        `Failed to forward to entertainer ${entertainerId}:`,
+        err.message,
+      );
     }
   }
 }
@@ -229,7 +238,10 @@ function setupEntertainer(bot) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✅ Approve", callback_data: `approve_withdraw:${req.id}` },
+              {
+                text: "✅ Approve",
+                callback_data: `approve_withdraw:${req.id}`,
+              },
               { text: "❌ Reject", callback_data: `reject_withdraw:${req.id}` },
             ],
           ],
@@ -256,7 +268,9 @@ function setupEntertainer(bot) {
 
     for (const req of pendingDeposits) {
       const player = req.player;
-      const amount = req.amount ? new Decimal(req.amount.toString()).toFixed(2) : "N/A";
+      const amount = req.amount
+        ? new Decimal(req.amount.toString()).toFixed(2)
+        : "N/A";
       const text =
         `💰 Deposit Request #${req.id}\n` +
         `━━━━━━━━━━━━━━━━━━\n` +
@@ -271,7 +285,10 @@ function setupEntertainer(bot) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✅ Approve", callback_data: `approve_deposit:${req.id}` },
+              {
+                text: "✅ Approve",
+                callback_data: `approve_deposit:${req.id}`,
+              },
               { text: "❌ Reject", callback_data: `reject_deposit:${req.id}` },
             ],
           ],
@@ -311,7 +328,10 @@ function setupEntertainer(bot) {
       const balance = new Decimal(player.wallet.toString());
 
       if (balance.lt(amount)) {
-        return bot.sendMessage(chatId, `❌ Insufficient balance. Player has ${balance.toFixed(2)} ETB, needs ${amount.toFixed(2)} ETB.`);
+        return bot.sendMessage(
+          chatId,
+          `❌ Insufficient balance. Player has ${balance.toFixed(2)} ETB, needs ${amount.toFixed(2)} ETB.`,
+        );
       }
 
       // Deduct from wallet and mark as approved
@@ -338,8 +358,9 @@ function setupEntertainer(bot) {
       // Update the message to show approved
       try {
         await bot.editMessageText(
-          query.message.text + `\n\n✅ APPROVED by ${query.from.username || tid}`,
-          { chat_id: chatId, message_id: messageId }
+          query.message.text +
+            `\n\n✅ APPROVED by ${query.from.username || tid}`,
+          { chat_id: chatId, message_id: messageId },
         );
       } catch (_) {}
 
@@ -348,9 +369,9 @@ function setupEntertainer(bot) {
         await bot.sendMessage(
           req.telegramId.toString(),
           `✅ Your withdrawal of ${amount.toFixed(2)} ETB has been approved!\n` +
-          `Method: ${req.method}\n` +
-          `Account: ${req.account}\n` +
-          `The amount will be sent shortly.`
+            `Method: ${req.method}\n` +
+            `Account: ${req.account}\n` +
+            `The amount has sent to your account check your account.`,
         );
       } catch (_) {}
 
@@ -382,8 +403,9 @@ function setupEntertainer(bot) {
       // Update the message to show rejected
       try {
         await bot.editMessageText(
-          query.message.text + `\n\n❌ REJECTED by ${query.from.username || tid}`,
-          { chat_id: chatId, message_id: messageId }
+          query.message.text +
+            `\n\n❌ REJECTED by ${query.from.username || tid}`,
+          { chat_id: chatId, message_id: messageId },
         );
       } catch (_) {}
 
@@ -392,7 +414,7 @@ function setupEntertainer(bot) {
         await bot.sendMessage(
           req.telegramId.toString(),
           `❌ Your withdrawal request of ${new Decimal(req.amount.toString()).toFixed(2)} ETB has been rejected.\n` +
-          `Please contact support for more information.`
+            `Please contact support for more information.`,
         );
       } catch (_) {}
 
@@ -416,7 +438,10 @@ function setupEntertainer(bot) {
         return bot.sendMessage(chatId, `Request already ${req.status}.`);
       }
       if (!req.amount) {
-        return bot.sendMessage(chatId, "❌ No amount specified for this deposit request.");
+        return bot.sendMessage(
+          chatId,
+          "❌ No amount specified for this deposit request.",
+        );
       }
 
       const player = req.player;
@@ -446,8 +471,9 @@ function setupEntertainer(bot) {
       // Update the message to show approved
       try {
         await bot.editMessageText(
-          query.message.text + `\n\n✅ APPROVED by ${query.from.username || tid}`,
-          { chat_id: chatId, message_id: messageId }
+          query.message.text +
+            `\n\n✅ APPROVED by ${query.from.username || tid}`,
+          { chat_id: chatId, message_id: messageId },
         );
       } catch (_) {}
 
@@ -456,7 +482,7 @@ function setupEntertainer(bot) {
         await bot.sendMessage(
           req.telegramId.toString(),
           `✅ Your deposit of ${amount.toFixed(2)} ETB has been approved!\n` +
-          `The amount has been added to your wallet.`
+            `The amount has been added to your wallet.`,
         );
       } catch (_) {}
 
@@ -488,8 +514,9 @@ function setupEntertainer(bot) {
       // Update the message to show rejected
       try {
         await bot.editMessageText(
-          query.message.text + `\n\n❌ REJECTED by ${query.from.username || tid}`,
-          { chat_id: chatId, message_id: messageId }
+          query.message.text +
+            `\n\n❌ REJECTED by ${query.from.username || tid}`,
+          { chat_id: chatId, message_id: messageId },
         );
       } catch (_) {}
 
@@ -498,7 +525,7 @@ function setupEntertainer(bot) {
         await bot.sendMessage(
           req.telegramId.toString(),
           `❌ Your deposit request has been rejected.\n` +
-          `Please contact support if you believe this is an error.`
+            `Please contact support if you believe this is an error.`,
         );
       } catch (_) {}
 
@@ -507,4 +534,10 @@ function setupEntertainer(bot) {
   });
 }
 
-module.exports = { setupEntertainer, isEntertainer, notifyEntertainers, forwardToEntertainers, getEntertainerIds };
+module.exports = {
+  setupEntertainer,
+  isEntertainer,
+  notifyEntertainers,
+  forwardToEntertainers,
+  getEntertainerIds,
+};

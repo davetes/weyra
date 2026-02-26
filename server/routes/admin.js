@@ -328,6 +328,7 @@ router.get("/stats", requireAuth(), async (req, res) => {
         recentTransactions: recentTransactions.map((t) => ({
           ...t,
           amount: t.amount != null ? String(t.amount) : "0",
+          actorTid: t.actorTid != null ? String(t.actorTid) : null,
         })),
       },
     });

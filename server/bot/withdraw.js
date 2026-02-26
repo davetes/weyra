@@ -99,18 +99,28 @@ function setupWithdraw(bot, userState) {
         return;
       }
 
-      const balance = new Decimal(player.wallet.toString());
-      if (balance.lt(amount)) {
-        await bot.sendMessage(
-          chatId,
-          `     ❌ Withdrawal Failed — ማውጣት አልተቻለም ❌
-                ምክንያት፦ በወይራ ቦርሳዎ ውስጥ በቂ ቀሪ ሂሳብ የለም። 
-                `,
-        );
+      const mainBalance = new Decimal(player.wallet.toString());
+      const playBalance = new Decimal(player.gift.toString());
+      if (mainBalance.lt(amount)) {
+        let message = `❌ Withdrawal Failed — ማውጣት አልተቻለም ❌\n\n`;
+        message += `Your main wallet balance: ${mainBalance.toFixed(2)} ETB\n`;
+        message += `የዋና ቦርሳዎ ቀሪ ሂሳብ: ${mainBalance.toFixed(2)} ብር\n\n`;
+        message += `Requested amount: ${amount.toFixed(2)} ETB\n`;
+        message += `የጠየቁት መጠን: ${amount.toFixed(2)} ብር\n\n`;
+        message += `⚠️ Your main wallet is less than you asked.\n`;
+        message += `⚠️ የዋና ቦርሳዎ ከጠየቁት ያነሰ ነው።\n\n`;
+        if (playBalance.gt(0)) {
+          message += `ℹ️ Play wallet balance: ${playBalance.toFixed(2)} ETB\n`;
+          message += `ℹ️ የጨዋታ ቦርሳ ቀሪ ሂሳብ: ${playBalance.toFixed(2)} ብር\n\n`;
+          message += `Note: Play wallet can only be used for playing, not for withdrawal.\n`;
+          message += `ማሳሰቢያ: የጨዋታ ቦርሳ ለመጫወት ብቻ ነው የሚሆነው፣ ለማውጣት አይቻልም።`;
+        }
+        await bot.sendMessage(chatId, message);
+        userState.delete(tid);
         return;
       }
 
-      state.withdraw = { amount, balance, phone: player.phone || "-" };
+      state.withdraw = { amount, balance: mainBalance, phone: player.phone || "-" };
       state.withdrawStep = "method";
 
       await bot.sendMessage(chatId, "Please choose your withdraw method:", {
