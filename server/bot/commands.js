@@ -7,6 +7,7 @@ const { buildDepositKeyboard, handleDepositSelection } = require("./deposit");
 const { setupWithdraw } = require("./withdraw");
 const { setupInvite } = require("./invite");
 const { setupReport } = require("./report");
+const { notifyEntertainers, forwardToEntertainers, getEntertainerIds } = require("./entertainer");
 
 const prisma = new PrismaClient();
 
@@ -30,6 +31,29 @@ function parsePositiveAmount(raw) {
 
 function clearUserState(uid) {
   userState.delete(uid);
+}
+
+// Reset any ongoing conversation when a new command starts
+function resetConversationState(uid) {
+  const state = getUserState(uid);
+  // Clear deposit flow
+  state.lastDepositMethod = null;
+  state.depositAmount = null;
+  state.awaitingDepositAmount = false;
+  state.awaitingDepositReceipt = false;
+  // Clear withdraw flow
+  state.withdrawStep = null;
+  state.withdraw = null;
+  // Clear transfer flow
+  state.transferStep = null;
+  state.transfer = null;
+  // Clear convert flow
+  state.convertStep = null;
+  state.convert = null;
+  // Clear report flow
+  state.reportStep = null;
+  state.report = null;
+  return state;
 }
 
 const BUTTON_ROWS = [
@@ -100,6 +124,7 @@ function setupCommands(bot) {
     const chatId = msg.chat.id;
     const tid = msg.from.id;
     const username = msg.from.username || "";
+    resetConversationState(tid); // Cancel any previous unfinished command
     const refParam = (match[1] || "").trim();
 
     // Create or update player atomically to avoid unique race
@@ -156,6 +181,7 @@ function setupCommands(bot) {
   bot.onText(/\/play/, async (msg) => {
     const chatId = msg.chat.id;
     const tid = msg.from.id;
+    resetConversationState(tid); // Cancel any previous unfinished command
     const player = await prisma.player.findUnique({
       where: { telegramId: BigInt(tid) },
     });
@@ -176,6 +202,7 @@ function setupCommands(bot) {
   bot.onText(/\/deposit/, async (msg) => {
     const chatId = msg.chat.id;
     const tid = msg.from.id;
+    resetConversationState(tid); // Cancel any previous unfinished command
     const player = await prisma.player.findUnique({
       where: { telegramId: BigInt(tid) },
     });
@@ -195,6 +222,7 @@ function setupCommands(bot) {
   bot.onText(/\/balance/, async (msg) => {
     const chatId = msg.chat.id;
     const tid = msg.from.id;
+    resetConversationState(tid); // Cancel any previous unfinished command
     const player = await prisma.player.findUnique({
       where: { telegramId: BigInt(tid) },
     });
@@ -216,6 +244,7 @@ function setupCommands(bot) {
 
   // /instruction
   bot.onText(/\/instruction/, async (msg) => {
+    resetConversationState(msg.from.id); // Cancel any previous unfinished command
     await bot.sendMessage(
       msg.chat.id,
       "🎰 WEYRA BINGO | ወይራ ቢንጎ 🎰\n" +
@@ -250,6 +279,7 @@ function setupCommands(bot) {
 
   // /contact
   bot.onText(/\/contact/, async (msg) => {
+    resetConversationState(msg.from.id); // Cancel any previous unfinished command
     await bot.sendMessage(
       msg.chat.id,
       "For support, please contact us at: @Weyrabingosupportgroup",
@@ -282,7 +312,7 @@ function setupCommands(bot) {
           data: {
             phone,
             username: msg.from.username || player.username || "",
-            wallet: { increment: parseFloat(bonus.toString()) },
+            gift: { increment: parseFloat(bonus.toString()) },
           },
         });
         await prisma.transaction.create({
@@ -290,7 +320,7 @@ function setupCommands(bot) {
             playerId: player.id,
             kind: "registration_bonus",
             amount: bonus.toNumber(),
-            note: "Registration bonus for sharing phone number",
+            note: "Registration bonus for sharing phone number (Play Wallet)",
           },
         });
         await bot.sendMessage(
@@ -648,8 +678,8 @@ function setupCommands(bot) {
   setupReport(bot);
 
   async function forwardReceipt(msg) {
-    const adminChatId = process.env.ENTERTAINER_ID;
-    if (!adminChatId) return;
+    const entertainerIds = getEntertainerIds();
+    if (entertainerIds.length === 0) return;
     const tid = msg.from.id;
     const state = getUserState(tid);
     if (!state || !state.lastDepositMethod) {
@@ -669,13 +699,15 @@ function setupCommands(bot) {
           : "-";
     const phone = player && player.phone ? player.phone : "-";
     const caption = msg.caption || "";
+    const depositAmountStr = state.depositAmount;
+    const depositMethod = state.lastDepositMethod;
 
+    let depositRequestId = null;
     try {
       if (player) {
-        const method = String(state.lastDepositMethod || "");
-        const amountStr = state.depositAmount;
-        const amount = amountStr ? parsePositiveAmount(amountStr) : null;
-        await prisma.depositRequest.create({
+        const method = String(depositMethod || "");
+        const amount = depositAmountStr ? parsePositiveAmount(depositAmountStr) : null;
+        const depositReq = await prisma.depositRequest.create({
           data: {
             playerId: player.id,
             telegramId: BigInt(tid),
@@ -686,6 +718,7 @@ function setupCommands(bot) {
             status: "pending",
           },
         });
+        depositRequestId = depositReq.id;
         state.lastDepositMethod = null;
         state.depositAmount = null;
         state.awaitingDepositReceipt = false;
@@ -694,17 +727,30 @@ function setupCommands(bot) {
       console.error("deposit request persist error:", err);
     }
 
-    try {
-      await bot.forwardMessage(adminChatId, msg.chat.id, msg.message_id);
-    } catch (_) {}
+    // Forward the receipt image to all entertainers
+    await forwardToEntertainers(bot, msg.chat.id, msg.message_id);
 
     const meta =
-      "Receipt forwarded\n" +
+      `💳 Deposit Request #${depositRequestId || 'N/A'}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
       `User: @${username} (id: <code>${tid}</code>)\n` +
       `Phone: ${phone}\n` +
-      `caption:${caption}`;
+      `Amount: ${depositAmountStr || 'N/A'} ETB\n` +
+      `Method: ${depositMethod || 'N/A'}\n` +
+      `Caption: ${caption}`;
 
-    const replyMarkup = {
+    const replyMarkup = depositRequestId ? {
+      inline_keyboard: [
+        [
+          { text: "✅ Approve", callback_data: `approve_deposit:${depositRequestId}` },
+          { text: "❌ Reject", callback_data: `reject_deposit:${depositRequestId}` },
+        ],
+        [
+          { text: "Open User", url: `tg://user?id=${tid}` },
+          { text: "Copy ID", callback_data: `copy_tid:${tid}` },
+        ],
+      ],
+    } : {
       inline_keyboard: [
         [
           { text: "Open User", url: `tg://user?id=${tid}` },
@@ -713,12 +759,10 @@ function setupCommands(bot) {
       ],
     };
 
-    try {
-      await bot.sendMessage(adminChatId, meta, {
-        parse_mode: "HTML",
-        reply_markup: replyMarkup,
-      });
-    } catch (_) {}
+    await notifyEntertainers(bot, meta, {
+      parse_mode: "HTML",
+      reply_markup: replyMarkup,
+    });
 
     try {
       await bot.sendMessage(

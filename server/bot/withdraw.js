@@ -1,6 +1,7 @@
 // Withdraw handler — port of bingo/withdraw.py
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
+const { notifyEntertainers, getEntertainerIds } = require("./entertainer");
 const prisma = new PrismaClient();
 
 const MIN_WITHDRAW = new Decimal(100);
@@ -12,12 +13,31 @@ const METHODS = [
 ];
 
 function setupWithdraw(bot, userState) {
+  // Helper to reset conversation state when starting withdraw
+  function resetState(state) {
+    // Clear deposit flow
+    state.lastDepositMethod = null;
+    state.depositAmount = null;
+    state.awaitingDepositAmount = false;
+    state.awaitingDepositReceipt = false;
+    // Clear transfer flow
+    state.transferStep = null;
+    state.transfer = null;
+    // Clear convert flow
+    state.convertStep = null;
+    state.convert = null;
+    // Clear report flow
+    state.reportStep = null;
+    state.report = null;
+  }
+
   bot.onText(/\/withdraw/, async (msg) => {
     const chatId = msg.chat.id;
     const tid = msg.from.id;
 
     if (!userState.has(tid)) userState.set(tid, {});
     const state = userState.get(tid);
+    resetState(state); // Cancel any previous unfinished command
     state.withdrawStep = "amount";
     state.withdraw = {};
 
@@ -151,16 +171,15 @@ function setupWithdraw(bot, userState) {
         return;
       }
 
-      const entertainerId =
-        parseInt(process.env.ENTERTAINER_ID || "0", 10) || null;
       const username = msg.from.username || "-";
 
+      let withdrawRequestId = null;
       try {
         const player = await prisma.player.findUnique({
           where: { telegramId: BigInt(tid) },
         });
         if (player) {
-          await prisma.withdrawRequest.create({
+          const withdrawReq = await prisma.withdrawRequest.create({
             data: {
               playerId: player.id,
               telegramId: BigInt(tid),
@@ -170,24 +189,40 @@ function setupWithdraw(bot, userState) {
               status: "pending",
             },
           });
+          withdrawRequestId = withdrawReq.id;
         }
       } catch (err) {
         console.error("withdraw request persist error:", err);
       }
 
-      if (entertainerId) {
-        try {
-          await bot.sendMessage(
-            entertainerId,
-            "Withdrawal Request\n" +
-              `User: @${username} (id: ${tid})\n` +
-              `Phone: ${phone}\n` +
-              `Amount: ${amount.toFixed(2)} ETB\n` +
-              `Method: ${methodLabel}\n` +
-              `Account: ${account}\n` +
-              `Current Balance: ${balance.toFixed(2)} ETB\n`,
-          );
-        } catch (_) {}
+      const entertainerIds = getEntertainerIds();
+      if (entertainerIds.length > 0 && withdrawRequestId) {
+        const message =
+          `🏧 Withdrawal Request #${withdrawRequestId}\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `User: @${username} (id: ${tid})\n` +
+          `Phone: ${phone}\n` +
+          `Amount: ${amount.toFixed(2)} ETB\n` +
+          `Method: ${methodLabel}\n` +
+          `Account: ${account}\n` +
+          `Current Balance: ${balance.toFixed(2)} ETB\n`;
+
+        await notifyEntertainers(bot, message, {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Approve",
+                  callback_data: `approve_withdraw:${withdrawRequestId}`,
+                },
+                {
+                  text: "❌ Reject",
+                  callback_data: `reject_withdraw:${withdrawRequestId}`,
+                },
+              ],
+            ],
+          },
+        });
       }
 
       await bot.sendMessage(

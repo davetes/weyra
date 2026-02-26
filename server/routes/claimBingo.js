@@ -126,6 +126,26 @@ async function handleClaimBingo(req, res, io) {
         tid: tidStr,
         slot,
       });
+
+      // Check if all players are now disqualified
+      const remainingSelections = await prisma.selection.count({
+        where: { gameId: game.id, accepted: true },
+      });
+
+      if (remainingSelections === 0) {
+        // End game with no winner
+        await prisma.game.update({
+          where: { id: game.id },
+          data: { active: false, finished: true },
+        });
+        // Create new game for next round
+        await prisma.game.create({ data: { stake } });
+        io.to(`game_${stake}`).emit("message", {
+          type: "game_ended_no_winner",
+          reason: "All players disqualified",
+        });
+      }
+
       return res.json({
         ok: false,
         disqualified: true,

@@ -220,7 +220,12 @@ export default function PlayPage() {
           countdownTimerRef.current = null;
         }
       }
-      if (data.started) {
+      const myIndices = Array.isArray(data.my_indices) ? data.my_indices : [];
+      const hasMyCardInStartedGame = myIndices.some(
+        (idx) => Number.isFinite(Number(idx)) && Number(idx) > 0,
+      );
+
+      if (data.started && hasMyCardInStartedGame) {
         router.push(`/game?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
       }
 
@@ -344,13 +349,19 @@ export default function PlayPage() {
       <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col overflow-hidden">
         <div className="bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl text-slate-100 px-1.5 py-1.5 sm:px-2 sm:py-2 border-b border-white/5 flex-none">
           {countdown !== "-" && (
-            <div className="mb-1.5 flex justify-center">
+            <div className="mb-1.5 flex justify-center gap-2">
               <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 text-amber-950 ring-2 ring-amber-300/50 animate-pulse font-black rounded-lg px-3 py-1 text-xs sm:text-sm shadow-lg shadow-amber-500/30">
                 <span className="mr-1">⏱️</span>Starts In: {startsInText}
               </div>
+              {acceptedCount >= 2 && (
+                <div className="bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-500 text-emerald-950 ring-2 ring-emerald-300/50 font-black rounded-lg px-3 py-1 text-xs sm:text-sm shadow-lg shadow-emerald-500/30">
+                  <span className="mr-1">Derash</span>
+                  {Math.round(derash)} ETB
+                </div>
+              )}
             </div>
           )}
-          <div className="grid grid-cols-5 gap-1 sm:gap-1.5 items-stretch">
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 items-stretch">
             <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-700 ring-1 ring-white/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md">
               <span className="opacity-70">Game ID:</span>
               <br />
@@ -370,11 +381,6 @@ export default function PlayPage() {
               <span className="opacity-80">play wallet:</span>
               <br />
               {Number(gift || 0).toFixed(2)} Birr
-            </div>
-            <div className="bg-gradient-to-br from-emerald-400 via-emerald-500 to-green-600 text-emerald-950 ring-1 ring-emerald-300/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-emerald-500/20">
-              <span className="opacity-70">Derash:</span>
-              <br />
-              {Math.round(derash)} ETB
             </div>
           </div>
         </div>

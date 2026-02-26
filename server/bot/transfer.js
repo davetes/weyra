@@ -18,12 +18,31 @@ function altFormats(p) {
 }
 
 function setupTransfer(bot, userState) {
+  // Helper to reset conversation state when starting transfer
+  function resetState(state) {
+    // Clear deposit flow
+    state.lastDepositMethod = null;
+    state.depositAmount = null;
+    state.awaitingDepositAmount = false;
+    state.awaitingDepositReceipt = false;
+    // Clear withdraw flow
+    state.withdrawStep = null;
+    state.withdraw = null;
+    // Clear convert flow
+    state.convertStep = null;
+    state.convert = null;
+    // Clear report flow
+    state.reportStep = null;
+    state.report = null;
+  }
+
   bot.onText(/\/transfer/, async (msg) => {
     const chatId = msg.chat.id;
     const tid = msg.from.id;
 
     if (!userState.has(tid)) userState.set(tid, {});
     const state = userState.get(tid);
+    resetState(state); // Cancel any previous unfinished command
     state.transferStep = "phone";
     state.transfer = {};
 

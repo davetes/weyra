@@ -65,6 +65,51 @@ async function handleGameState(req, res, io) {
       freshSelections.map((s) => String(s.playerId)),
     ).size;
 
+    let onlinePlayersCount = 0;
+    for (const sel of freshSelections) {
+      const hbKey = `hb_${game.id}_${sel.player.telegramId}`;
+      const lastHb = cache.get(hbKey);
+      if (lastHb && Date.now() - Number(lastHb) <= 15000) {
+        onlinePlayersCount += 1;
+      }
+    }
+
+    if (game.startedAt && acceptedCardsCount > 0) {
+      const idleKey = `idle_game_${game.id}`;
+      if (onlinePlayersCount === 0) {
+        const idleSince = cache.get(idleKey);
+        if (!idleSince) {
+          cache.set(idleKey, Date.now(), 300);
+        } else if (Date.now() - Number(idleSince) >= 20000) {
+          await prisma.game.update({
+            where: { id: game.id },
+            data: { active: false, finished: true },
+          });
+          await prisma.selection.deleteMany({ where: { gameId: game.id } });
+          await prisma.game.create({ data: { stake } });
+          cache.del(idleKey);
+          io.to(`game_${stake}`).emit("message", { type: "restarted" });
+          return handleGameState(req, res, io);
+        }
+      } else {
+        cache.del(idleKey);
+      }
+    }
+
+    // End game if started but all players got disqualified
+    if (game.startedAt && acceptedCardsCount === 0) {
+      await prisma.game.update({
+        where: { id: game.id },
+        data: { active: false, finished: true },
+      });
+      await prisma.game.create({ data: { stake } });
+      io.to(`game_${stake}`).emit("message", {
+        type: "game_ended_no_winner",
+        reason: "All players disqualified",
+      });
+      return handleGameState(req, res, io);
+    }
+
     // Start countdown when >=2 distinct players (if not started yet)
     if (acceptedPlayersCount >= 2 && !game.countdownStartedAt) {
       game = await prisma.game.update({
@@ -236,6 +281,10 @@ async function handleGameState(req, res, io) {
       ? game.chargedCount
       : acceptedPlayersCount;
 
+    const chargedCardsCount = game.stakesCharged
+      ? game.chargedCount
+      : acceptedCardsCount;
+
     const recentWinner = cache.get(`winner_${stake}`) || null;
 
     return res.json({
@@ -245,6 +294,7 @@ async function handleGameState(req, res, io) {
       players: playersDisplay,
       accepted_count: acceptedPlayersCount,
       accepted_cards: acceptedCardsCount,
+      charged_cards: chargedCardsCount,
       taken,
       countdown_started_at: game.countdownStartedAt
         ? game.countdownStartedAt.toISOString()

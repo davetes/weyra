@@ -67,6 +67,7 @@ export default function GamePage() {
 
   const [players, setPlayers] = useState(0);
   const [acceptedCards, setAcceptedCards] = useState(0);
+  const [chargedCards, setChargedCards] = useState(0);
   const [totalGames, setTotalGames] = useState("-");
   const [currentCall, setCurrentCall] = useState(null);
   const [calledSet, setCalledSet] = useState(new Set());
@@ -102,6 +103,7 @@ export default function GamePage() {
 
   const lastPlayersRef = useRef(null);
   const lastAcceptedCardsRef = useRef(null);
+  const lastChargedCardsRef = useRef(null);
   const lastTotalGamesRef = useRef(null);
   const lastStartedRef = useRef(null);
   const lastCurrentCallRef = useRef(null);
@@ -109,7 +111,7 @@ export default function GamePage() {
   const lastMyCardsSigRef = useRef("");
   const lastMyIndicesSigRef = useRef("");
 
-  const derash = Math.max(0, acceptedCards * STAKE * 0.8);
+  const derash = Math.max(0, (chargedCards || acceptedCards) * STAKE * 0.8);
 
   useEffect(() => {
     winnerRef.current = winner;
@@ -373,6 +375,12 @@ export default function GamePage() {
         setAcceptedCards(nextAcceptedCards);
       }
 
+      const nextChargedCards = data.charged_cards ?? 0;
+      if (lastChargedCardsRef.current !== nextChargedCards) {
+        lastChargedCardsRef.current = nextChargedCards;
+        setChargedCards(nextChargedCards);
+      }
+
       const nextTotalGames = data.total_games ?? "-";
       if (lastTotalGamesRef.current !== nextTotalGames) {
         lastTotalGamesRef.current = nextTotalGames;
@@ -496,6 +504,13 @@ export default function GamePage() {
           setToastMessage("No valid bingo. You are disqualified.");
           scheduleReturnToPlay(6000);
         }
+      } else if (
+        msg.type === "game_ended_no_winner" ||
+        msg.type === "restarted"
+      ) {
+        if (winnerRef.current) return;
+        setToastMessage("Game ended - no winner. Returning to lobby...");
+        scheduleReturnToPlay(3000);
       }
     });
 
