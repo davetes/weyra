@@ -371,7 +371,7 @@ export default function PlayPage() {
               <span className="text-sm sm:text-base">{STAKE} Birr</span>
             </div>
             <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-300 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-              <span className="opacity-80">Wallet:</span>
+              <span className="opacity-80">Main Wallet:</span>
               <br />
               <span className="text-sm sm:text-base">{Number(wallet || 0).toFixed(2)}</span>
             </div>

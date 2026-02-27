@@ -254,11 +254,13 @@ async function handleGameState(req, res, io) {
     let autoEnabled = [true, true]; // Default to true
     let wallet = 0;
     let gift = 0;
+    let phone = "";
     if (tidBig) {
       const player = await prisma.player.findUnique({
         where: { telegramId: tidBig },
       });
       if (player) {
+        phone = String(player.phone || "");
         wallet = new Decimal(player.wallet.toString()).toNumber();
         gift = new Decimal(player.gift.toString()).toNumber();
         const mySels = freshSelections.filter((s) => s.playerId === player.id);
@@ -315,6 +317,7 @@ async function handleGameState(req, res, io) {
       total_games: totalGames,
       wallet,
       gift,
+      phone,
       players_display: playersDisplay,
       winner: recentWinner,
       server_time: Date.now(),

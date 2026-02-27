@@ -11,6 +11,8 @@ const handleGameState = require("./routes/gameState");
 const { handleSelect, handleAuto } = require("./routes/select");
 const handleClaimBingo = require("./routes/claimBingo");
 const handleAbandon = require("./routes/abandon");
+const handleProfile = require("./routes/profile");
+const handleHistory = require("./routes/history");
 const adminRoutes = require("./routes/admin");
 const setupSocket = require("./socket");
 const { startCallTicker } = require("./callTicker");
@@ -33,6 +35,8 @@ app.use("/static", express.static(path.join(__dirname, "..", "public")));
 
 // API Routes
 app.get("/api/game_state", (req, res) => handleGameState(req, res, io));
+app.get("/api/profile", (req, res) => handleProfile(req, res));
+app.get("/api/history", (req, res) => handleHistory(req, res));
 app.post("/api/select", (req, res) => handleSelect(req, res));
 app.post("/api/auto", (req, res) => handleAuto(req, res));
 app.post("/api/claim_bingo", (req, res) => handleClaimBingo(req, res, io));

@@ -99,6 +99,23 @@ function buildStakeKeyboard(tid) {
   };
 }
 
+function buildPlayNowWebAppKeyboard(tid) {
+  const WEBAPP_URL = (
+    process.env.WEBAPP_URL || "http://127.0.0.1:3000"
+  ).replace(/\/$/, "");
+  const withTid = tid ? `?tid=${tid}` : "";
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: "🎮 Play Now",
+          web_app: { url: `${WEBAPP_URL}/${withTid}` },
+        },
+      ],
+    ],
+  };
+}
+
 async function ensurePhoneRegistered(bot, chatId, player) {
   if (player && player.phone && player.phone.trim().length > 0) return true;
 
@@ -190,10 +207,9 @@ function setupCommands(bot) {
 
     await bot.sendMessage(
       chatId,
-      "✨ Set Your Stake, Find Your Fate! - መወራረጃዎን ይወስኑ፣ ዕድልዎን ያግኙ! > Bigger bets lead to bigger wins at Weyra! — ከፍተኛ መወራረድ በወይራ የላቀ ድልን ያስገኛል!",
+      "🎮 Tap 'Play Now' to open Weyra Bingo.",
       {
-        parse_mode: "HTML",
-        reply_markup: buildStakeKeyboard(tid),
+        reply_markup: buildPlayNowWebAppKeyboard(tid),
       },
     );
   });
@@ -527,10 +543,9 @@ function setupCommands(bot) {
       await bot.answerCallbackQuery(query.id).catch(() => {});
       await bot.sendMessage(
         chatId,
-        "✨ Set Your Stake, Find Your Fate! - መወራረጃዎን ይወስኑ፣ ዕድልዎን ያግኙ! > Bigger bets lead to bigger wins at Weyra! — ከፍተኛ መወራረድ በወይራ የላቀ ድልን ያስገኛል!",
+        "🎮 Tap 'Play Now' to open Weyra Bingo.",
         {
-          parse_mode: "HTML",
-          reply_markup: buildStakeKeyboard(tid),
+          reply_markup: buildPlayNowWebAppKeyboard(tid),
         },
       );
       return;
