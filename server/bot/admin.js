@@ -251,14 +251,6 @@ function setupAdmin(bot) {
       caption = null;
     }
 
-    const replyMarkup = playNowButton
-      ? {
-          inline_keyboard: [
-            [{ text: "🎮 Play Now", callback_data: "play_now" }],
-          ],
-        }
-      : undefined;
-
     const players = await prisma.player.findMany({
       select: { telegramId: true },
     });
@@ -270,6 +262,22 @@ function setupAdmin(bot) {
     let failed = 0;
     for (const tid of tids) {
       try {
+        // Build web_app URL for each player with their tid
+        const replyMarkup = playNowButton
+          ? {
+              inline_keyboard: [
+                [
+                  {
+                    text: "🎮 Play Now",
+                    web_app: {
+                      url: `${(process.env.WEBAPP_URL || "http://127.0.0.1:3000").replace(/\/$/, "")}?tid=${tid}`,
+                    },
+                  },
+                ],
+              ],
+            }
+          : undefined;
+
         if (mode === "photo" && photoUrl) {
           await bot.sendPhoto(tid, photoUrl, {
             caption,

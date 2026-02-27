@@ -56,21 +56,27 @@ function resetConversationState(uid) {
   return state;
 }
 
-const BUTTON_ROWS = [
-  [{ text: "🎮 Play Now", callback_data: "play_now" }],
-  [
-    { text: "💳 Deposit", callback_data: "deposit" },
-    { text: "🧾 Balance", callback_data: "check_balance" },
-  ],
-  [
-    { text: "🎟️ Invite Friends", callback_data: "invite" },
-    { text: "🧩 Win Patterns", callback_data: "win_patterns" },
-  ],
-  [
-    { text: "📘 How to Play", callback_data: "instructions" },
-    { text: "🆘 Support", callback_data: "support" },
-  ],
-];
+const BUTTON_ROWS = (tid) => {
+  const WEBAPP_URL = (
+    process.env.WEBAPP_URL || "http://127.0.0.1:3000"
+  ).replace(/\/$/, "");
+  const withTid = tid ? `?tid=${tid}` : "";
+  return [
+    [{ text: "🎮 Play Now", web_app: { url: `${WEBAPP_URL}/${withTid}` } }],
+    [
+      { text: "💳 Deposit", callback_data: "deposit" },
+      { text: "🧾 Balance", callback_data: "check_balance" },
+    ],
+    [
+      { text: "🎟️ Invite Friends", callback_data: "invite" },
+      { text: "🧩 Win Patterns", callback_data: "win_patterns" },
+    ],
+    [
+      { text: "📘 How to Play", callback_data: "instructions" },
+      { text: "🆘 Support", callback_data: "support" },
+    ],
+  ];
+};
 
 function buildStakeKeyboard(tid) {
   const WEBAPP_URL = (
@@ -188,7 +194,7 @@ function setupCommands(bot) {
     }
     await bot.sendMessage(chatId, welcome, {
       parse_mode: "HTML",
-      reply_markup: { inline_keyboard: BUTTON_ROWS },
+      reply_markup: { inline_keyboard: BUTTON_ROWS(tid) },
     });
 
     await ensurePhoneRegistered(bot, chatId, player);
@@ -399,7 +405,7 @@ function setupCommands(bot) {
         "PLAY AND WIN! - ይጫወቱ ያሸንፉ!! > Pick your Weyra, join the game, and claim your win!\n\nወይራዎን ይምረጡ፣ ጨዋታውን ይቀላቀሉ እና ድልዎን ያረጋግጡ!",
         {
           parse_mode: "HTML",
-          reply_markup: { inline_keyboard: BUTTON_ROWS },
+          reply_markup: { inline_keyboard: BUTTON_ROWS(tid) },
         },
       );
       return;
