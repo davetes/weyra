@@ -95,7 +95,7 @@ export default function PlayPage() {
       const data = await res.json();
       setTaken(new Set((data.taken || []).map(String)));
       setAcceptedCount(data.accepted_count || 0);
-      if (data.countdown_started_at) startCountdown(data.countdown_started_at);
+      // Countdown is now handled in refreshState with server values
       return;
     }
 
@@ -206,19 +206,11 @@ export default function PlayPage() {
 
       const remaining = data.countdown_remaining;
       if (typeof remaining === "number") {
+        // Just use server's countdown value directly - no local timer needed
         if (remaining <= 0) setCountdown("Starting...");
         else setCountdown(String(remaining));
-        if (!countdownTimerRef.current) {
-          if (data.countdown_started_at)
-            startCountdown(data.countdown_started_at);
-          else startCountdownFromRemaining(remaining);
-        }
       } else {
         if (!data.started) setCountdown("-");
-        if (countdownTimerRef.current) {
-          clearInterval(countdownTimerRef.current);
-          countdownTimerRef.current = null;
-        }
       }
       const myIndices = Array.isArray(data.my_indices) ? data.my_indices : [];
       const hasMyCardInStartedGame = myIndices.some(
@@ -242,17 +234,22 @@ export default function PlayPage() {
     }
   }, [STAKE, TID, router, acceptedCards, acceptedCount, gift, gameId, wallet]);
 
-  function startCountdown(iso) {
+  function startCountdown(iso, initialRemaining = 30) {
     const start = new Date(iso).getTime();
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     countdownTimerRef.current = setInterval(() => {
-      const rem = Math.max(0, 30 - Math.floor((Date.now() - start) / 1000));
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      const rem = Math.max(0, initialRemaining - elapsed);
       setCountdown(rem <= 0 ? "Starting..." : String(rem));
       if (rem <= 0) {
         clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
       }
-    }, 500);
+    }, 1000);
+    // Set initial value immediately
+    const elapsed = Math.floor((Date.now() - start) / 1000);
+    const rem = Math.max(0, initialRemaining - elapsed);
+    setCountdown(rem <= 0 ? "Starting..." : String(rem));
   }
 
   function startCountdownFromRemaining(remainingSeconds) {
@@ -272,7 +269,7 @@ export default function PlayPage() {
   useEffect(() => {
     if (!router.isReady) return;
     refreshState();
-    pollRef.current = setInterval(refreshState, 3000);
+    pollRef.current = setInterval(refreshState, 1000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
@@ -303,9 +300,9 @@ export default function PlayPage() {
   const remainingBalance = Math.max(0, totalBalance - selectedCost);
   const startsInText =
     countdown === "-"
-      ? "00:--"
+      ? "--"
       : countdown === "Starting..."
-        ? "00:00"
+        ? "00"
         : `${String(countdown).padStart(2, "0")}`;
 
   return (
@@ -350,13 +347,14 @@ export default function PlayPage() {
         <div className="bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl text-slate-100 px-1.5 py-1.5 sm:px-2 sm:py-2 border-b border-white/5 flex-none">
           {countdown !== "-" && (
             <div className="mb-1.5 flex justify-center gap-2 flex-wrap">
-              <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 text-amber-950 ring-2 ring-amber-300/50 animate-pulse font-black rounded-lg px-3 py-1 text-xs sm:text-sm shadow-lg shadow-amber-500/30">
-                <span className="mr-1">⏱️</span>Starts In: {startsInText}
+              <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-none px-3 py-2 sm:px-4 sm:py-2.5 shadow-xl flex items-center justify-center gap-2">
+                <span className="text-xs sm:text-sm text-slate-400 font-medium">Starts In:</span>
+                <span className="text-xl sm:text-2xl font-black text-slate-200">{startsInText}</span>
               </div>
               {acceptedCount >= 2 && (
-                <div className="bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-500 text-emerald-950 ring-2 ring-emerald-300/50 font-black rounded-lg px-3 py-1 text-xs sm:text-sm shadow-lg shadow-emerald-500/30">
-                  <span className="mr-1">Derash</span>
-                  {Math.round(derash)} ETB
+                <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-none px-3 py-2 sm:px-4 sm:py-2.5 shadow-xl flex items-center justify-center gap-2">
+                  <span className="text-xs sm:text-sm text-slate-400 font-medium">Derash</span>
+                  <span className="text-xl sm:text-2xl font-black text-slate-200">{Math.round(derash)} ETB</span>
                 </div>
               )}
             </div>
@@ -469,7 +467,7 @@ export default function PlayPage() {
             {(selectedA || selectedB) && (
               <div className="mt-2 grid grid-cols-2 gap-1 sm:gap-1.5 flex-none">
                 <div
-                  className={`border-2 rounded-xl p-1.5 sm:p-2 transition-all duration-300 ${
+                  className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${
                     activeSlot === 0
                       ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
                       : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
@@ -483,7 +481,7 @@ export default function PlayPage() {
                     {LETTERS.map((l) => (
                       <div
                         key={l}
-                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded text-xs sm:text-sm shadow-sm`}
+                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-none text-xs sm:text-sm shadow-sm`}
                       >
                         {l}
                       </div>
@@ -495,7 +493,7 @@ export default function PlayPage() {
                       cardRowsA.flat().map((val, i) => (
                         <div
                           key={i}
-                          className={`rounded aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
+                          className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
                             val === "FREE"
                               ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
                               : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
@@ -509,7 +507,7 @@ export default function PlayPage() {
 
                 {selectedB ? (
                   <div
-                    className={`border-2 rounded-xl p-1.5 sm:p-2 transition-all duration-300 ${
+                    className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${
                       activeSlot === 1
                         ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
                         : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
@@ -523,7 +521,7 @@ export default function PlayPage() {
                       {LETTERS.map((l) => (
                         <div
                           key={l}
-                          className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded text-xs sm:text-sm shadow-sm`}
+                          className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-none text-xs sm:text-sm shadow-sm`}
                         >
                           {l}
                         </div>
@@ -535,7 +533,7 @@ export default function PlayPage() {
                         cardRowsB.flat().map((val, i) => (
                           <div
                             key={i}
-                            className={`rounded aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
+                            className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
                               val === "FREE"
                                 ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
                                 : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
@@ -547,7 +545,7 @@ export default function PlayPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="border-2 border-dashed border-slate-500/50 rounded-xl p-2 bg-gradient-to-br from-slate-900/40 to-slate-800/40 flex items-center justify-center text-center backdrop-blur-sm">
+                  <div className="border-2 border-dashed border-slate-500/50 rounded-none p-2 bg-gradient-to-br from-slate-900/40 to-slate-800/40 flex items-center justify-center text-center backdrop-blur-sm">
                     <div className="text-[10px] text-slate-400 leading-tight">
                       <span className="text-sm mb-1 block">➕</span>
                       Select 2nd card
