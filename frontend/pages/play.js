@@ -366,22 +366,22 @@ export default function PlayPage() {
             </div>
           )}
           <div className="grid grid-cols-4 gap-1 sm:gap-1.5 items-stretch">
-            <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-700 ring-1 ring-white/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md">
+            <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-700 ring-1 ring-white/50 font-bold rounded-lg px-1 py-1.5 sm:px-2 sm:py-2 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md">
               <span className="opacity-70">Game ID:</span>
               <br />
               {gameId}
             </div>
-            <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
+            <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-lg px-1 py-1.5 sm:px-2 sm:py-2 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
               <span className="opacity-70">Bet:</span>
               <br />
               {STAKE} Birr
             </div>
-            <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white ring-1 ring-blue-300/40 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-blue-500/20">
+            <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white ring-1 ring-blue-300/40 font-bold rounded-lg px-1 py-1.5 sm:px-2 sm:py-2 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-blue-500/20">
               <span className="opacity-80">Wallet:</span>
               <br />
               {Number(wallet || 0).toFixed(2)} Birr
             </div>
-            <div className="bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white ring-1 ring-violet-300/40 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-purple-500/20">
+            <div className="bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white ring-1 ring-violet-300/40 font-bold rounded-lg px-1 py-1.5 sm:px-2 sm:py-2 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-purple-500/20">
               <span className="opacity-80">play wallet:</span>
               <br />
               {Number(gift || 0).toFixed(2)} Birr
