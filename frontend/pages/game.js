@@ -967,11 +967,9 @@ export default function GamePage() {
                           <span
                             className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
                           >
-                            AUTO
+                            AUTOMATIC
                           </span>
-                          <span className="text-[8px] font-medium opacity-60 text-slate-400">
-                            ራስ-ሰር
-                          </span>
+                         
                         </div>
 
                         <div
