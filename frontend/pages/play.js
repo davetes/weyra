@@ -95,8 +95,7 @@ export default function PlayPage() {
       const data = await res.json();
       setTaken(new Set((data.taken || []).map(String)));
       setAcceptedCount(data.accepted_count || 0);
-      if (data.countdown_started_at)
-        startCountdown(data.countdown_started_at, data.countdown_remaining);
+      if (data.countdown_started_at) startCountdown(data.countdown_started_at);
       return;
     }
 
@@ -207,9 +206,11 @@ export default function PlayPage() {
 
       const remaining = data.countdown_remaining;
       if (typeof remaining === "number") {
+        if (remaining <= 0) setCountdown("Starting...");
+        else setCountdown(String(remaining));
         if (!countdownTimerRef.current) {
           if (data.countdown_started_at)
-            startCountdown(data.countdown_started_at, remaining);
+            startCountdown(data.countdown_started_at);
           else startCountdownFromRemaining(remaining);
         }
       } else {
@@ -241,14 +242,9 @@ export default function PlayPage() {
     }
   }, [STAKE, TID, router, acceptedCards, acceptedCount, gift, gameId, wallet]);
 
-  function startCountdown(iso, initialRemaining) {
+  function startCountdown(iso) {
     const start = new Date(iso).getTime();
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    const initial =
-      typeof initialRemaining === "number"
-        ? initialRemaining
-        : Math.max(0, 30 - Math.floor((Date.now() - start) / 1000));
-    setCountdown(initial <= 0 ? "Starting..." : String(initial));
     countdownTimerRef.current = setInterval(() => {
       const rem = Math.max(0, 30 - Math.floor((Date.now() - start) / 1000));
       setCountdown(rem <= 0 ? "Starting..." : String(rem));
@@ -310,7 +306,7 @@ export default function PlayPage() {
       ? "00:--"
       : countdown === "Starting..."
         ? "00:00"
-        : `00:${String(countdown).padStart(2, "0")}`;
+        : `${String(countdown).padStart(2, "0")}`;
 
   return (
     <>
@@ -353,7 +349,7 @@ export default function PlayPage() {
       <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col overflow-hidden">
         <div className="bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl text-slate-100 px-1.5 py-1.5 sm:px-2 sm:py-2 border-b border-white/5 flex-none">
           {countdown !== "-" && (
-            <div className="mb-1.5 flex justify-center gap-2">
+            <div className="mb-1.5 flex justify-center gap-2 flex-wrap">
               <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 text-amber-950 ring-2 ring-amber-300/50 animate-pulse font-black rounded-lg px-3 py-1 text-xs sm:text-sm shadow-lg shadow-amber-500/30">
                 <span className="mr-1">⏱️</span>Starts In: {startsInText}
               </div>
@@ -365,40 +361,40 @@ export default function PlayPage() {
               )}
             </div>
           )}
-          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 items-stretch">
-            <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-700 ring-1 ring-white/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2 items-stretch">
+            <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-700 ring-1 ring-white/50 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md">
               <span className="opacity-70">Game ID:</span>
               <br />
-              {gameId}
+              <span className="text-sm sm:text-base">{gameId}</span>
             </div>
-            <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
+            <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
               <span className="opacity-70">Bet:</span>
               <br />
-              {STAKE} Birr
+              <span className="text-sm sm:text-base">{STAKE} Birr</span>
             </div>
-            <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white ring-1 ring-blue-300/40 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-blue-500/20">
+            <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white ring-1 ring-blue-300/40 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-blue-500/20">
               <span className="opacity-80">Wallet:</span>
               <br />
-              {Number(wallet || 0).toFixed(2)} Birr
+              <span className="text-sm sm:text-base">{Number(wallet || 0).toFixed(2)}</span>
             </div>
-            <div className="bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white ring-1 ring-violet-300/40 font-bold rounded-lg px-1 py-1 sm:px-2 sm:py-1.5 text-[8px] sm:text-[10px] text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-purple-500/20">
+            <div className="bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white ring-1 ring-violet-300/40 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-purple-500/20">
               <span className="opacity-80">play wallet:</span>
               <br />
-              {Number(gift || 0).toFixed(2)} Birr
+              <span className="text-sm sm:text-base">{Number(gift || 0).toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto py-1.5 sm:py-2">
-          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border-y border-white/10 py-1.5 sm:py-2 shadow-xl h-full flex flex-col">
-            <div className="flex-1 overflow-y-auto no-scrollbar">
+          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border-y border-white/10 py-1.5 sm:py-2 shadow-xl h-full flex flex-col border-l border-r border-slate-600/30">
+            <div className="flex-1 overflow-y-auto no-scrollbar px-2">
               <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
                 {numbers.map((n) => {
                   const key = String(n);
                   const isTaken = taken.has(key);
                   const isSelected = selectedA === n || selectedB === n;
                   const base =
-                    "relative font-black rounded-xl sm:rounded-xl aspect-square flex items-center justify-center select-none text-sm sm:text-lg leading-none border-2 transition-all duration-200";
+                    "relative font-black rounded sm:rounded aspect-square flex items-center justify-center select-none text-sm sm:text-lg leading-none border-2 transition-all duration-200";
                   const cls = isSelected
                     ? "bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 border-violet-300 text-white shadow-lg shadow-purple-500/30 scale-105"
                     : isTaken
