@@ -61,11 +61,11 @@ export default function HistoryPage() {
         <title>Game History</title>
       </Head>
 
-      <div className="min-h-[100svh] w-full bg-gradient-to-b from-violet-950 via-slate-950 to-slate-950 text-white pb-24">
+      <div className="min-h-[100svh] w-full bg-gradient-to-b from-[#0a0f1a] via-[#0d1321] to-[#0a0f1a] text-white pb-24">
         <div className="px-4 pt-6">
           <div className="text-3xl font-black tracking-tight">Game History</div>
 
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-5 py-4">
+          <div className="mt-5 rounded-none border border-white/10 bg-white/5 px-5 py-4">
             <div className="text-white/60 text-sm font-semibold">Total Games</div>
             <div className="mt-2 text-4xl font-black">{totalGames}</div>
           </div>
@@ -73,7 +73,7 @@ export default function HistoryPage() {
           <div className="mt-7 text-xl font-black">Recent Games</div>
 
           {error && (
-            <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 font-semibold">
+            <div className="mt-4 rounded-none border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 font-semibold">
               {error}
             </div>
           )}
@@ -84,7 +84,7 @@ export default function HistoryPage() {
 
           <div className="mt-4 space-y-4">
             {games.length === 0 && !loading ? (
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-6 text-white/70 text-sm">
+              <div className="rounded-none border border-white/10 bg-white/5 px-5 py-6 text-white/70 text-sm">
                 No games yet.
               </div>
             ) : (
@@ -93,7 +93,7 @@ export default function HistoryPage() {
                 return (
                   <div
                     key={String(g.gameId)}
-                    className="rounded-2xl border border-white/10 bg-slate-950/25 px-4 py-4"
+                    className="rounded-none border border-white/10 bg-slate-950/25 px-4 py-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
@@ -149,7 +149,7 @@ export default function HistoryPage() {
         </div>
 
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[min(420px,calc(100vw-1.25rem))] z-[9999]">
-          <div className="bg-slate-950/70 backdrop-blur border border-white/10 rounded-2xl px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
+          <div className="bg-slate-950/70 backdrop-blur border border-white/10 px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"

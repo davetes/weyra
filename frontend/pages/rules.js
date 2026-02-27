@@ -17,7 +17,7 @@ export default function RulesPage() {
         <title>Rules</title>
       </Head>
 
-      <div className="min-h-[100svh] w-full bg-gradient-to-b from-violet-950 via-slate-950 to-slate-950 text-white pb-24">
+      <div className="min-h-[100svh] w-full bg-gradient-to-b from-[#0a0f1a] via-[#0d1321] to-[#0a0f1a] text-white pb-24">
         <div className="px-4 pt-6">
           <div className="flex items-center justify-between">
             <div className="text-3xl font-black tracking-tight">Rules</div>
@@ -30,7 +30,7 @@ export default function RulesPage() {
             </button>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="mt-6 rounded-none border border-white/10 bg-white/5 p-4">
             <div className="text-lg font-black">How to play</div>
             <div className="mt-3 space-y-3 text-sm text-white/80 leading-relaxed">
               <div>
@@ -48,7 +48,7 @@ export default function RulesPage() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="mt-4 rounded-none border border-white/10 bg-white/5 p-4">
             <div className="text-lg font-black">መመሪያ</div>
             <div className="mt-3 space-y-3 text-sm text-white/80 leading-relaxed">
               <div>
@@ -68,7 +68,7 @@ export default function RulesPage() {
         </div>
 
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[min(420px,calc(100vw-1.25rem))] z-[9999]">
-          <div className="bg-slate-950/70 backdrop-blur border border-white/10 rounded-2xl px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
+          <div className="bg-slate-950/70 backdrop-blur border border-white/10 px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"

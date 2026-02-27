@@ -78,7 +78,7 @@ export default function ProfilePage() {
         <title>Profile</title>
       </Head>
 
-      <div className="min-h-[100svh] w-full bg-gradient-to-b from-violet-950 via-slate-950 to-slate-950 text-white pb-24">
+      <div className="min-h-[100svh] w-full bg-gradient-to-b from-[#0a0f1a] via-[#0d1321] to-[#0a0f1a] text-white pb-24">
         <div className="px-4 pt-6">
           <div className="flex flex-col items-center">
             <div className="w-14 h-14 rounded-full bg-slate-900/40 border border-white/10 flex items-center justify-center text-xl font-black">
@@ -88,13 +88,13 @@ export default function ProfilePage() {
           </div>
 
           {error && (
-            <div className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 font-semibold">
+            <div className="mt-5 rounded-none border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 font-semibold">
               {error}
             </div>
           )}
 
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-none border border-white/10 bg-white/5 p-4">
               <div className="flex items-center gap-2 text-xs text-white/60">
                 <WalletIcon className="w-4 h-4" />
                 Main Wallet
@@ -102,7 +102,7 @@ export default function ProfilePage() {
               <div className="mt-2 text-2xl font-black">{Number(wallet || 0).toFixed(0)}</div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-none border border-white/10 bg-white/5 p-4">
               <div className="flex items-center gap-2 text-xs text-white/60">
                 <WalletIcon className="w-4 h-4 text-emerald-300" />
                 Play Wallet
@@ -110,7 +110,7 @@ export default function ProfilePage() {
               <div className="mt-2 text-2xl font-black">{Number(gift || 0).toFixed(0)}</div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-none border border-white/10 bg-white/5 p-4">
               <div className="flex items-center gap-2 text-xs text-white/60">
                 <Trophy className="w-4 h-4 text-violet-300" />
                 Games Won
@@ -118,7 +118,7 @@ export default function ProfilePage() {
               <div className="mt-2 text-2xl font-black">{wins || 0}</div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-none border border-white/10 bg-white/5 p-4">
               <div className="flex items-center gap-2 text-xs text-white/60">
                 <Users className="w-4 h-4 text-orange-300" />
                 Total Invite
@@ -126,7 +126,7 @@ export default function ProfilePage() {
               <div className="mt-2 text-2xl font-black">{totalInvites || 0}</div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 col-span-2">
+            <div className="rounded-none border border-white/10 bg-white/5 p-4 col-span-2">
               <div className="flex items-center gap-2 text-xs text-white/60">
                 <TrendingUp className="w-4 h-4 text-emerald-300" />
                 Total Earning
@@ -137,7 +137,7 @@ export default function ProfilePage() {
 
           <div className="mt-7 text-lg font-black">Settings</div>
 
-          <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between">
+          <div className="mt-3 rounded-none border border-white/10 bg-white/5 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
                 <Volume2 className="w-5 h-5 text-white/70" />
@@ -169,7 +169,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[min(420px,calc(100vw-1.25rem))] z-[9999]">
-          <div className="bg-slate-950/70 backdrop-blur border border-white/10 rounded-2xl px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
+          <div className="bg-slate-950/70 backdrop-blur border border-white/10 px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
