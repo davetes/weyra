@@ -95,7 +95,7 @@ async function handleSelect(req, res) {
         // Update selection
         await prisma.selection.update({
           where: { id: playerSel.id },
-          data: { index, accepted: true },
+          data: { index, accepted: true, autoEnabled: true },
         });
       } else {
         await prisma.selection.create({
@@ -105,6 +105,7 @@ async function handleSelect(req, res) {
             slot,
             index,
             accepted: true,
+            autoEnabled: true,
           },
         });
       }
@@ -174,4 +175,57 @@ async function handleSelect(req, res) {
   }
 }
 
-module.exports = handleSelect;
+// POST /api/auto — toggle auto enabled for a slot
+async function handleAuto(req, res) {
+  try {
+    const { tidBig } = parseTid(req.body.tid);
+    const stake = parseInt(req.body.stake || "10", 10);
+    const slot = parseInt(req.body.slot ?? "0", 10);
+    const auto = req.body.auto;
+
+    if (!tidBig) {
+      return res.status(400).json({ ok: false, error: "Missing tid" });
+    }
+
+    // Find player's current selection for this stake (game can be active or started)
+    const game = await prisma.game.findFirst({
+      where: { stake, active: true },
+      orderBy: { id: "desc" },
+    });
+
+    if (!game) {
+      return res.status(400).json({ ok: false, error: "No active game" });
+    }
+
+    const player = await prisma.player.findUnique({
+      where: { telegramId: tidBig },
+    });
+
+    if (!player) {
+      return res.status(400).json({ ok: false, error: "Player not found" });
+    }
+
+    // Find selection for this player and slot
+    const sel = await prisma.selection.findFirst({
+      where: { gameId: game.id, playerId: player.id, slot },
+    });
+
+    if (!sel) {
+      return res.status(400).json({ ok: false, error: "No card selected" });
+    }
+
+    // Update autoEnabled
+    const newAutoEnabled = auto === true || auto === "true" || auto === "1";
+    await prisma.selection.update({
+      where: { id: sel.id },
+      data: { autoEnabled: newAutoEnabled },
+    });
+
+    return res.json({ ok: true, autoEnabled: newAutoEnabled });
+  } catch (err) {
+    console.error("auto error:", err);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+}
+
+module.exports = { handleSelect, handleAuto };

@@ -251,6 +251,7 @@ async function handleGameState(req, res, io) {
     // Find player's card + balance
     let myCards = [null, null];
     let myIndices = [null, null];
+    let autoEnabled = [true, true]; // Default to true
     let wallet = 0;
     let gift = 0;
     if (tidBig) {
@@ -266,6 +267,7 @@ async function handleGameState(req, res, io) {
           if (!Number.isFinite(slot) || slot < 0 || slot > 1) continue;
           myIndices[slot] = sel.index;
           myCards[slot] = getCard(sel.index);
+          autoEnabled[slot] = sel.autoEnabled ?? true;
         }
       }
     }
@@ -309,6 +311,7 @@ async function handleGameState(req, res, io) {
       my_index: myIndices[0],
       my_cards: myCards,
       my_indices: myIndices,
+      auto_enabled: autoEnabled,
       total_games: totalGames,
       wallet,
       gift,

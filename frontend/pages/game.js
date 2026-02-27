@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { io } from "socket.io-client";
-import { Info } from "lucide-react";
+import { Eye, Info } from "lucide-react";
 
 /* ── Deterministic card (same as play.js / server) ── */
 function mulberry32(seed) {
@@ -79,8 +79,8 @@ export default function GamePage() {
   const [activeSlot, setActiveSlot] = useState(0);
   const [picks0, setPicks0] = useState(new Set());
   const [picks1, setPicks1] = useState(new Set());
-  const [autoSelect0, setAutoSelect0] = useState(false);
-  const [autoSelect1, setAutoSelect1] = useState(false);
+  const [autoSelect0, setAutoSelect0] = useState(true);
+  const [autoSelect1, setAutoSelect1] = useState(true);
   const [winner, setWinner] = useState(null);
   const [audioOn, setAudioOn] = useState(false);
   const [suppressCalls, setSuppressCalls] = useState(false);
@@ -91,6 +91,7 @@ export default function GamePage() {
   const audioCacheRef = useRef(new Map());
   const audioPlayingRef = useRef(false);
   const lastAudioCallRef = useRef(null);
+  const lastToggleTimeRef = useRef(0); // Track last auto toggle to skip poll update
   const scheduledAudioRef = useRef(null);
   const serverOffsetRef = useRef(0);
   const winCountdownRef = useRef(null);
@@ -165,22 +166,29 @@ export default function GamePage() {
   function loadAutoSelect(slot) {
     try {
       const raw = localStorage.getItem(`bingo_auto_${STAKE}_${slot}`);
+      // If nothing saved, default to true (auto ON)
+      if (raw == null) return true;
       return raw === "1";
     } catch (_) {
-      return false;
+      return true;
     }
   }
 
   function saveAutoSelect(slot, val) {
-    try {
-      localStorage.setItem(`bingo_auto_${STAKE}_${slot}`, val ? "1" : "0");
-    } catch (_) {}
+    // Save to server (don't update local state - poll will handle it)
+    fetch("/api/auto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tid: TID,
+        stake: STAKE,
+        slot,
+        auto: val,
+      }),
+    }).catch(() => {});
   }
 
-  useEffect(() => {
-    setAutoSelect0(loadAutoSelect(0));
-    setAutoSelect1(loadAutoSelect(1));
-  }, [STAKE]);
+  // Auto select is now loaded from server via auto_enabled in game state
 
   function autoPickSetForCard(card, called) {
     const out = new Set();
@@ -452,6 +460,11 @@ export default function GamePage() {
           lastMyIndicesSigRef.current = sig;
           setMyIndices(data.my_indices);
         }
+      }
+      // Read auto_enabled from server (skip if recently toggled to avoid race condition)
+      if (Array.isArray(data.auto_enabled) && Date.now() - lastToggleTimeRef.current > 2000) {
+        setAutoSelect0(data.auto_enabled[0] ?? true);
+        setAutoSelect1(data.auto_enabled[1] ?? true);
       }
 
       const callNum =
@@ -919,7 +932,9 @@ export default function GamePage() {
                 {gameStarted && !myCards?.[0] && !myCards?.[1] && (
                   <div className="border-2 border-slate-600/50 rounded-xl p-2 sm:p-3 bg-gradient-to-br from-indigo-950/50 via-slate-900/50 to-purple-950/50">
                     <div className="text-center text-slate-100 font-black text-sm sm:text-base">
-                      <span className="mr-1">👁️</span>Watching Only
+                      <span className="mr-1">
+                        <Eye className="inline-block w-4 h-4" />
+                        </span>Watching Only
                     </div>
                     <div className="mt-2 text-center text-slate-300/90 text-[10px] sm:text-xs leading-relaxed">
                       ይህ ዙር ተጀምሯል።
@@ -959,10 +974,15 @@ export default function GamePage() {
                           if (!enabled) return;
 
                           const toggleAuto = (setter, slotIndex, ref) => {
+                            // Update local state immediately for responsive UI
                             setter((p) => {
                               const next = !p;
-                              saveAutoSelect(slotIndex, next);
+                              // Update ref for auto baseline
                               ref.current = next ? new Set(calledSet) : null;
+                              // Track toggle time to skip next poll update
+                              lastToggleTimeRef.current = Date.now();
+                              // Call server to save (but don't wait for response to update UI)
+                              saveAutoSelect(slotIndex, next);
                               return next;
                             });
                           };
