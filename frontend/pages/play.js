@@ -362,22 +362,22 @@ export default function PlayPage() {
             </div>
           )}
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2 items-stretch">
-            <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-700 ring-1 ring-white/50 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 text-slate-100 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
               <span className="opacity-70">Game ID:</span>
               <br />
               <span className="text-sm sm:text-base">{gameId}</span>
             </div>
-            <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
+            <div className="bg-amber-500/20 backdrop-blur-md border border-amber-400/30 text-amber-300 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
               <span className="opacity-70">Bet:</span>
               <br />
               <span className="text-sm sm:text-base">{STAKE} Birr</span>
             </div>
-            <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white ring-1 ring-blue-300/40 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-blue-500/20">
+            <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-300 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
               <span className="opacity-80">Wallet:</span>
               <br />
               <span className="text-sm sm:text-base">{Number(wallet || 0).toFixed(2)}</span>
             </div>
-            <div className="bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white ring-1 ring-violet-300/40 font-bold rounded-lg px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-purple-500/20">
+            <div className="bg-cyan-500/20 backdrop-blur-md border border-cyan-400/30 text-cyan-300 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
               <span className="opacity-80">play wallet:</span>
               <br />
               <span className="text-sm sm:text-base">{Number(gift || 0).toFixed(2)}</span>
@@ -396,10 +396,10 @@ export default function PlayPage() {
                   const base =
                     "relative font-black rounded sm:rounded aspect-square flex items-center justify-center select-none text-sm sm:text-lg leading-none border-2 transition-all duration-200";
                   const cls = isSelected
-                    ? "bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 border-violet-300 text-white shadow-lg shadow-purple-500/30 scale-105"
+                    ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 border-amber-300 text-white shadow-lg shadow-amber-500/30 scale-105"
                     : isTaken
-                      ? "bg-gradient-to-br from-rose-600 via-red-600 to-rose-700 border-red-400/50 text-white shadow-md shadow-red-500/20"
-                      : "bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 border-emerald-300/40 text-white shadow-md shadow-emerald-500/15 hover:from-emerald-400 hover:via-emerald-500 hover:to-green-600 hover:border-emerald-200 hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/25 active:scale-95";
+                      ? "bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 border-rose-300 text-white shadow-md shadow-rose-500/20"
+                      : "bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-100 shadow-md hover:bg-emerald-500/30 hover:scale-105 active:scale-95";
 
                   return (
                     <button
