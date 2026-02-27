@@ -436,7 +436,7 @@ export default function GamePage() {
         const prevCalls = (data.called_numbers || [])
           .map(String)
           .filter((num) => num !== currentCallStr);
-        setRecentCalls(prevCalls.slice(-2).reverse());
+        setRecentCalls(prevCalls.slice(-3).reverse());
       }
 
       if (Array.isArray(data.my_cards)) {
@@ -805,7 +805,7 @@ export default function GamePage() {
                     <svg
                       viewBox="0 0 24 24"
                       fill="currentColor"
-                      className="w-4 h-4 sm:w-5 sm:h-5 mr-1 opacity-60"
+                      className="w-4 h-4 sm:w-5 sm:h-5 mr-1"
                     >
                       <path d="M3.28 2.22 2.22 3.28 7.44 8.5H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V14.06l4.66 4.66c-.7.53-1.49.93-2.36 1.18v2.06c1.41-.33 2.69-.96 3.78-1.8l2.64 2.64 1.06-1.06L3.28 2.22zM15.5 3.12v2.06c1.35.4 2.53 1.14 3.46 2.11l-1.46 1.46c-.57-.61-1.25-1.08-2-1.37V3.12z" />
                     </svg>
@@ -819,7 +819,14 @@ export default function GamePage() {
             <div className="mt-1.5 sm:mt-2 flex flex-col gap-1.5 sm:gap-2 w-full flex-1">
               {/* Current call display - full width */}
               <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-xl">
-                <div className="flex items-center justify-center gap-2 sm:gap-3">
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
+                  {/* Left: Called count */}
+                  <div className="flex flex-col items-center shrink-0 w-14 sm:w-16">
+                    <span className="text-[10px] sm:text-xs text-slate-400 font-medium">Called</span>
+                    <span className="text-lg sm:text-xl font-black text-slate-200">{calledSet.size}<span className="text-slate-500 text-sm sm:text-base">/75</span></span>
+                  </div>
+
+                  {/* Center: Current call circle */}
                   <div className="relative shrink-0">
                     <div className={`absolute inset-0 rounded-full blur-lg ${currentCall ? (() => { const l = letterFor(currentCall); return l === "B" ? "bg-green-400/40" : l === "I" ? "bg-red-400/40" : l === "N" ? "bg-yellow-400/40" : l === "G" ? "bg-blue-400/40" : "bg-pink-400/40"; })() : "bg-amber-400/40"}`} />
                     <div className={`relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] rounded-full flex items-center justify-center border-3 sm:border-4 ${currentCall ? (() => { const l = letterFor(currentCall); return l === "B" ? "bg-green-bingo border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : l === "I" ? "bg-red-bingo border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : l === "N" ? "bg-yellow-bingo border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]" : l === "G" ? "bg-blue-bingo border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)]" : "bg-pink-bingo border-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.4)]"; })() : "bg-slate-100 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)]"}`}>
@@ -830,7 +837,7 @@ export default function GamePage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-1 items-center justify-center shrink-0">
+                  <div className="flex gap-1 items-center justify-end shrink-0 w-28 sm:w-32">
                     {recentCalls.map((num, idx) => {
                       const letter = letterFor(Number(num));
                       const colorMap = {
@@ -935,7 +942,7 @@ export default function GamePage() {
                   return (
                     <div
                       key={slot}
-                      className={`border-2 rounded-xl p-2 sm:p-2.5 transition-all duration-300 ${
+                      className={`border-2 rounded-none p-1 sm:p-1.5 transition-all duration-300 ${
                         activeSlot === slot
                           ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
                           : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
@@ -1001,18 +1008,18 @@ export default function GamePage() {
                         </div>
                       </button>
 
-                      <div className="grid grid-cols-5 gap-1">
+                      <div className="grid grid-cols-5 gap-0.5">
                         {LETTERS.map((l) => (
                           <div
                             key={l}
-                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded text-xs sm:text-sm shadow-sm`}
+                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-none text-xs sm:text-sm shadow-sm`}
                           >
                             {l}
                           </div>
                         ))}
                       </div>
 
-                      <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                      <div className="mt-1 grid grid-cols-5 gap-0.5">
                         {card.flat().map((val, i) => {
                           const vs = String(val);
                           const isFree = val === "FREE";
@@ -1024,7 +1031,7 @@ export default function GamePage() {
                                 e.stopPropagation();
                                 if (!isFree) togglePick(slot, vs);
                               }}
-                              className={`rounded-lg aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
+                              className={`rounded-none aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
                                 isFree
                                   ? "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 border-amber-300 shadow-sm shadow-amber-400/30"
                                   : isPicked
