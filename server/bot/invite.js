@@ -20,7 +20,7 @@ function setupInvite(bot) {
             [
               {
                 text: "📣 Share Link",
-                switch_inline_query: `Join weyra Bingo! ${link}`,
+                url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Join weyra Bingo!")}`,
               },
             ],
           ],

@@ -8,20 +8,20 @@ datasource db {
 }
 
 model Player {
-  id          Int       @id @default(autoincrement())
-  telegramId  BigInt    @unique @map("telegram_id")
-  phone       String    @default("") @db.VarChar(32)
-  username    String    @default("") @db.VarChar(64)
-  wallet      Decimal   @default(0) @db.Decimal(12, 2)
-  gift        Decimal   @default(0) @db.Decimal(12, 2)
-  wins        Int       @default(0)
-  bannedAt    DateTime? @map("banned_at")
-  banReason   String    @default("") @db.Text @map("ban_reason")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id         Int       @id @default(autoincrement())
+  telegramId BigInt    @unique @map("telegram_id")
+  phone      String    @default("") @db.VarChar(32)
+  username   String    @default("") @db.VarChar(64)
+  wallet     Decimal   @default(0) @db.Decimal(12, 2)
+  gift       Decimal   @default(0) @db.Decimal(12, 2)
+  wins       Int       @default(0)
+  bannedAt   DateTime? @map("banned_at")
+  banReason  String    @default("") @map("ban_reason") @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
 
-  selections   Selection[]
-  transactions Transaction[]
-  depositRequests DepositRequest[]
+  selections       Selection[]
+  transactions     Transaction[]
+  depositRequests  DepositRequest[]
   withdrawRequests WithdrawRequest[]
 
   @@map("bingo_player")
@@ -30,7 +30,7 @@ model Player {
 model AdminUser {
   id           Int      @id @default(autoincrement())
   username     String   @unique @db.VarChar(64)
-  passwordHash String   @db.VarChar(255) @map("password_hash")
+  passwordHash String   @map("password_hash") @db.VarChar(255)
   role         String   @db.VarChar(32)
   permissions  String   @default("[]") @db.Text
   createdAt    DateTime @default(now()) @map("created_at")
@@ -41,12 +41,12 @@ model AdminUser {
 }
 
 model AdminSession {
-  id         Int      @id @default(autoincrement())
-  token      String   @unique @db.VarChar(128)
-  adminId    Int      @map("admin_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  expiresAt  DateTime @map("expires_at")
-  revokedAt  DateTime? @map("revoked_at")
+  id        Int       @id @default(autoincrement())
+  token     String    @unique @db.VarChar(128)
+  adminId   Int       @map("admin_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
 
   admin AdminUser @relation(fields: [adminId], references: [id])
 
@@ -81,12 +81,13 @@ model Game {
 }
 
 model Selection {
-  id       Int     @id @default(autoincrement())
-  gameId   Int     @map("game_id")
-  playerId Int     @map("player_id")
-  slot     Int     @default(0)
-  index    Int
-  accepted Boolean @default(false)
+  id          Int     @id @default(autoincrement())
+  gameId      Int     @map("game_id")
+  playerId    Int     @map("player_id")
+  slot        Int     @default(0)
+  index       Int
+  accepted    Boolean @default(false)
+  autoEnabled Boolean @default(true) @map("auto_enabled")
 
   game   Game   @relation(fields: [gameId], references: [id])
   player Player @relation(fields: [playerId], references: [id])
@@ -111,18 +112,18 @@ model Transaction {
 }
 
 model DepositRequest {
-  id              Int      @id @default(autoincrement())
-  playerId        Int      @map("player_id")
-  telegramId      BigInt   @map("telegram_id")
-  method          String   @default("") @db.VarChar(32)
-  amount          Decimal? @db.Decimal(12, 2)
-  status          String   @default("pending") @db.VarChar(16)
-  caption         String   @default("") @db.Text
-  telegramMessageId Int?   @map("telegram_message_id")
-  createdAt       DateTime @default(now()) @map("created_at")
-  decidedAt       DateTime? @map("decided_at")
-  decidedByAdminId Int?    @map("decided_by_admin_id")
-  decisionNote    String   @default("") @db.Text @map("decision_note")
+  id                Int       @id @default(autoincrement())
+  playerId          Int       @map("player_id")
+  telegramId        BigInt    @map("telegram_id")
+  method            String    @default("") @db.VarChar(32)
+  amount            Decimal?  @db.Decimal(12, 2)
+  status            String    @default("pending") @db.VarChar(16)
+  caption           String    @default("") @db.Text
+  telegramMessageId Int?      @map("telegram_message_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  decidedAt         DateTime? @map("decided_at")
+  decidedByAdminId  Int?      @map("decided_by_admin_id")
+  decisionNote      String    @default("") @map("decision_note") @db.Text
 
   player Player @relation(fields: [playerId], references: [id])
 
@@ -132,17 +133,17 @@ model DepositRequest {
 }
 
 model WithdrawRequest {
-  id               Int      @id @default(autoincrement())
-  playerId         Int      @map("player_id")
-  telegramId       BigInt   @map("telegram_id")
-  amount           Decimal  @db.Decimal(12, 2)
-  method           String   @default("") @db.VarChar(32)
-  account          String   @default("") @db.Text
-  status           String   @default("pending") @db.VarChar(16)
-  createdAt        DateTime @default(now()) @map("created_at")
+  id               Int       @id @default(autoincrement())
+  playerId         Int       @map("player_id")
+  telegramId       BigInt    @map("telegram_id")
+  amount           Decimal   @db.Decimal(12, 2)
+  method           String    @default("") @db.VarChar(32)
+  account          String    @default("") @db.Text
+  status           String    @default("pending") @db.VarChar(16)
+  createdAt        DateTime  @default(now()) @map("created_at")
   decidedAt        DateTime? @map("decided_at")
-  decidedByAdminId Int?     @map("decided_by_admin_id")
-  decisionNote     String   @default("") @db.Text @map("decision_note")
+  decidedByAdminId Int?      @map("decided_by_admin_id")
+  decisionNote     String    @default("") @map("decision_note") @db.Text
 
   player Player @relation(fields: [playerId], references: [id])
 

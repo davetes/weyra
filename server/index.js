@@ -8,7 +8,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 
 const handleGameState = require("./routes/gameState");
-const handleSelect = require("./routes/select");
+const { handleSelect, handleAuto } = require("./routes/select");
 const handleClaimBingo = require("./routes/claimBingo");
 const handleAbandon = require("./routes/abandon");
 const adminRoutes = require("./routes/admin");
@@ -34,6 +34,7 @@ app.use("/static", express.static(path.join(__dirname, "..", "public")));
 // API Routes
 app.get("/api/game_state", (req, res) => handleGameState(req, res, io));
 app.post("/api/select", (req, res) => handleSelect(req, res));
+app.post("/api/auto", (req, res) => handleAuto(req, res));
 app.post("/api/claim_bingo", (req, res) => handleClaimBingo(req, res, io));
 app.post("/api/abandon", (req, res) => handleAbandon(req, res));
 app.use("/api/admin", adminRoutes);

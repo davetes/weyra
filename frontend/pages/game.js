@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { io } from "socket.io-client";
+import { Eye, Info } from "lucide-react";
 
 /* ── Deterministic card (same as play.js / server) ── */
 function mulberry32(seed) {
@@ -78,8 +79,8 @@ export default function GamePage() {
   const [activeSlot, setActiveSlot] = useState(0);
   const [picks0, setPicks0] = useState(new Set());
   const [picks1, setPicks1] = useState(new Set());
-  const [autoSelect0, setAutoSelect0] = useState(false);
-  const [autoSelect1, setAutoSelect1] = useState(false);
+  const [autoSelect0, setAutoSelect0] = useState(true);
+  const [autoSelect1, setAutoSelect1] = useState(true);
   const [winner, setWinner] = useState(null);
   const [audioOn, setAudioOn] = useState(false);
   const [suppressCalls, setSuppressCalls] = useState(false);
@@ -90,6 +91,7 @@ export default function GamePage() {
   const audioCacheRef = useRef(new Map());
   const audioPlayingRef = useRef(false);
   const lastAudioCallRef = useRef(null);
+  const lastToggleTimeRef = useRef(0); // Track last auto toggle to skip poll update
   const scheduledAudioRef = useRef(null);
   const serverOffsetRef = useRef(0);
   const winCountdownRef = useRef(null);
@@ -164,22 +166,29 @@ export default function GamePage() {
   function loadAutoSelect(slot) {
     try {
       const raw = localStorage.getItem(`bingo_auto_${STAKE}_${slot}`);
+      // If nothing saved, default to true (auto ON)
+      if (raw == null) return true;
       return raw === "1";
     } catch (_) {
-      return false;
+      return true;
     }
   }
 
   function saveAutoSelect(slot, val) {
-    try {
-      localStorage.setItem(`bingo_auto_${STAKE}_${slot}`, val ? "1" : "0");
-    } catch (_) {}
+    // Save to server (don't update local state - poll will handle it)
+    fetch("/api/auto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tid: TID,
+        stake: STAKE,
+        slot,
+        auto: val,
+      }),
+    }).catch(() => {});
   }
 
-  useEffect(() => {
-    setAutoSelect0(loadAutoSelect(0));
-    setAutoSelect1(loadAutoSelect(1));
-  }, [STAKE]);
+  // Auto select is now loaded from server via auto_enabled in game state
 
   function autoPickSetForCard(card, called) {
     const out = new Set();
@@ -435,7 +444,7 @@ export default function GamePage() {
         const prevCalls = (data.called_numbers || [])
           .map(String)
           .filter((num) => num !== currentCallStr);
-        setRecentCalls(prevCalls.slice(-2).reverse());
+        setRecentCalls(prevCalls.slice(-3).reverse());
       }
 
       if (Array.isArray(data.my_cards)) {
@@ -451,6 +460,11 @@ export default function GamePage() {
           lastMyIndicesSigRef.current = sig;
           setMyIndices(data.my_indices);
         }
+      }
+      // Read auto_enabled from server (skip if recently toggled to avoid race condition)
+      if (Array.isArray(data.auto_enabled) && Date.now() - lastToggleTimeRef.current > 2000) {
+        setAutoSelect0(data.auto_enabled[0] ?? true);
+        setAutoSelect1(data.auto_enabled[1] ?? true);
       }
 
       const callNum =
@@ -745,22 +759,22 @@ export default function GamePage() {
         <div className="flex-1 flex flex-col overflow-y-auto p-1 sm:p-1.5">
           <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border border-white/10 rounded-xl flex-1 flex flex-col p-1.5 sm:p-2 shadow-xl">
             <div className="grid grid-cols-5 gap-1 sm:gap-1.5 items-stretch w-full">
-              <div className="bg-gradient-to-br from-teal-400 via-teal-500 to-cyan-600 text-teal-950 ring-1 ring-teal-300/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-teal-500/20">
+              <div className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 text-cyan-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
                 <span className="opacity-70">Game ID:</span>
                 <br />
                 {totalGames}
               </div>
-              <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-amber-950 ring-1 ring-amber-300/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-amber-500/20">
+              <div className="bg-amber-500/20 backdrop-blur-sm border border-amber-400/30 text-amber-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
                 <span className="opacity-70">Bet:</span>
                 <br />
                 {STAKE} Birr
               </div>
-              <div className="bg-gradient-to-br from-emerald-400 via-emerald-500 to-green-600 text-emerald-950 ring-1 ring-emerald-300/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md shadow-emerald-500/20">
+              <div className="bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
                 <span className="opacity-70">Derash:</span>
                 <br />
                 {Math.round(derash)} ETB
               </div>
-              <div className="bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 text-slate-800 ring-1 ring-white/50 font-bold rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-md">
+              <div className="bg-slate-500/20 backdrop-blur-sm border border-slate-400/30 text-slate-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
                 <span className="opacity-70">Players:</span>
                 <br />
                 {players}
@@ -778,45 +792,103 @@ export default function GamePage() {
                   });
                 }}
                 className={`
-    transition-all duration-300 flex items-center justify-center rounded-xl px-3 py-2 border-2
+    transition-all duration-300 flex items-center justify-center rounded-none px-3 py-2 border-2
     ${
       audioOn
-        ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30 border-indigo-300/50 ring-2 ring-indigo-400/30"
-        : "bg-gradient-to-br from-slate-600 to-slate-800 text-slate-100 border-slate-400/60 shadow-md shadow-slate-700/40 ring-1 ring-slate-400/40"
+        ? "bg-emerald-500/30 backdrop-blur-sm border border-emerald-400/50 text-emerald-100 shadow-lg shadow-emerald-500/40"
+        : "bg-amber-500/20 backdrop-blur-sm border border-amber-400/40 text-amber-100 shadow-md shadow-amber-500/30"
     }
     active:scale-90 hover:scale-105
   `}
                 aria-label={audioOn ? "Mute" : "Unmute"}
               >
                 {audioOn ? (
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="w-4 h-4 sm:w-5 sm:h-5"
-                  >
-                    <path d="M13.5 4.06c-.22-.02-.44.05-.61.22l-4 4H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V4.84c0-.43-.31-.75-.75-.78zM18 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM15.5 3.12v2.06c2.89.86 5 3.54 5 6.82s-2.11 5.96-5 6.82v2.06c4-.9 7-4.51 7-8.88s-3-7.98-7-8.88z" />
-                  </svg>
+                  <>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-4 h-4 sm:w-5 sm:h-5 mr-1"
+                    >
+                      <path d="M13.5 4.06c-.22-.02-.44.05-.61.22l-4 4H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V4.84c0-.43-.31-.75-.75-.78zM18 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM15.5 3.12v2.06c2.89.86 5 3.54 5 6.82s-2.11 5.96-5 6.82v2.06c4-.9 7-4.51 7-8.88s-3-7.98-7-8.88z" />
+                    </svg>
+                    <span className="text-[8px] sm:text-xs">Mute</span>
+                  </>
                 ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="w-4 h-4 sm:w-5 sm:h-5 opacity-60"
-                  >
-                    <path d="M3.28 2.22 2.22 3.28 7.44 8.5H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V14.06l4.66 4.66c-.7.53-1.49.93-2.36 1.18v2.06c1.41-.33 2.69-.96 3.78-1.8l2.64 2.64 1.06-1.06L3.28 2.22zM15.5 3.12v2.06c1.35.4 2.53 1.14 3.46 2.11l-1.46 1.46c-.57-.61-1.25-1.08-2-1.37V3.12z" />
-                  </svg>
+                  <>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-4 h-4 sm:w-5 sm:h-5 mr-1"
+                    >
+                      <path d="M3.28 2.22 2.22 3.28 7.44 8.5H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V14.06l4.66 4.66c-.7.53-1.49.93-2.36 1.18v2.06c1.41-.33 2.69-.96 3.78-1.8l2.64 2.64 1.06-1.06L3.28 2.22zM15.5 3.12v2.06c1.35.4 2.53 1.14 3.46 2.11l-1.46 1.46c-.57-.61-1.25-1.08-2-1.37V3.12z" />
+                    </svg>
+                    <span className="text-[8px] sm:text-xs">Sound</span>
+                  </>
                 )}
               </button>
             </div>
 
             {/* dashboard */}
-            <div className="mt-1.5 sm:mt-2 flex gap-1.5 sm:gap-2 w-full flex-1">
-              <div className="flex-1 min-w-0 basis-1/2">
-                <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 border-2 border-white/80 rounded-xl p-1.5 sm:p-2 shadow-xl w-full h-full">
+            <div className="mt-1.5 sm:mt-2 flex flex-col gap-1.5 sm:gap-2 w-full flex-1">
+              {/* Current call display - full width */}
+              <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-xl">
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
+                  {/* Left: Called count */}
+                  <div className="flex flex-col items-center shrink-0 w-14 sm:w-16">
+                    <span className="text-[10px] sm:text-xs text-slate-400 font-medium">Called</span>
+                    <span className="text-lg sm:text-xl font-black text-slate-200">{calledSet.size}<span className="text-slate-500 text-sm sm:text-base">/75</span></span>
+                  </div>
+
+                  {/* Center: Current call circle */}
+                  <div className="relative shrink-0">
+                    <div className={`absolute inset-0 rounded-full blur-lg ${currentCall ? (() => { const l = letterFor(currentCall); return l === "B" ? "bg-green-400/40" : l === "I" ? "bg-red-400/40" : l === "N" ? "bg-yellow-400/40" : l === "G" ? "bg-blue-400/40" : "bg-pink-400/40"; })() : "bg-amber-400/40"}`} />
+                    <div className={`relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] rounded-full flex items-center justify-center border-3 sm:border-4 ${currentCall ? (() => { const l = letterFor(currentCall); return l === "B" ? "bg-green-bingo border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : l === "I" ? "bg-red-bingo border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : l === "N" ? "bg-yellow-bingo border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]" : l === "G" ? "bg-blue-bingo border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)]" : "bg-pink-bingo border-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.4)]"; })() : "bg-slate-100 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)]"}`}>
+                      <div className={`text-xs sm:text-base font-black tracking-wide ${currentCall && letterFor(currentCall) === "N" ? "text-yellow-900" : "text-white"}`}>
+                        {currentCall != null
+                          ? `${letterFor(currentCall)}-${currentCall}`
+                          : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 items-center justify-end shrink-0 w-28 sm:w-32">
+                    {recentCalls.map((num, idx) => {
+                      const letter = letterFor(Number(num));
+                      const colorMap = {
+                        B: "bg-green-bingo border-green-400/50 shadow-green-400/30",
+                        I: "bg-red-bingo border-red-400/50 shadow-red-400/30",
+                        N: "bg-yellow-bingo border-yellow-400/50 shadow-yellow-400/30 text-yellow-900",
+                        G: "bg-blue-bingo border-blue-400/50 shadow-blue-400/30",
+                        O: "bg-pink-bingo border-pink-400/50 shadow-pink-400/30",
+                      };
+                      const textColor =
+                        letter === "N" ? "text-yellow-900" : "text-white";
+                      return (
+                        <div
+                          key={`${num}-${idx}`}
+                          className={`w-[26px] h-[26px] sm:w-[32px] sm:h-[32px] rounded-full border-2 shadow-md flex items-center justify-center ${colorMap[letter]}`}
+                        >
+                          <span
+                            className={`text-[7px] sm:text-[9px] font-black ${textColor}`}
+                          >
+                            {letter}-{num}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid and cards row */}
+              <div className="flex gap-1.5 sm:gap-2 w-full flex-1">
+                <div className="flex-1 min-w-0 basis-1/2">
+                  {/* Bingo grid */}
+                  <div className="bg-gradient-to-br from-slate-800/80 via-slate-800/70 to-slate-900/80 border-2 border-slate-600/30 rounded-none p-1.5 sm:p-2 shadow-xl w-full h-full">
                   <div className="grid grid-cols-5 gap-1.5">
                     {LETTERS.map((l) => (
                       <div
                         key={l}
-                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs shadow-sm`}
+                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded-none text-[10px] sm:text-xs shadow-sm`}
                       >
                         {l}
                       </div>
@@ -836,12 +908,12 @@ export default function GamePage() {
                             ? "bg-gradient-to-br from-amber-300 via-amber-400 to-orange-400 text-amber-900 border-2 border-amber-200 shadow-lg shadow-amber-400/40 scale-110 z-10 animate-pulse"
                             : isCalled
                               ? "bg-gradient-to-br from-sky-400 via-sky-500 to-blue-500 text-white border border-sky-300/50 shadow-md shadow-sky-400/30"
-                              : "bg-gradient-to-br from-slate-800/60 to-slate-900/80 text-white border border-slate-600/30";
+                              : "bg-gradient-to-br from-slate-700/60 to-slate-800/80 text-white border border-slate-600/30";
 
                           return (
                             <div
                               key={n}
-                              className={`aspect-square rounded-lg flex items-center justify-center font-black text-xs sm:text-base leading-none transition-all duration-200 ${cellCls}`}
+                              className={`aspect-square rounded-none flex items-center justify-center font-black text-xs sm:text-base leading-none transition-all duration-200 ${cellCls}`}
                             >
                               {n}
                             </div>
@@ -856,51 +928,13 @@ export default function GamePage() {
               {/* ui */}
 
               <div className="flex-1 min-w-0 basis-1/2 flex flex-col gap-1.5 sm:gap-2">
-                <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-xl">
-                  <div className="flex items-center justify-center gap-2 sm:gap-3">
-                    <div className="relative shrink-0">
-                      <div className="absolute inset-0 rounded-full blur-lg bg-gradient-to-r from-amber-400/40 to-yellow-400/40" />
-                      <div className="relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] rounded-full bg-gradient-to-br from-white via-slate-50 to-slate-100 border-3 sm:border-4 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center">
-                        <div className="text-xs sm:text-base font-black tracking-wide bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                          {currentCall != null
-                            ? `${letterFor(currentCall)}-${currentCall}`
-                            : "—"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 items-center justify-center shrink-0">
-                      {recentCalls.map((num, idx) => {
-                        const letter = letterFor(Number(num));
-                        const colorMap = {
-                          B: "bg-green-bingo border-green-400/50 shadow-green-400/30",
-                          I: "bg-red-bingo border-red-400/50 shadow-red-400/30",
-                          N: "bg-yellow-bingo border-yellow-400/50 shadow-yellow-400/30 text-yellow-900",
-                          G: "bg-blue-bingo border-blue-400/50 shadow-blue-400/30",
-                          O: "bg-pink-bingo border-pink-400/50 shadow-pink-400/30",
-                        };
-                        const textColor =
-                          letter === "N" ? "text-yellow-900" : "text-white";
-                        return (
-                          <div
-                            key={`${num}-${idx}`}
-                            className={`w-[26px] h-[26px] sm:w-[32px] sm:h-[32px] rounded-full border-2 shadow-md flex items-center justify-center ${colorMap[letter]}`}
-                          >
-                            <span
-                              className={`text-[7px] sm:text-[9px] font-black ${textColor}`}
-                            >
-                              {letter}-{num}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
 
                 {gameStarted && !myCards?.[0] && !myCards?.[1] && (
                   <div className="border-2 border-slate-600/50 rounded-xl p-2 sm:p-3 bg-gradient-to-br from-indigo-950/50 via-slate-900/50 to-purple-950/50">
                     <div className="text-center text-slate-100 font-black text-sm sm:text-base">
-                      <span className="mr-1">👁️</span>Watching Only
+                      <span className="mr-1">
+                        <Eye className="inline-block w-4 h-4" />
+                        </span>Watching Only
                     </div>
                     <div className="mt-2 text-center text-slate-300/90 text-[10px] sm:text-xs leading-relaxed">
                       ይህ ዙር ተጀምሯል።
@@ -923,7 +957,7 @@ export default function GamePage() {
                   return (
                     <div
                       key={slot}
-                      className={`border-2 rounded-xl p-2 sm:p-2.5 transition-all duration-300 ${
+                      className={`border-2 rounded-none p-1 sm:p-1.5 transition-all duration-300 ${
                         activeSlot === slot
                           ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
                           : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
@@ -940,10 +974,15 @@ export default function GamePage() {
                           if (!enabled) return;
 
                           const toggleAuto = (setter, slotIndex, ref) => {
+                            // Update local state immediately for responsive UI
                             setter((p) => {
                               const next = !p;
-                              saveAutoSelect(slotIndex, next);
+                              // Update ref for auto baseline
                               ref.current = next ? new Set(calledSet) : null;
+                              // Track toggle time to skip next poll update
+                              lastToggleTimeRef.current = Date.now();
+                              // Call server to save (but don't wait for response to update UI)
+                              saveAutoSelect(slotIndex, next);
                               return next;
                             });
                           };
@@ -967,11 +1006,9 @@ export default function GamePage() {
                           <span
                             className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
                           >
-                            AUTO
+                            AUTOMATIC
                           </span>
-                          <span className="text-[8px] font-medium opacity-60 text-slate-400">
-                            ራስ-ሰር
-                          </span>
+                         
                         </div>
 
                         <div
@@ -991,18 +1028,18 @@ export default function GamePage() {
                         </div>
                       </button>
 
-                      <div className="grid grid-cols-5 gap-1">
+                      <div className="grid grid-cols-5 gap-0.5">
                         {LETTERS.map((l) => (
                           <div
                             key={l}
-                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded text-xs sm:text-sm shadow-sm`}
+                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-none text-xs sm:text-sm shadow-sm`}
                           >
                             {l}
                           </div>
                         ))}
                       </div>
 
-                      <div className="mt-1.5 sm:mt-2 grid grid-cols-5 gap-1">
+                      <div className="mt-1 grid grid-cols-5 gap-0.5">
                         {card.flat().map((val, i) => {
                           const vs = String(val);
                           const isFree = val === "FREE";
@@ -1014,7 +1051,7 @@ export default function GamePage() {
                                 e.stopPropagation();
                                 if (!isFree) togglePick(slot, vs);
                               }}
-                              className={`rounded-lg aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
+                              className={`rounded-none aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
                                 isFree
                                   ? "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 border-amber-300 shadow-sm shadow-amber-400/30"
                                   : isPicked
@@ -1028,7 +1065,17 @@ export default function GamePage() {
                         })}
                       </div>
 
-                      {!autoOn && (
+                      {autoOn ? (
+                        <div className="mt-2 w-full font-black rounded-lg py-1 sm:py-1.5 text-xs sm:text-sm border uppercase tracking-wider overflow-hidden relative bg-gradient-to-r from-yellow-400/30 via-amber-400/30 to-orange-400/30 text-amber-950/60 border-amber-300/30 flex items-center justify-center gap-2">
+                          <Info size={14} className="sm:w-4 sm:h-4" />
+                          <div className="flex flex-col leading-none">
+                            <span className="text-shadow-sm">Auto is on</span>
+                              <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
+                              off to play manually
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1036,13 +1083,13 @@ export default function GamePage() {
                             claimBingo(slot);
                           }}
                           disabled={!enabled || !gameStarted}
-                          className={`mt-2 w-full font-black rounded-lg py-2 sm:py-2.5 text-xs sm:text-sm border transition-all duration-200 uppercase tracking-wider overflow-hidden relative ${
+                          className={`mt-2 w-full font-black rounded-lg py-1 sm:py-1.5 text-xs sm:text-sm border transition-all duration-200 uppercase tracking-wider overflow-hidden relative ${
                             enabled && gameStarted
                               ? "bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-amber-950 border-amber-300 shadow-md shadow-amber-400/40 active:scale-[0.96] hover:shadow-lg hover:shadow-amber-400/50"
-                              : "bg-slate-800/50 text-slate-500 border-slate-700 opacity-60 cursor-not-allowed"
+                              : "bg-transparent text-slate-600 border-slate-700/50 cursor-not-allowed"
                           }`}
                         >
-                          {enabled && gameStarted && (
+                          {(enabled && gameStarted) && (
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
                           )}
                           <div className="flex flex-col leading-none relative z-10">
@@ -1056,6 +1103,7 @@ export default function GamePage() {
                     </div>
                   );
                 })}
+              </div>
               </div>
             </div>
           </div>
