@@ -235,10 +235,7 @@ export default function GamePage() {
     const c1 = myCards?.[1] || null;
 
     if (autoSelect0 && c0 && idx0 != null) {
-      if (!autoBaseline0Ref.current) {
-        autoBaseline0Ref.current = new Set(calledSet);
-      }
-      const baseline = autoBaseline0Ref.current;
+      const baseline = autoBaseline0Ref.current || new Set();
       const cardSet = cardNumberSet(c0);
       setPicks0((prev) => {
         let changed = false;
@@ -259,10 +256,7 @@ export default function GamePage() {
     }
 
     if (autoSelect1 && c1 && idx1 != null) {
-      if (!autoBaseline1Ref.current) {
-        autoBaseline1Ref.current = new Set(calledSet);
-      }
-      const baseline = autoBaseline1Ref.current;
+      const baseline = autoBaseline1Ref.current || new Set();
       const cardSet = cardNumberSet(c1);
       setPicks1((prev) => {
         let changed = false;
@@ -395,6 +389,12 @@ export default function GamePage() {
       if (!res.ok) return;
       const data = await res.json();
 
+      if (data?.winner && !winnerRef.current) {
+        const w = data.winner;
+        showWinner(w.winner, w.index, w);
+        return;
+      }
+
       const acceptedCardsNow = data.accepted_cards ?? 0;
       const playersNow = data.players ?? 0;
       const hasAnyMyCard = Array.isArray(data.my_cards)
@@ -435,11 +435,6 @@ export default function GamePage() {
         setToastMessage("Game ended - no players left. Returning to lobby...");
         router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
         return;
-      }
-
-      if (data?.winner && !winnerRef.current) {
-        const w = data.winner;
-        showWinner(w.winner, w.index, w);
       }
 
       if (typeof data.server_time === "number") {
