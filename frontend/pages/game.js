@@ -103,6 +103,7 @@ export default function GamePage() {
   const gameStartedRef = useRef(false);
   const endRedirectTimeoutRef = useRef(null);
   const winnerSyncTimeoutRef = useRef(null);
+  const endedNoWinnerRedirectedRef = useRef(false);
 
   const lastPlayersRef = useRef(null);
   const lastAcceptedCardsRef = useRef(null);
@@ -236,49 +237,49 @@ export default function GamePage() {
     if (autoSelect0 && c0 && idx0 != null) {
       if (!autoBaseline0Ref.current) {
         autoBaseline0Ref.current = new Set(calledSet);
-      } else {
-        const baseline = autoBaseline0Ref.current;
-        const cardSet = cardNumberSet(c0);
-        const add = [];
-        for (const n of calledSet) {
-          if (baseline.has(n)) continue;
-          if (cardSet.has(n)) add.push(n);
-        }
-        if (add.length) {
-          setPicks0((prev) => {
-            const next = new Set(prev);
-            for (const v of add) next.add(String(v));
-            if (next.size === prev.size) return prev;
-            saveSlotPicks(0, idx0, totalGames, next);
-            return next;
-          });
-        }
-        autoBaseline0Ref.current = new Set(calledSet);
       }
+      const baseline = autoBaseline0Ref.current;
+      const cardSet = cardNumberSet(c0);
+      setPicks0((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const n of calledSet) {
+          const ns = String(n);
+          if (baseline.has(ns)) continue;
+          if (!cardSet.has(ns)) continue;
+          if (next.has(ns)) continue;
+          next.add(ns);
+          changed = true;
+        }
+        if (!changed) return prev;
+        saveSlotPicks(0, idx0, totalGames, next);
+        return next;
+      });
+      autoBaseline0Ref.current = new Set(calledSet);
     }
 
     if (autoSelect1 && c1 && idx1 != null) {
       if (!autoBaseline1Ref.current) {
         autoBaseline1Ref.current = new Set(calledSet);
-      } else {
-        const baseline = autoBaseline1Ref.current;
-        const cardSet = cardNumberSet(c1);
-        const add = [];
-        for (const n of calledSet) {
-          if (baseline.has(n)) continue;
-          if (cardSet.has(n)) add.push(n);
-        }
-        if (add.length) {
-          setPicks1((prev) => {
-            const next = new Set(prev);
-            for (const v of add) next.add(String(v));
-            if (next.size === prev.size) return prev;
-            saveSlotPicks(1, idx1, totalGames, next);
-            return next;
-          });
-        }
-        autoBaseline1Ref.current = new Set(calledSet);
       }
+      const baseline = autoBaseline1Ref.current;
+      const cardSet = cardNumberSet(c1);
+      setPicks1((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const n of calledSet) {
+          const ns = String(n);
+          if (baseline.has(ns)) continue;
+          if (!cardSet.has(ns)) continue;
+          if (next.has(ns)) continue;
+          next.add(ns);
+          changed = true;
+        }
+        if (!changed) return prev;
+        saveSlotPicks(1, idx1, totalGames, next);
+        return next;
+      });
+      autoBaseline1Ref.current = new Set(calledSet);
     }
   }, [
     autoSelect0,
@@ -290,10 +291,10 @@ export default function GamePage() {
     totalGames,
   ]);
 
-  function togglePick(val) {
-    const idx = myIndices?.[activeSlot];
+  function togglePick(slot, val) {
+    const idx = myIndices?.[slot];
     if (idx == null) return;
-    if (activeSlot === 0) {
+    if (slot === 0) {
       setPicks0((prev) => {
         const ns = new Set(prev);
         if (ns.has(val)) ns.delete(val);
@@ -393,6 +394,48 @@ export default function GamePage() {
       );
       if (!res.ok) return;
       const data = await res.json();
+
+      const acceptedCardsNow = data.accepted_cards ?? 0;
+      const playersNow = data.players ?? 0;
+      const hasAnyMyCard = Array.isArray(data.my_cards)
+        ? data.my_cards.some((c) => !!c)
+        : false;
+
+      if (
+        !data.started &&
+        !winnerRef.current &&
+        !endedNoWinnerRedirectedRef.current &&
+        Number(acceptedCardsNow) === 0 &&
+        Number(playersNow) === 0 &&
+        !hasAnyMyCard
+      ) {
+        endedNoWinnerRedirectedRef.current = true;
+        setToastMessage("Round ended. Returning to lobby...");
+        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        return;
+      }
+      if (
+        !data.started &&
+        gameStartedRef.current &&
+        !winnerRef.current &&
+        !endedNoWinnerRedirectedRef.current
+      ) {
+        endedNoWinnerRedirectedRef.current = true;
+        setToastMessage("Game ended. Returning to lobby...");
+        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        return;
+      }
+      if (
+        data.started &&
+        !winnerRef.current &&
+        !endedNoWinnerRedirectedRef.current &&
+        Number(acceptedCardsNow) === 0
+      ) {
+        endedNoWinnerRedirectedRef.current = true;
+        setToastMessage("Game ended - no players left. Returning to lobby...");
+        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        return;
+      }
 
       if (data?.winner && !winnerRef.current) {
         const w = data.winner;
@@ -552,17 +595,25 @@ export default function GamePage() {
         }
         showWinner(msg.winner, msg.index, msg);
       } else if (msg.type === "disqualified") {
-        if (winnerRef.current) return;
         if (String(msg.tid || "") === String(TID || "")) {
           setToastMessage("No valid bingo. You are disqualified.");
+          setWinner(null);
+          winnerRef.current = null;
+          setSuppressCalls(false);
+          setCalledSet(new Set());
+          setCurrentCall(null);
           scheduleReturnToPlay(6000);
         }
       } else if (
         msg.type === "game_ended_no_winner" ||
         msg.type === "restarted"
       ) {
-        if (winnerRef.current) return;
         setToastMessage("Game ended - no winner. Returning to lobby...");
+        setWinner(null);
+        winnerRef.current = null;
+        setSuppressCalls(false);
+        setCalledSet(new Set());
+        setCurrentCall(null);
         scheduleReturnToPlay(3000);
       }
     });
@@ -578,7 +629,21 @@ export default function GamePage() {
 
   function showWinner(name, index, details) {
     setSuppressCalls(true);
-    const payload = { name: name || "Player", index, details, countdown: 5 };
+    const winnersArr = Array.isArray(details?.winners) ? details.winners : null;
+    const names = winnersArr
+      ? winnersArr.map((w) => String(w?.name || "").trim()).filter(Boolean)
+      : null;
+    const displayName =
+      names && names.length
+        ? names.join(" | ")
+        : name || details?.winner || "Player";
+    const payload = {
+      name: displayName,
+      names: names && names.length ? names : null,
+      index,
+      details,
+      countdown: 5,
+    };
     winnerRef.current = payload;
     setWinner(payload);
     let left = 5;
@@ -627,7 +692,7 @@ export default function GamePage() {
           data = null;
         }
         if (!r.ok) {
-          const msg = data?.error || "Failed to claim bingo";
+          const msg = data?.error || "Failed";
           throw new Error(msg);
         }
         if (!data?.ok) {
@@ -641,6 +706,7 @@ export default function GamePage() {
       .then((data) => {
         if (data?.disqualified) {
           setToastMessage(data?.error || "No valid bingo");
+          scheduleReturnToPlay(6000);
           return;
         }
         const idx = myIndices?.[slot ?? 0];
@@ -997,9 +1063,16 @@ export default function GamePage() {
                     const card = myCards?.[slot] || null;
                     if (!card) return null;
 
+                    const cartelaNumberRaw = myIndices?.[slot];
+                    const cartelaNumber =
+                      cartelaNumberRaw != null && Number(cartelaNumberRaw) > 0
+                        ? Number(cartelaNumberRaw)
+                        : null;
+
                     const slotPicks = slot === 1 ? picks1 : picks0;
                     const enabled = !!card;
                     const autoOn = slot === 1 ? autoSelect1 : autoSelect0;
+                    const manualAllowed = enabled && !autoOn;
 
                     return (
                       <div
@@ -1014,66 +1087,73 @@ export default function GamePage() {
                         onClick={() => setActiveSlot(slot)}
                         onKeyDown={() => setActiveSlot(slot)}
                       >
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!enabled) return;
-
-                            const toggleAuto = (setter, slotIndex, ref) => {
-                              // Update local state immediately for responsive UI
-                              setter((p) => {
-                                const next = !p;
-                                // Update ref for auto baseline
-                                ref.current = next ? new Set(calledSet) : null;
-                                // Track toggle time to skip next poll update
-                                lastToggleTimeRef.current = Date.now();
-                                // Call server to save (but don't wait for response to update UI)
-                                saveAutoSelect(slotIndex, next);
-                                return next;
-                              });
-                            };
-
-                            if (slot === 1)
-                              toggleAuto(setAutoSelect1, 1, autoBaseline1Ref);
-                            else
-                              toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
-                          }}
-                          disabled={!enabled}
-                          className={`mb-2 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
-                            enabled
-                              ? "active:scale-95 hover:scale-102"
-                              : "opacity-50"
-                          } ${
-                            autoOn
-                              ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-400/50 shadow-sm shadow-emerald-400/20"
-                              : "bg-gradient-to-r from-slate-800/60 to-slate-900/60 border-slate-600/50"
-                          }`}
-                        >
-                          <div className="flex flex-col items-start leading-none pointer-events-none">
-                            <span
-                              className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
-                            >
-                              AUTOMATIC
-                            </span>
+                        <div className="mb-2 flex items-center gap-2">
+                          <div className="text-[11px] sm:text-xs font-black text-slate-200 whitespace-nowrap">
+                            #{cartelaNumber ?? slot + 1}
                           </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!enabled) return;
 
-                          <div
-                            className={`relative flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
+                              const toggleAuto = (setter, slotIndex, ref) => {
+                                // Update local state immediately for responsive UI
+                                setter((p) => {
+                                  const next = !p;
+                                  // Update ref for auto baseline
+                                  ref.current = next
+                                    ? new Set(calledSet)
+                                    : null;
+                                  // Track toggle time to skip next poll update
+                                  lastToggleTimeRef.current = Date.now();
+                                  // Call server to save (but don't wait for response to update UI)
+                                  saveAutoSelect(slotIndex, next);
+                                  return next;
+                                });
+                              };
+
+                              if (slot === 1)
+                                toggleAuto(setAutoSelect1, 1, autoBaseline1Ref);
+                              else
+                                toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
+                            }}
+                            disabled={!enabled}
+                            className={`flex-1 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
+                              enabled
+                                ? "active:scale-95 hover:scale-102"
+                                : "opacity-50"
+                            } ${
                               autoOn
-                                ? "bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40"
-                                : "bg-slate-600"
+                                ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-400/50 shadow-sm shadow-emerald-400/20"
+                                : "bg-gradient-to-r from-slate-800/60 to-slate-900/60 border-slate-600/50"
                             }`}
                           >
+                            <div className="flex flex-col items-start leading-none pointer-events-none">
+                              <span
+                                className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
+                              >
+                                AUTOMATIC
+                              </span>
+                            </div>
+
                             <div
-                              className={`absolute h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                              className={`relative flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
                                 autoOn
-                                  ? "translate-x-[18px]"
-                                  : "translate-x-[2px]"
+                                  ? "bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40"
+                                  : "bg-slate-600"
                               }`}
-                            />
-                          </div>
-                        </button>
+                            >
+                              <div
+                                className={`absolute h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                  autoOn
+                                    ? "translate-x-[18px]"
+                                    : "translate-x-[2px]"
+                                }`}
+                              />
+                            </div>
+                          </button>
+                        </div>
 
                         <div className="grid grid-cols-5 gap-0.5">
                           {LETTERS.map((l) => (
@@ -1096,6 +1176,7 @@ export default function GamePage() {
                                 key={i}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (!manualAllowed) return;
                                   if (!isFree) togglePick(slot, vs);
                                 }}
                                 className={`rounded-none aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
@@ -1104,7 +1185,7 @@ export default function GamePage() {
                                     : isPicked
                                       ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white border-indigo-300 shadow-sm shadow-indigo-400/30 scale-105"
                                       : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-teal-100 hover:border-teal-400 hover:scale-105"
-                                }`}
+                                } ${manualAllowed ? "cursor-pointer" : "cursor-not-allowed"}`}
                               >
                                 {isFree ? "★" : val}
                               </div>
@@ -1172,7 +1253,9 @@ export default function GamePage() {
               <div className="flex items-center gap-3">
                 <span className="text-3xl animate-bounce">🏆</span>
                 <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-black text-3xl uppercase tracking-tight">
-                  {winner.name}
+                  {Array.isArray(winner.names) && winner.names.length
+                    ? winner.names.join(" | ")
+                    : winner.name}
                 </span>
                 <span
                   className="text-3xl animate-bounce"

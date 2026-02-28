@@ -71,6 +71,31 @@ function checkBingo(card, calledSet) {
   return null;
 }
 
+async function disqualifySelection({ io, stake, game, sel, tidStr, slot }) {
+  await prisma.selection.deleteMany({ where: { id: sel.id } });
+  io.to(`game_${stake}`).emit("message", {
+    type: "disqualified",
+    tid: tidStr,
+    slot,
+  });
+
+  const remainingSelections = await prisma.selection.count({
+    where: { gameId: game.id, accepted: true },
+  });
+
+  if (remainingSelections === 0) {
+    await prisma.game.update({
+      where: { id: game.id },
+      data: { active: false, finished: true },
+    });
+    await prisma.game.create({ data: { id: generateGameId(), stake } });
+    io.to(`game_${stake}`).emit("message", {
+      type: "game_ended_no_winner",
+      reason: "All players disqualified",
+    });
+  }
+}
+
 async function handleClaimBingo(req, res, io) {
   try {
     const { tidStr, tidBig } = parseTid(req.body.tid);
@@ -128,35 +153,24 @@ async function handleClaimBingo(req, res, io) {
     const calledSet = new Set(called);
 
     const card = getCard(sel.index);
+    const prevCalled = callCount > 1 ? sequence.slice(0, callCount - 1) : [];
+    const prevResult = prevCalled.length
+      ? checkBingo(card, new Set(prevCalled))
+      : null;
+    if (prevResult) {
+      await disqualifySelection({ io, stake, game, sel, tidStr, slot });
+      return res.json({
+        ok: false,
+        disqualified: true,
+        error:
+          "Late Bingo claim. You waited too long and are disqualified. | ቢንጎ በዘገየ ሰዓት ተጠይቋል፣ ከጨዋታው ውጭ ሆነዋል።",
+      });
+    }
+
     const result = checkBingo(card, calledSet);
 
     if (!result) {
-      // Disqualify player — remove selection
-      await prisma.selection.deleteMany({ where: { id: sel.id } });
-      io.to(`game_${stake}`).emit("message", {
-        type: "disqualified",
-        tid: tidStr,
-        slot,
-      });
-
-      // Check if all players are now disqualified
-      const remainingSelections = await prisma.selection.count({
-        where: { gameId: game.id, accepted: true },
-      });
-
-      if (remainingSelections === 0) {
-        // End game with no winner
-        await prisma.game.update({
-          where: { id: game.id },
-          data: { active: false, finished: true },
-        });
-        // Create new game for next round
-        await prisma.game.create({ data: { id: generateGameId(), stake } });
-        io.to(`game_${stake}`).emit("message", {
-          type: "game_ended_no_winner",
-          reason: "All players disqualified",
-        });
-      }
+      await disqualifySelection({ io, stake, game, sel, tidStr, slot });
 
       return res.json({
         ok: false,

@@ -25,6 +25,30 @@ async function getPausedMsForGame(gameId) {
   return Math.max(0, pauseMs + extra);
 }
 
+async function disqualifySelection({ io, stake, game, sel, tidStr }) {
+  await prisma.selection.deleteMany({ where: { id: sel.id } });
+  io.to(`game_${stake}`).emit("message", {
+    type: "disqualified",
+    tid: String(tidStr || ""),
+  });
+
+  const remainingSelections = await prisma.selection.count({
+    where: { gameId: game.id, accepted: true },
+  });
+
+  if (remainingSelections === 0) {
+    await prisma.game.update({
+      where: { id: game.id },
+      data: { active: false, finished: true },
+    });
+    await prisma.game.create({ data: { id: generateGameId(), stake } });
+    io.to(`game_${stake}`).emit("message", {
+      type: "game_ended_no_winner",
+      reason: "All players disqualified",
+    });
+  }
+}
+
 function setupSocket(io) {
   io.on("connection", (socket) => {
     // Join room by stake from query
@@ -85,6 +109,78 @@ function setupSocket(io) {
         const called = sequence.slice(0, callCount);
         const calledSet = new Set(called);
 
+        if (callCount > 1) {
+          const prevCalled = sequence.slice(0, callCount - 1);
+          const prevSet = new Set(prevCalled);
+          const prevCard = getCard(sel.index);
+
+          // Late claim check
+          let prevResult = null;
+          for (let r = 0; r < 5; r++) {
+            if (
+              [0, 1, 2, 3, 4].every(
+                (c) => prevCard[r][c] === "FREE" || prevSet.has(prevCard[r][c]),
+              )
+            ) {
+              prevResult = { pattern: "row", row: r };
+              break;
+            }
+          }
+          if (!prevResult) {
+            for (let c = 0; c < 5; c++) {
+              if (
+                [0, 1, 2, 3, 4].every(
+                  (r) =>
+                    prevCard[r][c] === "FREE" || prevSet.has(prevCard[r][c]),
+                )
+              ) {
+                prevResult = { pattern: "col", col: c };
+                break;
+              }
+            }
+          }
+          if (
+            !prevResult &&
+            [0, 1, 2, 3, 4].every(
+              (i) => prevCard[i][i] === "FREE" || prevSet.has(prevCard[i][i]),
+            )
+          ) {
+            prevResult = { pattern: "diag_main" };
+          }
+          if (
+            !prevResult &&
+            [0, 1, 2, 3, 4].every(
+              (i) =>
+                prevCard[i][4 - i] === "FREE" ||
+                prevSet.has(prevCard[i][4 - i]),
+            )
+          ) {
+            prevResult = { pattern: "diag_anti" };
+          }
+          if (!prevResult) {
+            const corners = [
+              prevCard[0][0],
+              prevCard[0][4],
+              prevCard[4][0],
+              prevCard[4][4],
+            ];
+            if (corners.every((v) => v === "FREE" || prevSet.has(v))) {
+              prevResult = { pattern: "four_corners" };
+            }
+          }
+
+          if (prevResult) {
+            await disqualifySelection({
+              io,
+              stake,
+              game,
+              sel,
+              tidStr: String(msg.tid || ""),
+            });
+            return;
+          }
+        }
+
         const card = getCard(sel.index);
 
         // Check bingo
@@ -136,10 +232,12 @@ function setupSocket(io) {
         }
 
         if (!result) {
-          await prisma.selection.delete({ where: { id: sel.id } });
-          socket.emit("message", {
-            type: "disqualified",
-            tid: String(msg.tid || ""),
+          await disqualifySelection({
+            io,
+            stake,
+            game,
+            sel,
+            tidStr: String(msg.tid || ""),
           });
           return;
         }
