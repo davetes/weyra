@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import Head from "next/head";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { History, Wallet, User, Gamepad2 } from "lucide-react";
 
@@ -31,10 +32,10 @@ export default function Home() {
       <Head>
         <title>Weyra Bingo</title>
       </Head>
-      <div className="min-h-[100svh] w-full bg-gradient-to-b from-[#0a0f1a] via-[#0d1321] to-[#0a0f1a] text-white pb-24">
+      <div className="min-h-[100svh] w-full bg-gradient-to-b from-[#0F172A] via-[#0B1220] to-[#0F172A] text-white pb-24">
         {toast && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10000] px-3">
-            <div className="bg-slate-900/90 border border-white/10 text-white text-xs sm:text-sm font-semibold px-3 py-2 shadow-lg">
+            <div className="bg-slate-950/85 border border-white/10 text-white text-xs sm:text-sm font-semibold px-3 py-2 shadow-lg">
               {toast}
             </div>
           </div>
@@ -45,28 +46,38 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!logoError ? (
-                <img
-                  src={process.env.NEXT_PUBLIC_START_IMAGE_URL || "/static/images/bingo.jpg"}
-                  alt="Weyra Bingo"
-                  className="w-14 h-14 rounded-[50%] object-cover shadow-glow-cyan"
-                  onError={() => setLogoError(true)}
-                />
+                <div className="relative w-14 h-14 rounded-[50%] overflow-hidden shadow-glow-gold">
+                  <Image
+                    src={
+                      process.env.NEXT_PUBLIC_START_IMAGE_URL ||
+                      "/static/images/bingo.jpg"
+                    }
+                    alt="Weyra Bingo"
+                    fill
+                    sizes="56px"
+                    priority
+                    className="object-cover"
+                    onError={() => setLogoError(true)}
+                  />
+                </div>
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-cyan to-cyan-dark flex items-center justify-center shadow-glow-cyan">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#FACC15] to-[#EAB308] flex items-center justify-center shadow-glow-gold">
                   <span className="text-white font-black text-lg">W</span>
                 </div>
               )}
-              <div className="text-lg font-serif font-black " style={{ fontFamily: 'Space Grotesk, system-ui, sans-serif' }}>
+              <div
+                className="text-lg font-serif font-black "
+                style={{ fontFamily: "Space Grotesk, system-ui, sans-serif" }}
+              >
                 WEYRA BINGO
               </div>
             </div>
 
             <button
               type="button"
-              className="h-10 px-4 border border-white/10 bg-white/5 text-sm font-semibold hover:bg-white/10 transition-all"
+              className="h-10 px-4 border border-[#FACC15]/25 bg-white/5 text-sm font-semibold hover:bg-white/10 hover:border-[#FACC15]/40 transition-all"
               onClick={() => router.push("/rules")}
             >
-              
               Rules
             </button>
           </div>
@@ -75,7 +86,10 @@ export default function Home() {
         {/* Stake Selection */}
         <div className="px-4 pt-8">
           <div className="glass-card p-5 rounded-none">
-            <div className="text-center font-black text-lg mb-4" style={{ fontFamily: 'Space Grotesk, system-ui, sans-serif' }}>
+            <div
+              className="text-center font-black text-lg mb-4"
+              style={{ fontFamily: "Space Grotesk, system-ui, sans-serif" }}
+            >
               Choose Your Stake
             </div>
 
@@ -83,50 +97,33 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => goPlay(10)}
-                className="w-full h-14 font-black text-xl text-emerald-100 transition-all duration-300 relative overflow-hidden group"
-                style={{
-                  background: 'rgba(16, 185, 129, 0.2)',
-                  border: '2px solid rgba(34, 197, 94, 0.3)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                }}
+                className="w-full h-14 font-black text-xl text-[#2B1B00] transition-all duration-300 relative overflow-hidden group bg-gradient-to-r from-[#FACC15] to-[#EAB308] border border-[#FACC15]/50 shadow-[0_8px_28px_rgba(250,204,21,0.18)] hover:shadow-[0_10px_36px_rgba(56,189,248,0.12)] hover:-translate-y-[1px] active:translate-y-0"
               >
                 <span className="relative z-10">Play 10 ETB</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-white/35 via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => goPlay(20)}
-                className="w-full h-14 font-black text-xl text-emerald-100 transition-all duration-300 relative overflow-hidden group"
-                style={{
-                  background: 'rgba(16, 185, 129, 0.2)',
-                  border: '2px solid rgba(34, 197, 94, 0.3)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                }}
+                className="w-full h-14 font-black text-xl text-[#2B1B00] transition-all duration-300 relative overflow-hidden group bg-gradient-to-r from-[#FACC15] to-[#EAB308] border border-[#FACC15]/50 shadow-[0_8px_28px_rgba(250,204,21,0.18)] hover:shadow-[0_10px_36px_rgba(56,189,248,0.12)] hover:-translate-y-[1px] active:translate-y-0"
               >
                 <span className="relative z-10">Play 20 ETB</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-white/35 via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => goPlay(50)}
-                className="w-full h-14 font-black text-xl text-emerald-100 transition-all duration-300 relative overflow-hidden group"
-                style={{
-                  background: 'rgba(16, 185, 129, 0.2)',
-                  border: '2px solid rgba(34, 197, 94, 0.3)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                }}
+                className="w-full h-14 font-black text-xl text-[#2B1B00] transition-all duration-300 relative overflow-hidden group bg-gradient-to-r from-[#FACC15] to-[#EAB308] border border-[#FACC15]/50 shadow-[0_8px_28px_rgba(250,204,21,0.18)] hover:shadow-[0_10px_36px_rgba(56,189,248,0.12)] hover:-translate-y-[1px] active:translate-y-0"
               >
                 <span className="relative z-10">Play 50 ETB</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-white/35 via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
             </div>
 
             {!tid && (
-              <div className="mt-4 text-center text-xs text-muted">
-                Open from Telegram to play with your account.
-              </div>
+              <div className="mt-4 text-center text-xs text-muted"></div>
             )}
           </div>
         </div>
@@ -137,8 +134,10 @@ export default function Home() {
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")}
-                className="flex flex-col items-center justify-center py-2 bg-gradient-to-br from-cyan/20 to-cyan-dark/20 border border-cyan/30 text-cyan-light"
+                onClick={() =>
+                  router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")
+                }
+                className="flex flex-col items-center justify-center py-2 bg-gradient-to-br from-[#38bdf8]/20 to-[#1d4ed8]/20 border border-[#38bdf8]/35 text-white shadow-[0_0_18px_rgba(56,189,248,0.12)]"
               >
                 <Gamepad2 className="w-5 h-5" />
                 <div className="mt-1 text-[11px] font-semibold">Game</div>
@@ -147,9 +146,13 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/history?tid=${encodeURIComponent(tid)}` : "/history")
+                  router.push(
+                    tid
+                      ? `/history?tid=${encodeURIComponent(tid)}`
+                      : "/history",
+                  )
                 }
-                className="flex flex-col items-center justify-center py-2 text-muted hover:bg-white/5 transition-all"
+                className="flex flex-col items-center justify-center py-2 text-slate-300 hover:bg-white/5 transition-all"
               >
                 <History className="w-5 h-5" />
                 <div className="mt-1 text-[11px] font-semibold">History</div>
@@ -158,9 +161,11 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet")
+                  router.push(
+                    tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet",
+                  )
                 }
-                className="flex flex-col items-center justify-center py-2 text-muted hover:bg-white/5 transition-all"
+                className="flex flex-col items-center justify-center py-2 text-slate-300 hover:bg-white/5 transition-all"
               >
                 <Wallet className="w-5 h-5" />
                 <div className="mt-1 text-[11px] font-semibold">Wallet</div>
@@ -169,9 +174,13 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/profile?tid=${encodeURIComponent(tid)}` : "/profile")
+                  router.push(
+                    tid
+                      ? `/profile?tid=${encodeURIComponent(tid)}`
+                      : "/profile",
+                  )
                 }
-                className="flex flex-col items-center justify-center py-2 text-muted hover:bg-white/5 transition-all"
+                className="flex flex-col items-center justify-center py-2 text-slate-300 hover:bg-white/5 transition-all"
               >
                 <User className="w-5 h-5" />
                 <div className="mt-1 text-[11px] font-semibold">Profile</div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { io } from "socket.io-client";
-import { Eye, Info } from "lucide-react";
+import { Eye, Info, Volume2, VolumeX } from "lucide-react";
 
 /* ── Deterministic card (same as play.js / server) ── */
 function mulberry32(seed) {
@@ -760,22 +760,22 @@ export default function GamePage() {
           <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border border-white/10 rounded-xl flex-1 flex flex-col p-1.5 sm:p-2 shadow-xl">
             <div className="grid grid-cols-5 gap-1 sm:gap-1.5 items-stretch w-full">
               <div className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 text-cyan-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-                <span className="opacity-70">Game ID:</span>
+                <span className="opacity-70">Game ID</span>
                 <br />
                 {totalGames}
               </div>
-              <div className="bg-amber-500/20 backdrop-blur-sm border border-amber-400/30 text-amber-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-                <span className="opacity-70">Bet:</span>
+              <div className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 text-cyan-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
+                <span className="opacity-70">Bet</span>
                 <br />
                 {STAKE} Birr
               </div>
               <div className="bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-                <span className="opacity-70">Derash:</span>
+                <span className="opacity-70">Derash</span>
                 <br />
                 {Math.round(derash)} ETB
               </div>
               <div className="bg-slate-500/20 backdrop-blur-sm border border-slate-400/30 text-slate-100 font-bold rounded-none px-2 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
-                <span className="opacity-70">Players:</span>
+                <span className="opacity-70">Players</span>
                 <br />
                 {players}
               </div>
@@ -791,40 +791,25 @@ export default function GamePage() {
                     return next;
                   });
                 }}
+                aria-label={audioOn ? "Mute audio" : "Enable audio"}
                 className={`
-    transition-all duration-300 flex items-center justify-center rounded-none px-3 py-2 border-2
-    ${
-      audioOn
-        ? "bg-emerald-500/30 backdrop-blur-sm border border-emerald-400/50 text-emerald-100 shadow-lg shadow-emerald-500/40"
-        : "bg-amber-500/20 backdrop-blur-sm border border-amber-400/40 text-amber-100 shadow-md shadow-amber-500/30"
-    }
-    active:scale-90 hover:scale-105
-  `}
-                aria-label={audioOn ? "Mute" : "Unmute"}
+                  group relative flex items-center gap-2 px-4 py-2
+                  border transition-all duration-200
+                  ${
+                    audioOn
+                      ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-300"
+                      : "bg-slate-700/40 border-slate-500/30 text-slate-300"
+                  }
+                  hover:scale-105 active:scale-95
+                `}
               >
                 {audioOn ? (
-                  <>
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-4 h-4 sm:w-5 sm:h-5 mr-1"
-                    >
-                      <path d="M13.5 4.06c-.22-.02-.44.05-.61.22l-4 4H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V4.84c0-.43-.31-.75-.75-.78zM18 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM15.5 3.12v2.06c2.89.86 5 3.54 5 6.82s-2.11 5.96-5 6.82v2.06c4-.9 7-4.51 7-8.88s-3-7.98-7-8.88z" />
-                    </svg>
-                    <span className="text-[8px] sm:text-xs">Mute</span>
-                  </>
+                  <Volume2 className="w-5 h-5 shrink-0" />
                 ) : (
-                  <>
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-4 h-4 sm:w-5 sm:h-5 mr-1"
-                    >
-                      <path d="M3.28 2.22 2.22 3.28 7.44 8.5H4.5c-.83 0-1.5.67-1.5 1.5v4.5c0 .83.67 1.5 1.5 1.5h4.39l4 4c.17.17.39.24.61.22.44-.03.75-.35.75-.78V14.06l4.66 4.66c-.7.53-1.49.93-2.36 1.18v2.06c1.41-.33 2.69-.96 3.78-1.8l2.64 2.64 1.06-1.06L3.28 2.22zM15.5 3.12v2.06c1.35.4 2.53 1.14 3.46 2.11l-1.46 1.46c-.57-.61-1.25-1.08-2-1.37V3.12z" />
-                    </svg>
-                    <span className="text-[8px] sm:text-xs">Sound</span>
-                  </>
+                  <VolumeX className="w-5 h-5 shrink-0" />
                 )}
+
+              
               </button>
             </div>
 
@@ -930,18 +915,20 @@ export default function GamePage() {
               <div className="flex-1 min-w-0 basis-1/2 flex flex-col gap-1.5 sm:gap-2">
 
                 {gameStarted && !myCards?.[0] && !myCards?.[1] && (
-                  <div className="border-2 border-slate-600/50 rounded-xl p-2 sm:p-3 bg-gradient-to-br from-indigo-950/50 via-slate-900/50 to-purple-950/50">
+                  <div className="border-2 border-slate-600/50 rounded-none p-2 sm:p-3 ">
                     <div className="text-center text-slate-100 font-black text-sm sm:text-base">
                       <span className="mr-1">
-                        <Eye className="inline-block w-4 h-4" />
-                        </span>Watching Only
+                       
+                        </span><Info className="w-4 h-4 inline-block mr-1" />Watching Only, The game already started.
+                        <span className="block text-sm mt-1 text-slate-400">
+                          Wait for the next round to join. only seconds left.
+                        </span>
                     </div>
                     <div className="mt-2 text-center text-slate-300/90 text-[10px] sm:text-xs leading-relaxed">
                       ይህ ዙር ተጀምሯል።
                       <br />
-                      ቢያንስ አንድ ካርድ ካልመረጡ ለመወዳደር አይችሉም።
+                      ጫወታው እስኪያልቅ ይታገሱ
                       <br />
-                      ቀጣይ ዙር ለመጫወት ካርድ ይምረጡ።
                     </div>
                   </div>
                 )}
