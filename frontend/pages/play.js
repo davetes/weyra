@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import {ArrowLeftFromLine } from "lucide-react";
+import { ArrowLeftFromLine } from "lucide-react";
 
 /* ── Deterministic card generator (same as server/utils.js) ── */
 function mulberry32(seed) {
@@ -352,21 +352,31 @@ export default function PlayPage() {
           {countdown !== "-" && (
             <div className="mb-1.5 flex justify-center gap-2 flex-wrap">
               <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-[100%] px-3 py-2 sm:px-4 sm:py-2.5 shadow-xl flex items-center justify-center gap-2">
-
-                <span className="text-xl sm:text-2xl font-black text-slate-200">{startsInText}s</span>
+                <span className="text-xl sm:text-2xl font-black text-slate-200">
+                  {startsInText}s
+                </span>
               </div>
               {acceptedCount >= 2 && (
                 <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-none px-3 py-2 sm:px-4 sm:py-2.5 shadow-xl flex items-center justify-center gap-2">
-                  <span className="text-xs sm:text-sm text-slate-400 font-medium">Derash</span>
-                  <span className="text-xl sm:text-2xl font-black text-slate-200">{Math.round(derash)} ETB</span>
+                  <span className="text-xs sm:text-sm text-slate-400 font-medium">
+                    Derash
+                  </span>
+                  <span className="text-xl sm:text-2xl font-black text-slate-200">
+                    {Math.round(derash)} ETB
+                  </span>
                 </div>
               )}
             </div>
           )}
           <div className="grid grid-cols-5 gap-1.5 sm:gap-2 items-stretch ">
-            <Link href="/" prefetch={true} scroll={false} className="text-slate-100 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm cursor-pointer">
+            <Link
+              href={TID ? `/?tid=${encodeURIComponent(TID)}` : "/"}
+              prefetch={true}
+              scroll={false}
+              className="text-slate-100 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm cursor-pointer"
+            >
               <span className="opacity-70 flex items-center justify-center gap-1  px-1 rounded ">
-                <ArrowLeftFromLine   className="font-serif font-bold mt-1  w-6 h-6"/>
+                <ArrowLeftFromLine className="font-serif font-bold mt-1  w-6 h-6" />
               </span>
             </Link>
             <div className="bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
@@ -382,12 +392,16 @@ export default function PlayPage() {
             <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-300 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
               <span className="opacity-80">Main Wallet:</span>
               <br />
-              <span className="text-sm sm:text-base">{Number(wallet || 0).toFixed(2)}</span>
+              <span className="text-sm sm:text-base">
+                {Number(wallet || 0).toFixed(2)}
+              </span>
             </div>
             <div className="bg-cyan-500/20 backdrop-blur-md border border-slate-400/30 text-cyan-300 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
               <span className="opacity-80">play wallet:</span>
               <br />
-              <span className="text-sm sm:text-base">{Number(gift || 0).toFixed(2)}</span>
+              <span className="text-sm sm:text-base">
+                {Number(gift || 0).toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
