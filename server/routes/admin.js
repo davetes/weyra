@@ -1,9 +1,14 @@
 const express = require("express");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const TelegramBot = require("node-telegram-bot-api");
+const multer = require("multer");
 const { getBot } = require("../bot");
+const cache = require("../cache");
+const { generateGameId } = require("../utils");
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -14,11 +19,633 @@ const PERMS = {
   admins_manage: "admins.manage",
   settings_read: "settings.read",
   settings_write: "settings.write",
+  game_control: "game.control",
+  finance_read: "finance.read",
+  audit_read: "audit.read",
+  announce_send: "announce.send",
   deposit_read: "deposit.read",
   deposit_decide: "deposit.decide",
   withdraw_read: "withdraw.read",
   withdraw_decide: "withdraw.decide",
 };
+
+function csvEscape(v) {
+  if (v == null) return "";
+  const s = String(v);
+  if (/[\n\r",]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+function parseDateInput(v) {
+  const s = String(v || "").trim();
+  if (!s) return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+function endOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
+function startOfWeekMonday(d) {
+  const day = startOfDay(d);
+  const jsDay = day.getDay();
+  const diff = (jsDay + 6) % 7;
+  return new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate() - diff,
+    0,
+    0,
+    0,
+    0,
+  );
+}
+
+function startOfMonth(d) {
+  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+}
+
+function startOfYear(d) {
+  return new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0);
+}
+
+async function computeFinanceTotals(start, end) {
+  const [deposits, withdraws, stakes, wins, depositCount, withdrawCount] =
+    await Promise.all([
+      prisma.depositRequest.aggregate({
+        where: { status: "approved", decidedAt: { gte: start, lte: end } },
+        _sum: { amount: true },
+      }),
+      prisma.withdrawRequest.aggregate({
+        where: { status: "approved", decidedAt: { gte: start, lte: end } },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        where: { kind: "stake", createdAt: { gte: start, lte: end } },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        where: { kind: "win", createdAt: { gte: start, lte: end } },
+        _sum: { amount: true },
+      }),
+      prisma.depositRequest.count({
+        where: { status: "approved", decidedAt: { gte: start, lte: end } },
+      }),
+      prisma.withdrawRequest.count({
+        where: { status: "approved", decidedAt: { gte: start, lte: end } },
+      }),
+    ]);
+
+  const totalDeposited = deposits._sum.amount
+    ? new Decimal(deposits._sum.amount.toString())
+    : new Decimal(0);
+  const totalWithdrawn = withdraws._sum.amount
+    ? new Decimal(withdraws._sum.amount.toString())
+    : new Decimal(0);
+  const totalStakes = stakes._sum.amount
+    ? new Decimal(stakes._sum.amount.toString())
+    : new Decimal(0);
+  const totalPayouts = wins._sum.amount
+    ? new Decimal(wins._sum.amount.toString())
+    : new Decimal(0);
+
+  const net = totalDeposited
+    .minus(totalWithdrawn)
+    .plus(totalStakes)
+    .minus(totalPayouts);
+
+  return {
+    deposits: totalDeposited,
+    withdrawals: totalWithdrawn,
+    stakes: totalStakes,
+    payouts: totalPayouts,
+    net,
+    depositCount,
+    withdrawCount,
+  };
+}
+
+async function audit(req, { action, entityType, entityId, before, after }) {
+  try {
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.adminUser.id,
+        action: String(action || ""),
+        entityType: String(entityType || ""),
+        entityId: String(entityId || ""),
+        before: before == null ? "" : JSON.stringify(before),
+        after: after == null ? "" : JSON.stringify(after),
+      },
+    });
+  } catch (err) {
+    console.error("audit log error:", err);
+  }
+}
+
+router.get(
+  "/transactions",
+  requireAuth(),
+  requirePerm(PERMS.finance_read),
+  async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      const kind = String(req.query.kind || "").trim();
+      const from = parseDateInput(req.query.from);
+      const to = parseDateInput(req.query.to);
+      const limit = Math.min(
+        parseInt(String(req.query.limit || "200"), 10) || 200,
+        1000,
+      );
+      const cursorIdRaw = String(
+        req.query.cursorId || req.query.cursor || "",
+      ).trim();
+      const cursorId = cursorIdRaw ? parseInt(cursorIdRaw, 10) : null;
+      const cursorCreatedAt = parseDateInput(req.query.cursorCreatedAt);
+
+      const where = {};
+      if (kind) where.kind = kind;
+      if (from || to) {
+        where.createdAt = {};
+        if (from) where.createdAt.gte = from;
+        if (to) where.createdAt.lte = to;
+      }
+
+      if (q) {
+        const or = [];
+        or.push({ note: { contains: q, mode: "insensitive" } });
+        if (/^\d+$/.test(q)) {
+          try {
+            or.push({ player: { telegramId: BigInt(q) } });
+          } catch (_) {}
+        }
+        or.push({ player: { username: { contains: q, mode: "insensitive" } } });
+        or.push({ player: { phone: { contains: q, mode: "insensitive" } } });
+        where.OR = or;
+      }
+
+      if (cursorId && cursorCreatedAt) {
+        where.AND = [
+          {
+            OR: [
+              { createdAt: { lt: cursorCreatedAt } },
+              {
+                AND: [
+                  { createdAt: { equals: cursorCreatedAt } },
+                  { id: { lt: cursorId } },
+                ],
+              },
+            ],
+          },
+        ];
+      }
+
+      const rows = await prisma.transaction.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: limit + 1,
+        include: {
+          player: {
+            select: {
+              id: true,
+              telegramId: true,
+              username: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      const hasMore = rows.length > limit;
+      const pageRows = hasMore ? rows.slice(0, limit) : rows;
+      const last = pageRows.length ? pageRows[pageRows.length - 1] : null;
+      const nextCursorId = hasMore && last ? last.id : null;
+      const nextCursorCreatedAt =
+        hasMore && last && last.createdAt
+          ? new Date(last.createdAt).toISOString()
+          : null;
+
+      return res.json({
+        ok: true,
+        cursorId: cursorId || null,
+        cursorCreatedAt: cursorCreatedAt ? cursorCreatedAt.toISOString() : null,
+        nextCursorId,
+        nextCursorCreatedAt,
+        hasMore,
+        transactions: pageRows.map((t) => ({
+          id: t.id,
+          kind: t.kind,
+          amount: t.amount != null ? String(t.amount) : "0",
+          note: t.note,
+          actorTid: t.actorTid != null ? String(t.actorTid) : null,
+          createdAt: t.createdAt,
+          player: {
+            id: t.player.id,
+            telegramId:
+              t.player.telegramId != null ? String(t.player.telegramId) : null,
+            username: t.player.username || "",
+            phone: t.player.phone || "",
+          },
+        })),
+      });
+    } catch (err) {
+      console.error("transactions error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.get(
+  "/transactions.csv",
+  requireAuth(),
+  requirePerm(PERMS.finance_read),
+  async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      const kind = String(req.query.kind || "").trim();
+      const from = parseDateInput(req.query.from);
+      const to = parseDateInput(req.query.to);
+      const limit = Math.min(
+        parseInt(String(req.query.limit || "2000"), 10) || 2000,
+        10000,
+      );
+
+      const where = {};
+      if (kind) where.kind = kind;
+      if (from || to) {
+        where.createdAt = {};
+        if (from) where.createdAt.gte = from;
+        if (to) where.createdAt.lte = to;
+      }
+      if (q) {
+        const or = [];
+        or.push({ note: { contains: q, mode: "insensitive" } });
+        if (/^\d+$/.test(q)) {
+          try {
+            or.push({ player: { telegramId: BigInt(q) } });
+          } catch (_) {}
+        }
+        or.push({ player: { username: { contains: q, mode: "insensitive" } } });
+        or.push({ player: { phone: { contains: q, mode: "insensitive" } } });
+        where.OR = or;
+      }
+
+      const rows = await prisma.transaction.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: {
+          player: {
+            select: { telegramId: true, username: true, phone: true },
+          },
+        },
+      });
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=transactions_${Date.now()}.csv`,
+      );
+
+      const header = [
+        "id",
+        "created_at",
+        "kind",
+        "amount",
+        "actor_tid",
+        "telegram_id",
+        "username",
+        "phone",
+        "note",
+      ].join(",");
+
+      const lines = [header];
+      for (const t of rows) {
+        lines.push(
+          [
+            t.id,
+            t.createdAt ? new Date(t.createdAt).toISOString() : "",
+            t.kind,
+            t.amount != null ? String(t.amount) : "0",
+            t.actorTid != null ? String(t.actorTid) : "",
+            t.player && t.player.telegramId != null
+              ? String(t.player.telegramId)
+              : "",
+            t.player ? t.player.username || "" : "",
+            t.player ? t.player.phone || "" : "",
+            t.note || "",
+          ]
+            .map(csvEscape)
+            .join(","),
+        );
+      }
+
+      return res.send(lines.join("\n"));
+    } catch (err) {
+      console.error("transactions csv error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.get(
+  "/finance/daily",
+  requireAuth(),
+  requirePerm(PERMS.finance_read),
+  async (req, res) => {
+    try {
+      const day = parseDateInput(req.query.day) || new Date();
+      const start = startOfDay(day);
+      const end = endOfDay(day);
+
+      const daily = await computeFinanceTotals(start, end);
+
+      const week = await computeFinanceTotals(startOfWeekMonday(day), end);
+      const month = await computeFinanceTotals(startOfMonth(day), end);
+      const year = await computeFinanceTotals(startOfYear(day), end);
+
+      return res.json({
+        ok: true,
+        day: start.toISOString().slice(0, 10),
+        totals: {
+          deposits: daily.deposits.toFixed(2),
+          withdrawals: daily.withdrawals.toFixed(2),
+          stakes: daily.stakes.toFixed(2),
+          payouts: daily.payouts.toFixed(2),
+          net: daily.net.toFixed(2),
+          depositCount: daily.depositCount,
+          withdrawCount: daily.withdrawCount,
+        },
+        profit: {
+          daily: daily.net.toFixed(2),
+          week: week.net.toFixed(2),
+          month: month.net.toFixed(2),
+          year: year.net.toFixed(2),
+        },
+      });
+    } catch (err) {
+      console.error("finance daily error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.get(
+  "/audit_logs",
+  requireAuth(),
+  requirePerm(PERMS.audit_read),
+  async (req, res) => {
+    try {
+      const limit = Math.min(
+        parseInt(String(req.query.limit || "200"), 10) || 200,
+        1000,
+      );
+      const entityType = String(req.query.entityType || "").trim();
+      const entityId = String(req.query.entityId || "").trim();
+
+      const where = {
+        ...(entityType ? { entityType } : {}),
+        ...(entityId ? { entityId } : {}),
+      };
+
+      const rows = await prisma.adminAuditLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: {
+          admin: { select: { id: true, username: true, role: true } },
+        },
+      });
+
+      return res.json({
+        ok: true,
+        logs: rows.map((l) => ({
+          id: l.id,
+          createdAt: l.createdAt,
+          action: l.action,
+          entityType: l.entityType,
+          entityId: l.entityId,
+          before: l.before,
+          after: l.after,
+          admin: l.admin,
+        })),
+      });
+    } catch (err) {
+      console.error("audit logs error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.get(
+  "/health",
+  requireAuth(),
+  requirePerm(PERMS.settings_read),
+  async (req, res) => {
+    try {
+      const dbOk = await prisma.player
+        .count()
+        .then(() => true)
+        .catch(() => false);
+      const redisOk = await cache
+        .set(`health_${Date.now()}`, 1, 5)
+        .then(() => true)
+        .catch(() => false);
+      return res.json({ ok: true, dbOk, redisOk, serverTime: Date.now() });
+    } catch (err) {
+      console.error("health error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/announce",
+  requireAuth(),
+  requirePerm(PERMS.announce_send),
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const legacyText = String(req.body?.text || "").trim();
+      const message = String(req.body?.message || "").trim();
+      const caption = String(req.body?.caption || "").trim();
+      const photo = String(req.body?.photo || "").trim();
+      const max = Math.min(
+        parseInt(String(req.body?.max || "500"), 10) || 500,
+        5000,
+      );
+
+      let uploadedPath = "";
+      if (req.file && req.file.buffer && req.file.size > 0) {
+        const uploadsDir = path.join(
+          __dirname,
+          "..",
+          "..",
+          "public",
+          "uploads",
+        );
+        fs.mkdirSync(uploadsDir, { recursive: true });
+
+        const safeExt = (() => {
+          const m = String(req.file.mimetype || "").toLowerCase();
+          if (m.includes("png")) return ".png";
+          if (m.includes("jpeg") || m.includes("jpg")) return ".jpg";
+          if (m.includes("webp")) return ".webp";
+          return ".jpg";
+        })();
+
+        const fname = `announce_${Date.now()}_${Math.random().toString(16).slice(2)}${safeExt}`;
+        uploadedPath = path.join(uploadsDir, fname);
+        fs.writeFileSync(uploadedPath, req.file.buffer);
+      }
+
+      const hasAnyImage = !!(uploadedPath || photo);
+      const hasAnyText = !!(message || caption || legacyText);
+      if (!hasAnyText && !hasAnyImage) {
+        return res
+          .status(400)
+          .json({ ok: false, error: "Missing text or photo" });
+      }
+
+      const players = await prisma.player.findMany({
+        select: { telegramId: true },
+        take: max,
+        orderBy: { id: "asc" },
+      });
+      const tids = players
+        .map((p) => (p.telegramId != null ? Number(p.telegramId) : null))
+        .filter(Boolean);
+
+      let sent = 0;
+      let failed = 0;
+      const liveBot = getBot();
+      if (!liveBot) {
+        return res
+          .status(500)
+          .json({ ok: false, error: "Bot is not running on this server" });
+      }
+
+      for (const tid of tids) {
+        try {
+          if (uploadedPath) {
+            const useCaption = caption || legacyText || "";
+            await liveBot.sendPhoto(tid, uploadedPath, {
+              caption: useCaption || undefined,
+              parse_mode: "Markdown",
+            });
+            if (message || (legacyText && !caption)) {
+              const followUp = message || legacyText;
+              if (followUp) {
+                await liveBot.sendMessage(tid, followUp, {
+                  parse_mode: "Markdown",
+                  disable_web_page_preview: false,
+                });
+              }
+            }
+          } else if (photo) {
+            const useCaption = caption || legacyText || "";
+            await liveBot.sendPhoto(tid, photo, {
+              caption: useCaption || undefined,
+              parse_mode: "Markdown",
+            });
+            if (message || (legacyText && !caption)) {
+              const followUp = message || legacyText;
+              if (followUp) {
+                await liveBot.sendMessage(tid, followUp, {
+                  parse_mode: "Markdown",
+                  disable_web_page_preview: false,
+                });
+              }
+            }
+          } else {
+            const useMessage = message || legacyText;
+            await liveBot.sendMessage(tid, useMessage, {
+              parse_mode: "Markdown",
+              disable_web_page_preview: false,
+            });
+          }
+          sent += 1;
+          await new Promise((r) => setTimeout(r, 20));
+        } catch (_) {
+          failed += 1;
+        }
+      }
+
+      await audit(req, {
+        action: "announce.send",
+        entityType: "announcement",
+        entityId: String(Date.now()),
+        before: null,
+        after: { sent, failed, max, hasImage: !!(uploadedPath || photo) },
+      });
+
+      return res.json({ ok: true, sent, failed });
+    } catch (err) {
+      console.error("announce error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+async function getPauseState(gameId) {
+  const keys = [`pause_${gameId}`, `pause_at_${gameId}`, `pause_ms_${gameId}`];
+  const row = await cache.mget(keys);
+  const paused = row[keys[0]] === 1 || row[keys[0]] === true;
+  const pauseAt = row[keys[1]] != null ? Number(row[keys[1]]) : null;
+  const pauseMs = row[keys[2]] != null ? Number(row[keys[2]]) : 0;
+  const extra = paused && pauseAt ? Math.max(0, Date.now() - pauseAt) : 0;
+  return { paused, pauseAt, pauseMs: Math.max(0, pauseMs + extra) };
+}
+
+async function pauseGame(gameId) {
+  const keys = [`pause_${gameId}`, `pause_at_${gameId}`, `pause_ms_${gameId}`];
+  const row = await cache.mget(keys);
+  const paused = row[keys[0]] === 1 || row[keys[0]] === true;
+  const pauseAt = row[keys[1]] != null ? Number(row[keys[1]]) : null;
+  if (paused && pauseAt) return await getPauseState(gameId);
+
+  await cache.set(keys[0], 1);
+  await cache.set(keys[1], Date.now());
+  if (row[keys[2]] == null) await cache.set(keys[2], 0);
+  return await getPauseState(gameId);
+}
+
+async function resumeGame(gameId) {
+  const keys = [`pause_${gameId}`, `pause_at_${gameId}`, `pause_ms_${gameId}`];
+  const row = await cache.mget(keys);
+  const paused = row[keys[0]] === 1 || row[keys[0]] === true;
+  const pauseAt = row[keys[1]] != null ? Number(row[keys[1]]) : null;
+  const prevPauseMs = row[keys[2]] != null ? Number(row[keys[2]]) : 0;
+
+  if (paused && pauseAt) {
+    const add = Math.max(0, Date.now() - pauseAt);
+    const next = Math.max(0, prevPauseMs + add);
+    await cache.set(keys[2], next);
+  }
+
+  await cache.set(keys[0], 0);
+  await cache.del(keys[1]);
+  return await getPauseState(gameId);
+}
 
 function parsePermissions(adminUser) {
   try {
@@ -117,6 +744,33 @@ function makeSessionToken() {
   return crypto.randomBytes(32).toString("hex");
 }
 
+function getEnvSuperAdminCreds() {
+  const username = String(process.env.SUPER_ADMIN_USERNAME || "").trim();
+  const password = String(process.env.SUPER_ADMIN_PASSWORD || "");
+  if (!username || !password) return null;
+  return { username, password };
+}
+
+async function ensureEnvSuperAdminUser() {
+  const creds = getEnvSuperAdminCreds();
+  if (!creds) return null;
+
+  const admin = await prisma.adminUser.upsert({
+    where: { username: creds.username },
+    update: {
+      role: "super_admin",
+      passwordHash: makePasswordHash(creds.password),
+    },
+    create: {
+      username: creds.username,
+      passwordHash: makePasswordHash(creds.password),
+      role: "super_admin",
+    },
+  });
+
+  return admin;
+}
+
 async function getSessionFromReq(req) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ")
@@ -163,54 +817,6 @@ function requireRole(roles) {
   };
 }
 
-router.post("/bootstrap", async (req, res) => {
-  try {
-    const { token, username, password } = req.body || {};
-    if (!token || token !== process.env.SUPER_ADMIN_BOOTSTRAP_TOKEN) {
-      return res
-        .status(403)
-        .json({ ok: false, error: "Invalid bootstrap token" });
-    }
-    if (!username || !password) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Missing username or password" });
-    }
-
-    const existingSuper = await prisma.adminUser.findFirst({
-      where: { role: "super_admin" },
-    });
-    if (existingSuper) {
-      return res
-        .status(409)
-        .json({ ok: false, error: "Super admin already exists" });
-    }
-
-    const admin = await prisma.adminUser.create({
-      data: {
-        username: String(username).trim(),
-        passwordHash: makePasswordHash(String(password)),
-        role: "super_admin",
-      },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        permissions: true,
-        createdAt: true,
-      },
-    });
-
-    return res.json({
-      ok: true,
-      admin: { ...admin, permissions: parsePermissions(admin) },
-    });
-  } catch (err) {
-    console.error("bootstrap error:", err);
-    return res.status(500).json({ ok: false, error: "Internal server error" });
-  }
-});
-
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body || {};
@@ -218,6 +824,42 @@ router.post("/login", async (req, res) => {
       return res
         .status(400)
         .json({ ok: false, error: "Missing username or password" });
+
+    const envSuper = getEnvSuperAdminCreds();
+    if (
+      envSuper &&
+      String(username).trim() === envSuper.username &&
+      String(password) === envSuper.password
+    ) {
+      const admin = await ensureEnvSuperAdminUser();
+      if (!admin) {
+        return res
+          .status(500)
+          .json({ ok: false, error: "Super admin not configured" });
+      }
+
+      const token = makeSessionToken();
+      const session = await prisma.adminSession.create({
+        data: {
+          token,
+          adminId: admin.id,
+          expiresAt: nowPlusDays(14),
+        },
+        select: { token: true, expiresAt: true },
+      });
+
+      return res.json({
+        ok: true,
+        token: session.token,
+        expiresAt: session.expiresAt,
+        admin: {
+          id: admin.id,
+          username: admin.username,
+          role: admin.role,
+          permissions: parsePermissions(admin),
+        },
+      });
+    }
 
     const admin = await prisma.adminUser.findUnique({
       where: { username: String(username).trim() },
@@ -252,6 +894,223 @@ router.post("/login", async (req, res) => {
     return res.status(500).json({ ok: false, error: "Internal server error" });
   }
 });
+
+router.get(
+  "/rooms",
+  requireAuth(),
+  requirePerm(PERMS.settings_read),
+  async (req, res) => {
+    try {
+      const stakes = [10, 20, 50];
+      const rooms = [];
+
+      for (const stake of stakes) {
+        const game = await prisma.game.findFirst({
+          where: { stake, active: true },
+          orderBy: { createdAt: "desc" },
+        });
+        if (!game) {
+          rooms.push({
+            stake,
+            game: null,
+            selections: { players: 0, cards: 0 },
+            lastCall: null,
+            winner: null,
+            pause: { paused: false, pauseMs: 0, pauseAt: null },
+          });
+          continue;
+        }
+
+        const sels = await prisma.selection.findMany({
+          where: { gameId: game.id, accepted: true },
+          select: { playerId: true },
+        });
+        const cards = sels.length;
+        const players = new Set(sels.map((s) => String(s.playerId))).size;
+
+        const [lastCall, winner, pause] = await Promise.all([
+          cache.get(`call_${game.id}`),
+          cache.get(`winner_${stake}`),
+          getPauseState(game.id),
+        ]);
+
+        rooms.push({
+          stake,
+          game: {
+            id: game.id,
+            active: game.active,
+            finished: game.finished,
+            createdAt: game.createdAt,
+            countdownStartedAt: game.countdownStartedAt,
+            startedAt: game.startedAt,
+          },
+          selections: { players, cards },
+          lastCall: lastCall != null ? String(lastCall) : null,
+          winner: winner || null,
+          pause,
+        });
+      }
+
+      return res.json({ ok: true, rooms, serverTime: Date.now() });
+    } catch (err) {
+      console.error("rooms error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/rooms/:stake/pause",
+  requireAuth(),
+  requirePerm(PERMS.settings_write),
+  async (req, res) => {
+    try {
+      const stake = parseInt(req.params.stake || "0", 10);
+      if (![10, 20, 50].includes(stake)) {
+        return res.status(400).json({ ok: false, error: "Invalid stake" });
+      }
+
+      const game = await prisma.game.findFirst({
+        where: { stake, active: true },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, startedAt: true },
+      });
+      if (!game)
+        return res.status(404).json({ ok: false, error: "No active game" });
+      if (!game.startedAt)
+        return res.status(400).json({ ok: false, error: "Game not started" });
+
+      const before = await getPauseState(game.id);
+      const after = await pauseGame(game.id);
+      await audit(req, {
+        action: "game.pause",
+        entityType: "game",
+        entityId: String(game.id),
+        before,
+        after,
+      });
+
+      return res.json({ ok: true, stake, gameId: game.id, pause: after });
+    } catch (err) {
+      console.error("pause error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/rooms/:stake/resume",
+  requireAuth(),
+  requirePerm(PERMS.settings_write),
+  async (req, res) => {
+    try {
+      const stake = parseInt(req.params.stake || "0", 10);
+      if (![10, 20, 50].includes(stake)) {
+        return res.status(400).json({ ok: false, error: "Invalid stake" });
+      }
+
+      const game = await prisma.game.findFirst({
+        where: { stake, active: true },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, startedAt: true },
+      });
+      if (!game)
+        return res.status(404).json({ ok: false, error: "No active game" });
+      if (!game.startedAt)
+        return res.status(400).json({ ok: false, error: "Game not started" });
+
+      const before = await getPauseState(game.id);
+      const after = await resumeGame(game.id);
+      await audit(req, {
+        action: "game.resume",
+        entityType: "game",
+        entityId: String(game.id),
+        before,
+        after,
+      });
+
+      return res.json({ ok: true, stake, gameId: game.id, pause: after });
+    } catch (err) {
+      console.error("resume error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/rooms/:stake/restart",
+  requireAuth(),
+  requirePerm(PERMS.settings_write),
+  async (req, res) => {
+    try {
+      const stake = parseInt(req.params.stake || "0", 10);
+      if (![10, 20, 50].includes(stake)) {
+        return res.status(400).json({ ok: false, error: "Invalid stake" });
+      }
+
+      const game = await prisma.game.findFirst({
+        where: { stake, active: true },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!game)
+        return res.status(404).json({ ok: false, error: "No active game" });
+
+      const before = {
+        gameId: game.id,
+        startedAt: game.startedAt,
+        countdownStartedAt: game.countdownStartedAt,
+      };
+
+      const nextGame = await prisma.$transaction(async (tx) => {
+        await tx.game.update({
+          where: { id: game.id },
+          data: { active: false, finished: true },
+        });
+        await tx.selection.deleteMany({ where: { gameId: game.id } });
+        const created = await tx.game.create({
+          data: { id: generateGameId(), stake },
+        });
+        return created;
+      });
+
+      // Clear related cache keys
+      await Promise.all([
+        cache.del(`call_${game.id}`),
+        cache.del(`pause_${game.id}`),
+        cache.del(`pause_at_${game.id}`),
+        cache.del(`pause_ms_${game.id}`),
+        cache.del(`winner_${stake}`),
+      ]);
+
+      const after = { gameId: nextGame.id };
+      await audit(req, {
+        action: "game.restart",
+        entityType: "stake_room",
+        entityId: String(stake),
+        before,
+        after,
+      });
+
+      return res.json({
+        ok: true,
+        stake,
+        oldGameId: game.id,
+        newGameId: nextGame.id,
+      });
+    } catch (err) {
+      console.error("restart error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
 
 router.get("/me", requireAuth(), async (req, res) => {
   return res.json({
@@ -346,11 +1205,21 @@ router.get(
     try {
       const q = String(req.query.q || "").trim();
 
+      let qTid = null;
+      if (q && /^\d+$/.test(q)) {
+        try {
+          qTid = BigInt(q);
+        } catch (_) {
+          qTid = null;
+        }
+      }
+
       const where = q
         ? {
             OR: [
               { username: { contains: q, mode: "insensitive" } },
               { phone: { contains: q, mode: "insensitive" } },
+              ...(qTid != null ? [{ telegramId: qTid }] : []),
             ],
           }
         : undefined;
@@ -372,7 +1241,43 @@ router.get(
           createdAt: true,
         },
       });
-      return res.json({ ok: true, players: players.map(serializePlayer) });
+
+      const tids = players
+        .map((p) => (p.telegramId != null ? String(p.telegramId) : null))
+        .filter(Boolean);
+      const seenKeys = tids.map((t) => `seen_${t}`);
+      const seenMap = await cache.mget(seenKeys);
+
+      const ids = players.map((p) => p.id);
+      const lastStakes = await prisma.transaction.findMany({
+        where: { playerId: { in: ids }, kind: "stake" },
+        orderBy: { createdAt: "desc" },
+        distinct: ["playerId"],
+        select: { playerId: true, amount: true, createdAt: true },
+      });
+      const lastStakeByPlayerId = new Map(
+        lastStakes.map((t) => [t.playerId, t]),
+      );
+
+      const out = players.map((p) => {
+        const base = serializePlayer(p);
+        const tidStr = p.telegramId != null ? String(p.telegramId) : null;
+        const lastSeen = tidStr ? seenMap[`seen_${tidStr}`] : null;
+        const lastStake = lastStakeByPlayerId.get(p.id) || null;
+        return {
+          ...base,
+          lastSeen: lastSeen != null ? Number(lastSeen) : null,
+          lastStake: lastStake
+            ? {
+                amount:
+                  lastStake.amount != null ? String(lastStake.amount) : "0",
+                createdAt: lastStake.createdAt,
+              }
+            : null,
+        };
+      });
+
+      return res.json({ ok: true, players: out });
     } catch (err) {
       console.error("players error:", err);
       return res
@@ -396,15 +1301,25 @@ router.get(
         where: { id },
         select: { id: true, telegramId: true, wallet: true, username: true },
       });
-      if (!player) return res.status(404).json({ ok: false, error: "Not found" });
+      if (!player)
+        return res.status(404).json({ ok: false, error: "Not found" });
 
-      const limit = Math.min(parseInt(String(req.query.limit || "200"), 10) || 200, 500);
+      const limit = Math.min(
+        parseInt(String(req.query.limit || "200"), 10) || 200,
+        500,
+      );
 
       const rows = await prisma.transaction.findMany({
         where: { playerId: id },
         orderBy: { createdAt: "desc" },
         take: limit,
-        select: { id: true, kind: true, amount: true, note: true, createdAt: true },
+        select: {
+          id: true,
+          kind: true,
+          amount: true,
+          note: true,
+          createdAt: true,
+        },
       });
 
       let running = new Decimal(player.wallet.toString());
@@ -425,12 +1340,23 @@ router.get(
       });
 
       const referralTotal = mapped
-        .filter((t) => String(t.kind || "").toLowerCase().includes("ref"))
-        .reduce((acc, t) => acc.plus(new Decimal(String(t.amount))), new Decimal(0));
+        .filter((t) =>
+          String(t.kind || "")
+            .toLowerCase()
+            .includes("ref"),
+        )
+        .reduce(
+          (acc, t) => acc.plus(new Decimal(String(t.amount))),
+          new Decimal(0),
+        );
 
       return res.json({
         ok: true,
-        player: { id: player.id, telegramId: String(player.telegramId), username: player.username || "" },
+        player: {
+          id: player.id,
+          telegramId: String(player.telegramId),
+          username: player.username || "",
+        },
         referralTotal: referralTotal.toNumber(),
         transactions: mapped,
       });
@@ -508,8 +1434,14 @@ router.patch(
         return res.status(400).json({ ok: false, error: "Invalid player id" });
 
       const note = String(noteRaw || "").trim();
-      const hasDelta = deltaRaw !== undefined && deltaRaw !== null && String(deltaRaw).trim() !== "";
-      const hasWallet = walletRaw !== undefined && walletRaw !== null && String(walletRaw).trim() !== "";
+      const hasDelta =
+        deltaRaw !== undefined &&
+        deltaRaw !== null &&
+        String(deltaRaw).trim() !== "";
+      const hasWallet =
+        walletRaw !== undefined &&
+        walletRaw !== null &&
+        String(walletRaw).trim() !== "";
       if (!hasDelta && !hasWallet) {
         return res
           .status(400)
@@ -545,7 +1477,9 @@ router.patch(
         if (!player) return null;
 
         const prevWallet = new Decimal(player.wallet.toString());
-        const nextWallet = parsedWallet ? parsedWallet : prevWallet.plus(parsedDelta);
+        const nextWallet = parsedWallet
+          ? parsedWallet
+          : prevWallet.plus(parsedDelta);
         if (!nextWallet.isFinite() || nextWallet.lt(0)) {
           throw new Error("Invalid next wallet");
         }
@@ -583,7 +1517,8 @@ router.patch(
         return out;
       });
 
-      if (!updated) return res.status(404).json({ ok: false, error: "Not found" });
+      if (!updated)
+        return res.status(404).json({ ok: false, error: "Not found" });
       return res.json({ ok: true, player: serializePlayer(updated) });
     } catch (err) {
       console.error("wallet adjust error:", err);

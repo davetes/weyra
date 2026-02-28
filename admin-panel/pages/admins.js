@@ -19,10 +19,14 @@ import {
 const PERMS = [
   { id: "players.read", label: "View players" },
   { id: "players.ban", label: "Ban / Unban players" },
+  { id: "game.control", label: "Game control (pause/restart)" },
   { id: "deposit.read", label: "View deposit requests" },
   { id: "deposit.decide", label: "Approve / Reject deposits" },
   { id: "withdraw.read", label: "View withdraw requests" },
   { id: "withdraw.decide", label: "Approve / Reject withdrawals" },
+  { id: "finance.read", label: "View finance / transactions" },
+  { id: "audit.read", label: "View audit logs" },
+  { id: "announce.send", label: "Send announcements" },
   { id: "settings.read", label: "View settings" },
   { id: "settings.write", label: "Edit settings" },
 ];

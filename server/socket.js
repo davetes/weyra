@@ -15,6 +15,16 @@ function parseTid(input) {
   }
 }
 
+async function getPausedMsForGame(gameId) {
+  const keys = [`pause_${gameId}`, `pause_at_${gameId}`, `pause_ms_${gameId}`];
+  const row = await cache.mget(keys);
+  const paused = row[keys[0]] === 1 || row[keys[0]] === true;
+  const pauseAt = row[keys[1]] != null ? Number(row[keys[1]]) : null;
+  const pauseMs = row[keys[2]] != null ? Number(row[keys[2]]) : 0;
+  const extra = paused && pauseAt ? Math.max(0, Date.now() - pauseAt) : 0;
+  return Math.max(0, pauseMs + extra);
+}
+
 function setupSocket(io) {
   io.on("connection", (socket) => {
     // Join room by stake from query
@@ -64,8 +74,10 @@ function setupSocket(io) {
         } catch (_) {
           sequence = [];
         }
+
+        const pausedMs = await getPausedMsForGame(game.id);
         const elapsed =
-          (Date.now() - new Date(game.startedAt).getTime()) / 1000;
+          (Date.now() - new Date(game.startedAt).getTime() - pausedMs) / 1000;
         const callCount = Math.min(
           Math.floor(elapsed / 5) + 1,
           sequence.length,
@@ -179,7 +191,7 @@ function setupSocket(io) {
           picks: picks.map(String),
         });
 
-        cache.set(
+        await cache.set(
           `winner_${stake}`,
           {
             winner: winnerName,

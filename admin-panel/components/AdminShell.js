@@ -4,11 +4,15 @@ import { useState } from "react";
 import {
   IconDashboard,
   IconUsers,
+  IconGamepad,
   IconDeposit,
   IconWithdraw,
   IconShield,
   IconSettings,
   IconTerminal,
+  IconWallet,
+  IconTrendingUp,
+  IconClock,
   IconLogout,
   IconMenu,
   IconX,
@@ -18,7 +22,33 @@ import {
 
 const NAV = [
   { href: "/app", label: "Dashboard", icon: IconDashboard },
+  { href: "/rooms", label: "Rooms", perm: "settings.read", icon: IconGamepad },
   { href: "/players", label: "Players", perm: "players.read", icon: IconUsers },
+  {
+    href: "/transactions",
+    label: "Transactions",
+    perm: "finance.read",
+    icon: IconWallet,
+  },
+  {
+    href: "/finance",
+    label: "Finance Summary",
+    perm: "finance.read",
+    icon: IconTrendingUp,
+  },
+  { href: "/audit", label: "Audit Logs", perm: "audit.read", icon: IconClock },
+  {
+    href: "/health",
+    label: "Health",
+    perm: "settings.read",
+    icon: IconTerminal,
+  },
+  {
+    href: "/announce",
+    label: "Announcements",
+    perm: "announce.send",
+    icon: IconTerminal,
+  },
   {
     href: "/deposit",
     label: "Deposits",

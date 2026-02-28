@@ -17,6 +17,16 @@ function parseTid(input) {
   }
 }
 
+async function getPausedMsForGame(gameId) {
+  const keys = [`pause_${gameId}`, `pause_at_${gameId}`, `pause_ms_${gameId}`];
+  const row = await cache.mget(keys);
+  const paused = row[keys[0]] === 1 || row[keys[0]] === true;
+  const pauseAt = row[keys[1]] != null ? Number(row[keys[1]]) : null;
+  const pauseMs = row[keys[2]] != null ? Number(row[keys[2]]) : 0;
+  const extra = paused && pauseAt ? Math.max(0, Date.now() - pauseAt) : 0;
+  return Math.max(0, pauseMs + extra);
+}
+
 async function handleGameState(req, res, io) {
   try {
     const stake = parseInt(req.query.stake || "10", 10);
@@ -28,13 +38,15 @@ async function handleGameState(req, res, io) {
       orderBy: { createdAt: "desc" },
     });
     if (!game) {
-      game = await prisma.game.create({ data: { id: generateGameId(), stake } });
+      game = await prisma.game.create({
+        data: { id: generateGameId(), stake },
+      });
     }
 
     // Track heartbeat + presence
     if (tidBig) {
-      cache.set(`hb_${game.id}_${tidStr}`, Date.now(), 30);
-      cache.set(`seen_${tidStr}`, Date.now(), 120);
+      await cache.set(`hb_${game.id}_${tidStr}`, Date.now(), 30);
+      await cache.set(`seen_${tidStr}`, Date.now(), 120);
     }
 
     // Get accepted selections
@@ -47,7 +59,7 @@ async function handleGameState(req, res, io) {
     if (!game.countdownStartedAt) {
       for (const sel of selections) {
         const hbKey = `hb_${game.id}_${sel.player.telegramId}`;
-        const lastHb = cache.get(hbKey);
+        const lastHb = await cache.get(hbKey);
         if (!lastHb || Date.now() - lastHb > 15000) {
           await prisma.selection.delete({ where: { id: sel.id } });
         }
@@ -68,7 +80,7 @@ async function handleGameState(req, res, io) {
     let onlinePlayersCount = 0;
     for (const sel of freshSelections) {
       const hbKey = `hb_${game.id}_${sel.player.telegramId}`;
-      const lastHb = cache.get(hbKey);
+      const lastHb = await cache.get(hbKey);
       if (lastHb && Date.now() - Number(lastHb) <= 15000) {
         onlinePlayersCount += 1;
       }
@@ -77,9 +89,9 @@ async function handleGameState(req, res, io) {
     if (game.startedAt && acceptedCardsCount > 0) {
       const idleKey = `idle_game_${game.id}`;
       if (onlinePlayersCount === 0) {
-        const idleSince = cache.get(idleKey);
+        const idleSince = await cache.get(idleKey);
         if (!idleSince) {
-          cache.set(idleKey, Date.now(), 300);
+          await cache.set(idleKey, Date.now(), 300);
         } else if (Date.now() - Number(idleSince) >= 20000) {
           await prisma.game.update({
             where: { id: game.id },
@@ -87,12 +99,12 @@ async function handleGameState(req, res, io) {
           });
           await prisma.selection.deleteMany({ where: { gameId: game.id } });
           await prisma.game.create({ data: { id: generateGameId(), stake } });
-          cache.del(idleKey);
+          await cache.del(idleKey);
           io.to(`game_${stake}`).emit("message", { type: "restarted" });
           return handleGameState(req, res, io);
         }
       } else {
-        cache.del(idleKey);
+        await cache.del(idleKey);
       }
     }
 
@@ -224,7 +236,9 @@ async function handleGameState(req, res, io) {
       } catch (_) {
         sequence = [];
       }
-      const elapsed = (Date.now() - new Date(game.startedAt).getTime()) / 1000;
+      const pausedMs = await getPausedMsForGame(game.id);
+      const elapsed =
+        (Date.now() - new Date(game.startedAt).getTime() - pausedMs) / 1000;
       callCount = Math.min(Math.floor(elapsed / 5) + 1, sequence.length);
       calledNumbers = sequence.slice(0, callCount);
       currentCall =
@@ -245,7 +259,7 @@ async function handleGameState(req, res, io) {
     }
 
     if (currentCall == null) {
-      cache.del(`call_${game.id}`);
+      await cache.del(`call_${game.id}`);
     }
 
     // Find player's card + balance
@@ -289,7 +303,7 @@ async function handleGameState(req, res, io) {
       ? game.chargedCount
       : acceptedCardsCount;
 
-    const recentWinner = cache.get(`winner_${stake}`) || null;
+    const recentWinner = (await cache.get(`winner_${stake}`)) || null;
 
     return res.json({
       ok: true,

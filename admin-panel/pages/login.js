@@ -1,26 +1,18 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import {
-  bootstrapSuperAdmin,
-  login,
-  loadToken,
-  saveToken,
-  fetchMe,
-} from "../lib/auth";
+import { login, loadToken, saveToken, fetchMe } from "../lib/auth";
 import Button from "../components/Button";
 import { Input } from "../components/FormElements";
-import { IconShield } from "../components/Icons";
+import { IconEye } from "../components/Icons";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
-  const [bootstrapToken, setBootstrapToken] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     async function redirectIfAuthed() {
@@ -50,25 +42,9 @@ export default function LoginPage() {
     }
   }
 
-  async function onBootstrap() {
-    setLoading(true);
-    setError("");
-    try {
-      await bootstrapSuperAdmin(bootstrapToken, username, password);
-      const res = await login(username, password);
-      saveToken(res.token);
-      router.replace("/app");
-    } catch (err) {
-      setError(err?.message || "Bootstrap failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function handleSubmit(e) {
     e.preventDefault();
-    if (mode === "login") onLogin();
-    else onBootstrap();
+    onLogin();
   }
 
   return (
@@ -88,54 +64,7 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-panel border border-border rounded-2xl shadow-card overflow-hidden">
-          <div className="flex border-b border-border">
-            <button
-              type="button"
-              className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors ${
-                mode === "login"
-                  ? "text-accent-light border-b-2 border-accent bg-accent/5"
-                  : "text-muted hover:text-slate-300"
-              }`}
-              onClick={() => {
-                setError("");
-                setMode("login");
-              }}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              className={`flex-1 px-4 py-3.5 text-sm font-medium transition-colors ${
-                mode === "bootstrap"
-                  ? "text-accent-light border-b-2 border-accent bg-accent/5"
-                  : "text-muted hover:text-slate-300"
-              }`}
-              onClick={() => {
-                setError("");
-                setMode("bootstrap");
-              }}
-            >
-              <span className="flex items-center justify-center gap-1.5">
-                <IconShield size={14} />
-                Bootstrap
-              </span>
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {mode === "bootstrap" && (
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1.5 uppercase tracking-wider">
-                  Bootstrap Token
-                </label>
-                <Input
-                  placeholder="Enter bootstrap token"
-                  value={bootstrapToken}
-                  onChange={(e) => setBootstrapToken(e.target.value)}
-                />
-              </div>
-            )}
-
             <div>
               <label className="block text-xs font-medium text-muted mb-1.5 uppercase tracking-wider">
                 Username
@@ -152,13 +81,27 @@ export default function LoginPage() {
               <label className="block text-xs font-medium text-muted mb-1.5 uppercase tracking-wider">
                 Password
               </label>
-              <Input
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <input
+                  className="w-full bg-bg-secondary border border-border rounded-xl text-sm text-slate-200 placeholder:text-muted transition-colors focus:border-accent/50 px-3 pr-11 py-2.5"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-slate-200 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((s) => !s)}
+                >
+                  <IconEye
+                    size={18}
+                    className={showPassword ? "text-slate-200" : ""}
+                  />
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -173,7 +116,7 @@ export default function LoginPage() {
               loading={loading}
               type="submit"
             >
-              {mode === "login" ? "Sign In" : "Create Super Admin"}
+              Sign In
             </Button>
           </form>
         </div>

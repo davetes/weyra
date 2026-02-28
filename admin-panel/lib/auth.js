@@ -18,10 +18,3 @@ export async function login(username, password) {
     body: { username, password },
   });
 }
-
-export async function bootstrapSuperAdmin(token, username, password) {
-  return apiFetch("/api/admin/bootstrap", {
-    method: "POST",
-    body: { token, username, password },
-  });
-}

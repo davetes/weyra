@@ -48,6 +48,17 @@ function formatDateTime(v) {
   }
 }
 
+function formatSince(ms) {
+  if (!ms) return "-";
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return "-";
+  const diff = Date.now() - n;
+  if (diff < 60000) return "Just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return `${Math.floor(diff / 86400000)}d ago`;
+}
+
 function formatMoney(v) {
   if (v == null) return "-";
   const n = Number(v);
@@ -705,10 +716,13 @@ function PlayersInner({ token, admin }) {
         </Modal>
         {/* Search */}{" "}
         <Card title="Search Players" icon={IconSearch}>
-          <form onSubmit={handleSearch} className="flex gap-3">
+          <form
+            onSubmit={handleSearch}
+            className="flex flex-col md:flex-row md:items-end gap-3"
+          >
             <div className="flex-1">
               <SearchInput
-                placeholder="Search by username, phone, or Telegram ID..."
+                placeholder="Search by username, phone, or telegram id..."
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />{" "}
@@ -761,6 +775,8 @@ function PlayersInner({ token, admin }) {
                     <th className="pr-3 py-3"> Wallet </th>{" "}
                     <th className="pr-3 py-3"> Gift </th>{" "}
                     <th className="pr-3 py-3"> Wins </th>{" "}
+                    <th className="pr-3 py-3"> Last Seen </th>{" "}
+                    <th className="pr-3 py-3"> Last Stake </th>{" "}
                     <th className="pr-3 py-3"> Status </th>{" "}
                     <th className="pr-3 py-3"> Joined </th>{" "}
                     <th className="pr-5 py-3 text-right"> Actions </th>{" "}
@@ -798,6 +814,23 @@ function PlayersInner({ token, admin }) {
                         <td className="pr-3 py-3 text-slate-300">
                           {" "}
                           {p.wins ?? 0}{" "}
+                        </td>{" "}
+                        <td className="pr-3 py-3 text-muted text-xs">
+                          {formatSince(p.lastSeen)}
+                        </td>{" "}
+                        <td className="pr-3 py-3 text-muted text-xs">
+                          {p.lastStake ? (
+                            <div>
+                              <div className="text-slate-300">
+                                {formatMoney(p.lastStake.amount)}
+                              </div>
+                              <div className="text-muted">
+                                {formatDateTime(p.lastStake.createdAt)}
+                              </div>
+                            </div>
+                          ) : (
+                            "-"
+                          )}
                         </td>{" "}
                         <td className="pr-3 py-3">
                           {" "}
@@ -838,7 +871,7 @@ function PlayersInner({ token, admin }) {
                   {players.length === 0 && !loading && (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={11}
                         className="text-center py-12 text-muted text-sm"
                       >
                         {" "}

@@ -16,6 +16,16 @@ function parseTid(input) {
   }
 }
 
+async function getPausedMsForGame(gameId) {
+  const keys = [`pause_${gameId}`, `pause_at_${gameId}`, `pause_ms_${gameId}`];
+  const row = await cache.mget(keys);
+  const paused = row[keys[0]] === 1 || row[keys[0]] === true;
+  const pauseAt = row[keys[1]] != null ? Number(row[keys[1]]) : null;
+  const pauseMs = row[keys[2]] != null ? Number(row[keys[2]]) : 0;
+  const extra = paused && pauseAt ? Math.max(0, Date.now() - pauseAt) : 0;
+  return Math.max(0, pauseMs + extra);
+}
+
 function checkBingo(card, calledSet) {
   // Check rows
   for (let r = 0; r < 5; r++) {
@@ -110,7 +120,9 @@ async function handleClaimBingo(req, res, io) {
     } catch (_) {
       sequence = [];
     }
-    const elapsed = (Date.now() - new Date(game.startedAt).getTime()) / 1000;
+    const pausedMs = await getPausedMsForGame(game.id);
+    const elapsed =
+      (Date.now() - new Date(game.startedAt).getTime() - pausedMs) / 1000;
     const callCount = Math.min(Math.floor(elapsed / 5) + 1, sequence.length);
     const called = sequence.slice(0, callCount);
     const calledSet = new Set(called);
@@ -205,7 +217,7 @@ async function handleClaimBingo(req, res, io) {
       picks: picks.map(String),
     });
 
-    cache.set(
+    await cache.set(
       `winner_${stake}`,
       {
         winner: winnerName,

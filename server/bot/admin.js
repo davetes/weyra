@@ -82,7 +82,7 @@ function setupAdmin(bot) {
     });
     let present = 0;
     for (const p of players) {
-      const lastSeen = cache.get(`seen_${p.telegramId}`);
+      const lastSeen = await cache.get(`seen_${p.telegramId}`);
       if (lastSeen && now - lastSeen <= 120000) present += 1;
     }
     await bot.sendMessage(
