@@ -23,6 +23,7 @@ async function handleProfile(req, res) {
     const player = await prisma.player.findUnique({
       where: { telegramId: tidBig },
       select: {
+        id: true,
         telegramId: true,
         username: true,
         phone: true,
@@ -39,6 +40,26 @@ async function handleProfile(req, res) {
     const wallet = new Decimal(player.wallet.toString()).toNumber();
     const gift = new Decimal(player.gift.toString()).toNumber();
 
+    const [refAgg, refCount] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: { playerId: player.id, kind: "referral_bonus" },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.count({
+        where: { playerId: player.id, kind: "referral_bonus" },
+      }),
+    ]);
+
+    const totalInvites = refCount || 0;
+    const totalEarning = refAgg?._sum?.amount
+      ? new Decimal(refAgg._sum.amount.toString()).toNumber()
+      : 0;
+
+    const botUsername = String(process.env.BOT_USERNAME || "").trim();
+    const referralLink = botUsername
+      ? `https://t.me/${botUsername}?start=ref_${String(player.telegramId)}`
+      : "";
+
     return res.json({
       ok: true,
       profile: {
@@ -48,8 +69,9 @@ async function handleProfile(req, res) {
         wallet,
         gift,
         wins: player.wins || 0,
-        totalInvites: 0,
-        totalEarning: 0,
+        totalInvites,
+        totalEarning,
+        referralLink,
       },
     });
   } catch (err) {

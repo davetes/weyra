@@ -28,6 +28,9 @@ export default function ProfilePage() {
   const [wins, setWins] = useState(0);
   const [totalInvites, setTotalInvites] = useState(0);
   const [totalEarning, setTotalEarning] = useState(0);
+  const [referralLink, setReferralLink] = useState("");
+  const [phone, setPhone] = useState("");
+  const [notice, setNotice] = useState("");
 
   const [soundOn, setSoundOn] = useState(true);
 
@@ -58,6 +61,8 @@ export default function ProfilePage() {
       setWins(typeof p.wins === "number" ? p.wins : 0);
       setTotalInvites(typeof p.totalInvites === "number" ? p.totalInvites : 0);
       setTotalEarning(typeof p.totalEarning === "number" ? p.totalEarning : 0);
+      setReferralLink(String(p.referralLink || ""));
+      setPhone(String(p.phone || ""));
     } catch (e) {
       setError("Network error");
     } finally {
@@ -71,6 +76,23 @@ export default function ProfilePage() {
 
   const displayName = username || "Player";
   const initial = (displayName.trim()[0] || "P").toUpperCase();
+  const verified = String(phone || "").trim().length > 0;
+
+  useEffect(() => {
+    if (!notice) return undefined;
+    const t = setTimeout(() => setNotice(""), 2500);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  async function copyReferralLink() {
+    if (!referralLink) return;
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setNotice("Referral link copied");
+    } catch (_) {
+      setNotice("Copy failed");
+    }
+  }
 
   return (
     <>
@@ -90,6 +112,12 @@ export default function ProfilePage() {
           {error && (
             <div className="mt-5 rounded-none border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 font-semibold">
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div className="mt-5 rounded-none border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200 font-semibold">
+              {notice}
             </div>
           )}
 
@@ -144,6 +172,88 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-7 text-lg font-black">Settings</div>
+
+          <div className="mt-3 rounded-none border border-white/10 bg-white/5 p-4">
+            <div className="text-base font-black">Referral Center</div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-none border border-white/10 bg-slate-900/40 p-4">
+                <div className="text-xs text-white/60 font-semibold">
+                  Total Invites
+                </div>
+                <div className="mt-1 text-2xl font-black">
+                  {totalInvites || 0}
+                </div>
+              </div>
+              <div className="rounded-none border border-white/10 bg-slate-900/40 p-4">
+                <div className="text-xs text-white/60 font-semibold">
+                  Referral Earnings
+                </div>
+                <div className="mt-1 text-2xl font-black">
+                  {Number(totalEarning || 0).toFixed(0)}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 text-xs text-white/60">Your referral link</div>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex-1 min-w-0 h-11 px-3 bg-white/5 border border-white/10 flex items-center text-xs text-white/80 truncate">
+                {referralLink ||
+                  "Set BOT_USERNAME in server .env to enable referral link"}
+              </div>
+              <button
+                type="button"
+                onClick={copyReferralLink}
+                disabled={!referralLink}
+                className="h-11 px-4 font-black bg-sky-500/15 border border-sky-400/20 text-sky-200 disabled:opacity-50"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-none border border-white/10 bg-white/5 p-4">
+            <div className="text-base font-black">Account &amp; Security</div>
+
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-white/70">
+                  Telegram ID
+                </div>
+                <div className="text-sm font-black text-white/90">
+                  {tid || "—"}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-white/70">Phone</div>
+                <div className="text-sm font-black text-white/90 truncate">
+                  {phone || "—"}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-white/70">
+                  Status
+                </div>
+                <div
+                  className={`h-8 px-3 border text-xs font-bold flex items-center ${
+                    verified
+                      ? "bg-emerald-500/15 border-emerald-400/25 text-emerald-200"
+                      : "bg-amber-500/15 border-amber-400/25 text-amber-200"
+                  }`}
+                >
+                  {verified ? "VERIFIED" : "NOT VERIFIED"}
+                </div>
+              </div>
+            </div>
+
+            {!verified && (
+              <div className="mt-3 text-xs text-white/60 leading-relaxed">
+                To verify your account, open the Telegram bot and share your
+                phone number in registration.
+              </div>
+            )}
+          </div>
 
           <div className="mt-3 rounded-none border border-white/10 bg-white/5 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">

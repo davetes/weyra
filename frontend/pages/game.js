@@ -144,20 +144,24 @@ export default function GamePage() {
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  function loadSlotPicks(slot, idx) {
+  function loadSlotPicks(slot, idx, gameId) {
     if (idx == null) return new Set();
+    if (gameId == null || String(gameId) === "-") return new Set();
     try {
-      const raw = localStorage.getItem(`bingo_picks_${STAKE}_${idx}_${slot}`);
+      const raw = localStorage.getItem(
+        `bingo_picks_${STAKE}_${String(gameId)}_${idx}_${slot}`,
+      );
       if (raw) return new Set(JSON.parse(raw).map(String));
     } catch (_) {}
     return new Set();
   }
 
-  function saveSlotPicks(slot, idx, newPicks) {
+  function saveSlotPicks(slot, idx, gameId, newPicks) {
     if (idx == null) return;
+    if (gameId == null || String(gameId) === "-") return;
     try {
       localStorage.setItem(
-        `bingo_picks_${STAKE}_${idx}_${slot}`,
+        `bingo_picks_${STAKE}_${String(gameId)}_${idx}_${slot}`,
         JSON.stringify([...newPicks]),
       );
     } catch (_) {}
@@ -214,9 +218,14 @@ export default function GamePage() {
   useEffect(() => {
     const idx0 = myIndices?.[0] != null ? Number(myIndices[0]) : null;
     const idx1 = myIndices?.[1] != null ? Number(myIndices[1]) : null;
-    setPicks0(loadSlotPicks(0, idx0));
-    setPicks1(loadSlotPicks(1, idx1));
-  }, [STAKE, myIndices]);
+    setPicks0(loadSlotPicks(0, idx0, totalGames));
+    setPicks1(loadSlotPicks(1, idx1, totalGames));
+  }, [STAKE, myIndices, totalGames]);
+
+  useEffect(() => {
+    autoBaseline0Ref.current = null;
+    autoBaseline1Ref.current = null;
+  }, [totalGames]);
 
   useEffect(() => {
     const idx0 = myIndices?.[0] != null ? Number(myIndices[0]) : null;
@@ -240,7 +249,7 @@ export default function GamePage() {
             const next = new Set(prev);
             for (const v of add) next.add(String(v));
             if (next.size === prev.size) return prev;
-            saveSlotPicks(0, idx0, next);
+            saveSlotPicks(0, idx0, totalGames, next);
             return next;
           });
         }
@@ -264,33 +273,41 @@ export default function GamePage() {
             const next = new Set(prev);
             for (const v of add) next.add(String(v));
             if (next.size === prev.size) return prev;
-            saveSlotPicks(1, idx1, next);
+            saveSlotPicks(1, idx1, totalGames, next);
             return next;
           });
         }
         autoBaseline1Ref.current = new Set(calledSet);
       }
     }
-  }, [autoSelect0, autoSelect1, calledSet, myCards, myIndices, STAKE]);
+  }, [
+    autoSelect0,
+    autoSelect1,
+    calledSet,
+    myCards,
+    myIndices,
+    STAKE,
+    totalGames,
+  ]);
 
-  function togglePick(slot, val) {
-    const idx = myIndices?.[slot] != null ? Number(myIndices[slot]) : null;
-    if (slot === 0) {
+  function togglePick(val) {
+    const idx = myIndices?.[activeSlot];
+    if (idx == null) return;
+    if (activeSlot === 0) {
       setPicks0((prev) => {
         const ns = new Set(prev);
         if (ns.has(val)) ns.delete(val);
         else ns.add(val);
-        saveSlotPicks(0, idx, ns);
+        saveSlotPicks(0, idx, totalGames, ns);
         return ns;
       });
       return;
     }
-
     setPicks1((prev) => {
       const ns = new Set(prev);
       if (ns.has(val)) ns.delete(val);
       else ns.add(val);
-      saveSlotPicks(1, idx, ns);
+      saveSlotPicks(1, idx, totalGames, ns);
       return ns;
     });
   }
@@ -462,7 +479,10 @@ export default function GamePage() {
         }
       }
       // Read auto_enabled from server (skip if recently toggled to avoid race condition)
-      if (Array.isArray(data.auto_enabled) && Date.now() - lastToggleTimeRef.current > 2000) {
+      if (
+        Array.isArray(data.auto_enabled) &&
+        Date.now() - lastToggleTimeRef.current > 2000
+      ) {
         setAutoSelect0(data.auto_enabled[0] ?? true);
         setAutoSelect1(data.auto_enabled[1] ?? true);
       }
@@ -808,8 +828,6 @@ export default function GamePage() {
                 ) : (
                   <VolumeX className="w-5 h-5 shrink-0" />
                 )}
-
-              
               </button>
             </div>
 
@@ -820,15 +838,58 @@ export default function GamePage() {
                 <div className="flex items-center justify-between gap-2 sm:gap-3">
                   {/* Left: Called count */}
                   <div className="flex flex-col items-center shrink-0 w-14 sm:w-16">
-                    <span className="text-[10px] sm:text-xs text-slate-400 font-medium">Called</span>
-                    <span className="text-lg sm:text-xl font-black text-slate-200">{calledSet.size}<span className="text-slate-500 text-sm sm:text-base">/75</span></span>
+                    <span className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                      Called
+                    </span>
+                    <span className="text-lg sm:text-xl font-black text-slate-200">
+                      {calledSet.size}
+                      <span className="text-slate-500 text-sm sm:text-base">
+                        /75
+                      </span>
+                    </span>
                   </div>
 
                   {/* Center: Current call circle */}
                   <div className="relative shrink-0">
-                    <div className={`absolute inset-0 rounded-full blur-lg ${currentCall ? (() => { const l = letterFor(currentCall); return l === "B" ? "bg-green-400/40" : l === "I" ? "bg-red-400/40" : l === "N" ? "bg-yellow-400/40" : l === "G" ? "bg-blue-400/40" : "bg-pink-400/40"; })() : "bg-amber-400/40"}`} />
-                    <div className={`relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] rounded-full flex items-center justify-center border-3 sm:border-4 ${currentCall ? (() => { const l = letterFor(currentCall); return l === "B" ? "bg-green-bingo border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]" : l === "I" ? "bg-red-bingo border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : l === "N" ? "bg-yellow-bingo border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]" : l === "G" ? "bg-blue-bingo border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)]" : "bg-pink-bingo border-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.4)]"; })() : "bg-slate-100 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)]"}`}>
-                      <div className={`text-xs sm:text-base font-black tracking-wide ${currentCall && letterFor(currentCall) === "N" ? "text-yellow-900" : "text-white"}`}>
+                    <div
+                      className={`absolute inset-0 rounded-full blur-lg ${
+                        currentCall
+                          ? (() => {
+                              const l = letterFor(currentCall);
+                              return l === "B"
+                                ? "bg-green-400/40"
+                                : l === "I"
+                                  ? "bg-red-400/40"
+                                  : l === "N"
+                                    ? "bg-yellow-400/40"
+                                    : l === "G"
+                                      ? "bg-blue-400/40"
+                                      : "bg-pink-400/40";
+                            })()
+                          : "bg-amber-400/40"
+                      }`}
+                    />
+                    <div
+                      className={`relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] rounded-full flex items-center justify-center border-3 sm:border-4 ${
+                        currentCall
+                          ? (() => {
+                              const l = letterFor(currentCall);
+                              return l === "B"
+                                ? "bg-green-bingo border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]"
+                                : l === "I"
+                                  ? "bg-red-bingo border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                                  : l === "N"
+                                    ? "bg-yellow-bingo border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]"
+                                    : l === "G"
+                                      ? "bg-blue-bingo border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.4)]"
+                                      : "bg-pink-bingo border-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.4)]";
+                            })()
+                          : "bg-slate-100 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4)]"
+                      }`}
+                    >
+                      <div
+                        className={`text-xs sm:text-base font-black tracking-wide ${currentCall && letterFor(currentCall) === "N" ? "text-yellow-900" : "text-white"}`}
+                      >
                         {currentCall != null
                           ? `${letterFor(currentCall)}-${currentCall}`
                           : "—"}
@@ -869,228 +930,227 @@ export default function GamePage() {
                 <div className="flex-1 min-w-0 basis-1/2">
                   {/* Bingo grid */}
                   <div className="bg-gradient-to-br from-slate-800/80 via-slate-800/70 to-slate-900/80 border-2 border-slate-600/30 rounded-none p-1.5 sm:p-2 shadow-xl w-full h-full">
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {LETTERS.map((l) => (
-                      <div
-                        key={l}
-                        className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded-none text-[10px] sm:text-xs shadow-sm`}
-                      >
-                        {l}
-                      </div>
-                    ))}
-                  </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {LETTERS.map((l) => (
+                        <div
+                          key={l}
+                          className={`${LETTER_BG[l]} text-white font-extrabold text-center py-1 sm:py-1.5 rounded-none text-[10px] sm:text-xs shadow-sm`}
+                        >
+                          {l}
+                        </div>
+                      ))}
+                    </div>
 
-                  <div className="mt-2 grid grid-cols-5 gap-1">
-                    {Array.from({ length: 15 }, (_, r) => r + 1).map((r) => (
-                      <div key={r} className="contents">
-                        {LETTERS.map((l, c) => {
-                          const n = c * 15 + r;
-                          const ns = String(n);
-                          const isCurrent =
-                            currentCall != null && ns === String(currentCall);
-                          const isCalled = calledSet.has(ns) && !isCurrent;
-                          const cellCls = isCurrent
-                            ? "bg-gradient-to-br from-amber-300 via-amber-400 to-orange-400 text-amber-900 border-2 border-amber-200 shadow-lg shadow-amber-400/40 scale-110 z-10 animate-pulse"
-                            : isCalled
-                              ? "bg-gradient-to-br from-sky-400 via-sky-500 to-blue-500 text-white border border-sky-300/50 shadow-md shadow-sky-400/30"
-                              : "bg-gradient-to-br from-slate-700/60 to-slate-800/80 text-white border border-slate-600/30";
+                    <div className="mt-2 grid grid-cols-5 gap-1">
+                      {Array.from({ length: 15 }, (_, r) => r + 1).map((r) => (
+                        <div key={r} className="contents">
+                          {LETTERS.map((l, c) => {
+                            const n = c * 15 + r;
+                            const ns = String(n);
+                            const isCurrent =
+                              currentCall != null && ns === String(currentCall);
+                            const isCalled = calledSet.has(ns) && !isCurrent;
+                            const cellCls = isCurrent
+                              ? "bg-gradient-to-br from-amber-300 via-amber-400 to-orange-400 text-amber-900 border-2 border-amber-200 shadow-lg shadow-amber-400/40 scale-110 z-10 animate-pulse"
+                              : isCalled
+                                ? "bg-gradient-to-br from-sky-400 via-sky-500 to-blue-500 text-white border border-sky-300/50 shadow-md shadow-sky-400/30"
+                                : "bg-gradient-to-br from-slate-700/60 to-slate-800/80 text-white border border-slate-600/30";
 
-                          return (
-                            <div
-                              key={n}
-                              className={`aspect-square rounded-none flex items-center justify-center font-black text-xs sm:text-base leading-none transition-all duration-200 ${cellCls}`}
-                            >
-                              {n}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
+                            return (
+                              <div
+                                key={n}
+                                className={`aspect-square rounded-none flex items-center justify-center font-black text-xs sm:text-base leading-none transition-all duration-200 ${cellCls}`}
+                              >
+                                {n}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* ui */}
+                {/* ui */}
 
-              <div className="flex-1 min-w-0 basis-1/2 flex flex-col gap-1.5 sm:gap-2">
-
-                {gameStarted && !myCards?.[0] && !myCards?.[1] && (
-                  <div className="border-2 border-slate-600/50 rounded-none p-2 sm:p-3 ">
-                    <div className="text-center text-slate-100 font-black text-sm sm:text-base">
-                      <span className="mr-1">
-                       
-                        </span><Info className="w-4 h-4 inline-block mr-1" />Watching Only, The game already started.
+                <div className="flex-1 min-w-0 basis-1/2 flex flex-col gap-1.5 sm:gap-2">
+                  {gameStarted && !myCards?.[0] && !myCards?.[1] && (
+                    <div className="border-2 border-slate-600/50 rounded-none p-2 sm:p-3 ">
+                      <div className="text-center text-slate-100 font-black text-sm sm:text-base">
+                        <span className="mr-1"></span>
+                        <Info className="w-4 h-4 inline-block mr-1" />
+                        Watching Only, The game already started.
                         <span className="block text-sm mt-1 text-slate-400">
                           Wait for the next round to join. only seconds left.
                         </span>
+                      </div>
+                      <div className="mt-2 text-center text-slate-300/90 text-[10px] sm:text-xs leading-relaxed">
+                        ይህ ዙር ተጀምሯል።
+                        <br />
+                        ጫወታው እስኪያልቅ ይታገሱ
+                        <br />
+                      </div>
                     </div>
-                    <div className="mt-2 text-center text-slate-300/90 text-[10px] sm:text-xs leading-relaxed">
-                      ይህ ዙር ተጀምሯል።
-                      <br />
-                      ጫወታው እስኪያልቅ ይታገሱ
-                      <br />
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {[0, 1].map((slot) => {
-                  const card = myCards?.[slot] || null;
-                  if (!card) return null;
+                  {[0, 1].map((slot) => {
+                    const card = myCards?.[slot] || null;
+                    if (!card) return null;
 
-                  const slotPicks = slot === 1 ? picks1 : picks0;
-                  const enabled = !!card;
-                  const autoOn = slot === 1 ? autoSelect1 : autoSelect0;
+                    const slotPicks = slot === 1 ? picks1 : picks0;
+                    const enabled = !!card;
+                    const autoOn = slot === 1 ? autoSelect1 : autoSelect0;
 
-                  return (
-                    <div
-                      key={slot}
-                      className={`border-2 rounded-none p-1 sm:p-1.5 transition-all duration-300 ${
-                        activeSlot === slot
-                          ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
-                          : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
-                      }`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setActiveSlot(slot)}
-                      onKeyDown={() => setActiveSlot(slot)}
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!enabled) return;
-
-                          const toggleAuto = (setter, slotIndex, ref) => {
-                            // Update local state immediately for responsive UI
-                            setter((p) => {
-                              const next = !p;
-                              // Update ref for auto baseline
-                              ref.current = next ? new Set(calledSet) : null;
-                              // Track toggle time to skip next poll update
-                              lastToggleTimeRef.current = Date.now();
-                              // Call server to save (but don't wait for response to update UI)
-                              saveAutoSelect(slotIndex, next);
-                              return next;
-                            });
-                          };
-
-                          if (slot === 1)
-                            toggleAuto(setAutoSelect1, 1, autoBaseline1Ref);
-                          else toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
-                        }}
-                        disabled={!enabled}
-                        className={`mb-2 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
-                          enabled
-                            ? "active:scale-95 hover:scale-102"
-                            : "opacity-50"
-                        } ${
-                          autoOn
-                            ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-400/50 shadow-sm shadow-emerald-400/20"
-                            : "bg-gradient-to-r from-slate-800/60 to-slate-900/60 border-slate-600/50"
+                    return (
+                      <div
+                        key={slot}
+                        className={`border-2 rounded-none p-1 sm:p-1.5 transition-all duration-300 ${
+                          activeSlot === slot
+                            ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
+                            : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
                         }`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setActiveSlot(slot)}
+                        onKeyDown={() => setActiveSlot(slot)}
                       >
-                        <div className="flex flex-col items-start leading-none pointer-events-none">
-                          <span
-                            className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
-                          >
-                            AUTOMATIC
-                          </span>
-                         
-                        </div>
-
-                        <div
-                          className={`relative flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
-                            autoOn
-                              ? "bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40"
-                              : "bg-slate-600"
-                          }`}
-                        >
-                          <div
-                            className={`absolute h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
-                              autoOn
-                                ? "translate-x-[18px]"
-                                : "translate-x-[2px]"
-                            }`}
-                          />
-                        </div>
-                      </button>
-
-                      <div className="grid grid-cols-5 gap-0.5">
-                        {LETTERS.map((l) => (
-                          <div
-                            key={l}
-                            className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-none text-xs sm:text-sm shadow-sm`}
-                          >
-                            {l}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-1 grid grid-cols-5 gap-0.5">
-                        {card.flat().map((val, i) => {
-                          const vs = String(val);
-                          const isFree = val === "FREE";
-                          const isPicked = slotPicks.has(vs);
-                          return (
-                            <div
-                              key={i}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isFree) togglePick(slot, vs);
-                              }}
-                              className={`rounded-none aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
-                                isFree
-                                  ? "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 border-amber-300 shadow-sm shadow-amber-400/30"
-                                  : isPicked
-                                    ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white border-indigo-300 shadow-sm shadow-indigo-400/30 scale-105"
-                                    : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-teal-100 hover:border-teal-400 hover:scale-105"
-                              }`}
-                            >
-                              {isFree ? "★" : val}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {autoOn ? (
-                        <div className="mt-2 w-full font-black rounded-lg py-1 sm:py-1.5 text-xs sm:text-sm border uppercase tracking-wider overflow-hidden relative bg-gradient-to-r from-yellow-400/30 via-amber-400/30 to-orange-400/30 text-amber-950/60 border-amber-300/30 flex items-center justify-center gap-2">
-                          <Info size={14} className="sm:w-4 sm:h-4" />
-                          <div className="flex flex-col leading-none">
-                            <span className="text-shadow-sm">Auto is on</span>
-                              <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
-                              off to play manually
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            claimBingo(slot);
+                            if (!enabled) return;
+
+                            const toggleAuto = (setter, slotIndex, ref) => {
+                              // Update local state immediately for responsive UI
+                              setter((p) => {
+                                const next = !p;
+                                // Update ref for auto baseline
+                                ref.current = next ? new Set(calledSet) : null;
+                                // Track toggle time to skip next poll update
+                                lastToggleTimeRef.current = Date.now();
+                                // Call server to save (but don't wait for response to update UI)
+                                saveAutoSelect(slotIndex, next);
+                                return next;
+                              });
+                            };
+
+                            if (slot === 1)
+                              toggleAuto(setAutoSelect1, 1, autoBaseline1Ref);
+                            else
+                              toggleAuto(setAutoSelect0, 0, autoBaseline0Ref);
                           }}
-                          disabled={!enabled || !gameStarted}
-                          className={`mt-2 w-full font-black rounded-lg py-1 sm:py-1.5 text-xs sm:text-sm border transition-all duration-200 uppercase tracking-wider overflow-hidden relative ${
-                            enabled && gameStarted
-                              ? "bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-amber-950 border-amber-300 shadow-md shadow-amber-400/40 active:scale-[0.96] hover:shadow-lg hover:shadow-amber-400/50"
-                              : "bg-transparent text-slate-600 border-slate-700/50 cursor-not-allowed"
+                          disabled={!enabled}
+                          className={`mb-2 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
+                            enabled
+                              ? "active:scale-95 hover:scale-102"
+                              : "opacity-50"
+                          } ${
+                            autoOn
+                              ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border-emerald-400/50 shadow-sm shadow-emerald-400/20"
+                              : "bg-gradient-to-r from-slate-800/60 to-slate-900/60 border-slate-600/50"
                           }`}
                         >
-                          {(enabled && gameStarted) && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                          )}
-                          <div className="flex flex-col leading-none relative z-10">
-                            <span className="text-shadow-sm">🎯 BINGO!</span>
-                            <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
-                              ድልዎን ያውጁ
+                          <div className="flex flex-col items-start leading-none pointer-events-none">
+                            <span
+                              className={`text-[9px] font-black uppercase tracking-tighter ${autoOn ? "text-emerald-300" : "text-slate-400"}`}
+                            >
+                              AUTOMATIC
                             </span>
                           </div>
+
+                          <div
+                            className={`relative flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
+                              autoOn
+                                ? "bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40"
+                                : "bg-slate-600"
+                            }`}
+                          >
+                            <div
+                              className={`absolute h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                autoOn
+                                  ? "translate-x-[18px]"
+                                  : "translate-x-[2px]"
+                              }`}
+                            />
+                          </div>
                         </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+
+                        <div className="grid grid-cols-5 gap-0.5">
+                          {LETTERS.map((l) => (
+                            <div
+                              key={l}
+                              className={`${LETTER_BG[l]} text-white font-extrabold text-center py-0.5 sm:py-1 rounded-none text-xs sm:text-sm shadow-sm`}
+                            >
+                              {l}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-1 grid grid-cols-5 gap-0.5">
+                          {card.flat().map((val, i) => {
+                            const vs = String(val);
+                            const isFree = val === "FREE";
+                            const isPicked = slotPicks.has(vs);
+                            return (
+                              <div
+                                key={i}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isFree) togglePick(slot, vs);
+                                }}
+                                className={`rounded-none aspect-square flex items-center justify-center font-black border text-xs sm:text-sm leading-none select-none transition-all duration-200 ${
+                                  isFree
+                                    ? "bg-gradient-to-br from-amber-400 to-amber-500 text-amber-900 border-amber-300 shadow-sm shadow-amber-400/30"
+                                    : isPicked
+                                      ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white border-indigo-300 shadow-sm shadow-indigo-400/30 scale-105"
+                                      : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-teal-100 hover:border-teal-400 hover:scale-105"
+                                }`}
+                              >
+                                {isFree ? "★" : val}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {autoOn ? (
+                          <div className="mt-2 w-full font-black rounded-lg py-1 sm:py-1.5 text-xs sm:text-sm border uppercase tracking-wider overflow-hidden relative bg-gradient-to-r from-yellow-400/30 via-amber-400/30 to-orange-400/30 text-amber-950/60 border-amber-300/30 flex items-center justify-center gap-2">
+                            <Info size={14} className="sm:w-4 sm:h-4" />
+                            <div className="flex flex-col leading-none">
+                              <span className="text-shadow-sm">Auto is on</span>
+                              <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
+                                off to play manually
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              claimBingo(slot);
+                            }}
+                            disabled={!enabled || !gameStarted}
+                            className={`mt-2 w-full font-black rounded-lg py-1 sm:py-1.5 text-xs sm:text-sm border transition-all duration-200 uppercase tracking-wider overflow-hidden relative ${
+                              enabled && gameStarted
+                                ? "bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-amber-950 border-amber-300 shadow-md shadow-amber-400/40 active:scale-[0.96] hover:shadow-lg hover:shadow-amber-400/50"
+                                : "bg-transparent text-slate-600 border-slate-700/50 cursor-not-allowed"
+                            }`}
+                          >
+                            {enabled && gameStarted && (
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                            )}
+                            <div className="flex flex-col leading-none relative z-10">
+                              <span className="text-shadow-sm">🎯 BINGO!</span>
+                              <span className="text-[9px] sm:text-[10px] mt-1.5 opacity-80">
+                                ድልዎን ያውጁ
+                              </span>
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>

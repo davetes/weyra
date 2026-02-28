@@ -13,6 +13,10 @@ const handleClaimBingo = require("./routes/claimBingo");
 const handleAbandon = require("./routes/abandon");
 const handleProfile = require("./routes/profile");
 const handleHistory = require("./routes/history");
+const handleDepositRequest = require("./routes/depositRequest");
+const handleWithdrawRequest = require("./routes/withdrawRequest");
+const handleDepositAccounts = require("./routes/depositAccounts");
+const handleWalletRequests = require("./routes/walletRequests");
 const adminRoutes = require("./routes/admin");
 const setupSocket = require("./socket");
 const { startCallTicker } = require("./callTicker");
@@ -37,10 +41,16 @@ app.use("/static", express.static(path.join(__dirname, "..", "public")));
 app.get("/api/game_state", (req, res) => handleGameState(req, res, io));
 app.get("/api/profile", (req, res) => handleProfile(req, res));
 app.get("/api/history", (req, res) => handleHistory(req, res));
+app.get("/api/deposit_accounts", (req, res) => handleDepositAccounts(req, res));
+app.get("/api/wallet_requests", (req, res) => handleWalletRequests(req, res));
 app.post("/api/select", (req, res) => handleSelect(req, res));
 app.post("/api/auto", (req, res) => handleAuto(req, res));
 app.post("/api/claim_bingo", (req, res) => handleClaimBingo(req, res, io));
 app.post("/api/abandon", (req, res) => handleAbandon(req, res));
+app.post("/api/deposit_request", (req, res) => handleDepositRequest(req, res));
+app.post("/api/withdraw_request", (req, res) =>
+  handleWithdrawRequest(req, res),
+);
 app.use("/api/admin", adminRoutes);
 
 // Health check
