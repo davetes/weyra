@@ -162,6 +162,107 @@
         animation: none;
     }
 
+    .stake-btn {
+        @apply relative w-full h-14 overflow-hidden rounded-2xl text-white transition-all duration-300;
+        @apply border border-white/10 backdrop-blur-xl bg-white/5;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.10);
+        transform: translateZ(0);
+    }
+    .stake-btn:hover {
+        @apply border-white/15 bg-white/10;
+        box-shadow: 0 14px 38px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.12);
+        transform: translateY(-1px);
+    }
+    .stake-btn:active {
+        transform: translateY(0);
+    }
+    .stake-btn::before {
+        content: "";
+        position: absolute;
+        inset: -60% -60% -60% -60%;
+        background: linear-gradient(
+            120deg,
+            transparent 0%,
+            rgba(255,255,255,0.00) 42%,
+            rgba(255,255,255,0.28) 50%,
+            rgba(255,255,255,0.00) 58%,
+            transparent 100%
+        );
+        filter: blur(2px);
+        opacity: 0.95;
+        transform: translateX(-60%) translateY(10%) rotate(0deg);
+        animation: stakeShine 4.2s linear infinite;
+        pointer-events: none;
+    }
+    .stake-btn::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(120% 120% at 20% 10%, rgba(255,255,255,0.10) 0%, transparent 55%),
+            radial-gradient(120% 120% at 90% 90%, rgba(255,255,255,0.06) 0%, transparent 60%);
+        pointer-events: none;
+    }
+
+    .stake-btn-inner {
+        @apply relative z-10 h-full w-full flex items-center justify-between px-4;
+    }
+    .stake-btn-title {
+        @apply font-black text-lg;
+        letter-spacing: 0.2px;
+    }
+    .stake-btn-sub {
+        @apply text-[12px] font-semibold text-white/70;
+    }
+    .stake-btn-chip {
+        @apply px-3 py-1 rounded-full text-[11px] font-black border;
+        background: rgba(255,255,255,0.06);
+        border-color: rgba(255,255,255,0.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+
+    .stake-10 {
+        border-color: rgba(16, 185, 129, 0.22);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 28px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+    .stake-10::after {
+        background:
+            radial-gradient(120% 120% at 20% 10%, rgba(16,185,129,0.16) 0%, transparent 55%),
+            radial-gradient(120% 120% at 90% 90%, rgba(255,255,255,0.06) 0%, transparent 60%);
+    }
+    .stake-10::before {
+        animation-duration: 3.6s;
+        animation-delay: 0.2s;
+    }
+
+    .stake-20 {
+        border-color: rgba(249, 115, 22, 0.22);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 28px rgba(249,115,22,0.12), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+    .stake-20::after {
+        background:
+            radial-gradient(120% 120% at 20% 10%, rgba(249,115,22,0.16) 0%, transparent 55%),
+            radial-gradient(120% 120% at 90% 90%, rgba(255,255,255,0.06) 0%, transparent 60%);
+    }
+    .stake-20::before {
+        animation-duration: 4.2s;
+        animation-delay: 1.0s;
+    }
+
+    .stake-50 {
+        border-color: rgba(244, 63, 94, 0.20);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 28px rgba(244,63,94,0.12), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+    .stake-50::after {
+        background:
+            radial-gradient(120% 120% at 20% 10%, rgba(244,63,94,0.14) 0%, transparent 55%),
+            radial-gradient(120% 120% at 90% 90%, rgba(255,255,255,0.06) 0%, transparent 60%);
+    }
+    .stake-50::before {
+        animation-duration: 5.0s;
+        animation-delay: 2.1s;
+    }
+
     /* ── Premium Stat pills ── */
     .stat-pill {
         @apply flex flex-col items-center px-4 py-3 rounded-xl text-xs font-semibold;
@@ -296,6 +397,18 @@
 }
 
 @layer utilities {
+    @keyframes stakeShine {
+        0% {
+            transform: translateX(-70%) translateY(25%);
+        }
+        60% {
+            transform: translateX(70%) translateY(-25%);
+        }
+        100% {
+            transform: translateX(70%) translateY(-25%);
+        }
+    }
+
     @keyframes derash-float {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-4px); }
@@ -325,6 +438,9 @@
     }
     .border-glow-gold {
         box-shadow: 0 0 15px rgba(251,191,36,0.3), inset 0 0 15px rgba(251,191,36,0.1);
+    }
+    .shadow-glow-gold {
+        box-shadow: 0 0 22px rgba(251,191,36,0.28), 0 0 46px rgba(251,191,36,0.14);
     }
     .hover-lift {
         transition: transform 0.3s ease, box-shadow 0.3s ease;
