@@ -99,7 +99,9 @@ export default function ProfilePage() {
                 <WalletIcon className="w-4 h-4" />
                 Main Wallet
               </div>
-              <div className="mt-2 text-2xl font-black">{Number(wallet || 0).toFixed(0)}</div>
+              <div className="mt-2 text-2xl font-black">
+                {Number(wallet || 0).toFixed(0)}
+              </div>
             </div>
 
             <div className="rounded-none border border-white/10 bg-white/5 p-4">
@@ -107,7 +109,9 @@ export default function ProfilePage() {
                 <WalletIcon className="w-4 h-4 text-emerald-300" />
                 Play Wallet
               </div>
-              <div className="mt-2 text-2xl font-black">{Number(gift || 0).toFixed(0)}</div>
+              <div className="mt-2 text-2xl font-black">
+                {Number(gift || 0).toFixed(0)}
+              </div>
             </div>
 
             <div className="rounded-none border border-white/10 bg-white/5 p-4">
@@ -123,7 +127,9 @@ export default function ProfilePage() {
                 <Users className="w-4 h-4 text-orange-300" />
                 Total Invite
               </div>
-              <div className="mt-2 text-2xl font-black">{totalInvites || 0}</div>
+              <div className="mt-2 text-2xl font-black">
+                {totalInvites || 0}
+              </div>
             </div>
 
             <div className="rounded-none border border-white/10 bg-white/5 p-4 col-span-2">
@@ -131,7 +137,9 @@ export default function ProfilePage() {
                 <TrendingUp className="w-4 h-4 text-emerald-300" />
                 Total Earning
               </div>
-              <div className="mt-2 text-2xl font-black">{Number(totalEarning || 0).toFixed(0)}</div>
+              <div className="mt-2 text-2xl font-black">
+                {Number(totalEarning || 0).toFixed(0)}
+              </div>
             </div>
           </div>
 
@@ -156,15 +164,17 @@ export default function ProfilePage() {
               aria-label="Toggle sound"
             >
               <span
-                className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                  soundOn ? "translate-x-5" : "translate-x-0.5"
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                  soundOn ? "translate-x-5" : "translate-x-0"
                 }`}
               />
             </button>
           </div>
 
           {loading && (
-            <div className="mt-3 text-center text-xs text-white/60">Loading...</div>
+            <div className="mt-3 text-center text-xs text-white/60">
+              Loading...
+            </div>
           )}
         </div>
 
@@ -173,7 +183,9 @@ export default function ProfilePage() {
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")}
+                onClick={() =>
+                  router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")
+                }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
                 <Gamepad2 className="w-5 h-5" />
@@ -183,7 +195,11 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/history?tid=${encodeURIComponent(tid)}` : "/history")
+                  router.push(
+                    tid
+                      ? `/history?tid=${encodeURIComponent(tid)}`
+                      : "/history",
+                  )
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
@@ -194,7 +210,9 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet")
+                  router.push(
+                    tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet",
+                  )
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
@@ -205,7 +223,11 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/profile?tid=${encodeURIComponent(tid)}` : "/profile")
+                  router.push(
+                    tid
+                      ? `/profile?tid=${encodeURIComponent(tid)}`
+                      : "/profile",
+                  )
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-200"
               >

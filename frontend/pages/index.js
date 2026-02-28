@@ -97,27 +97,27 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => goPlay(10)}
-                className="w-full h-14 font-black text-xl text-[#2B1B00] transition-all duration-300 relative overflow-hidden group bg-gradient-to-r from-[#FACC15] to-[#EAB308] border border-[#FACC15]/50 shadow-[0_8px_28px_rgba(250,204,21,0.18)] hover:shadow-[0_10px_36px_rgba(56,189,248,0.12)] hover:-translate-y-[1px] active:translate-y-0"
+                className="w-full h-14 font-black text-xl text-white transition-all duration-300 relative overflow-hidden group bg-gradient-to-b from-[#8FB697] to-[#4D6D53] border border-white/15 shadow-[0_8px_28px_rgba(143,182,151,0.18)] hover:shadow-[0_10px_36px_rgba(143,182,151,0.26)] hover:-translate-y-[1px] active:translate-y-0"
               >
-                <span className="relative z-10">Play 10 ETB</span>
+                <span className="relative z-10">10 ETB (Weyra)</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-white/35 via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
 
               <button
                 type="button"
                 onClick={() => goPlay(20)}
-                className="w-full h-14 font-black text-xl text-[#2B1B00] transition-all duration-300 relative overflow-hidden group bg-gradient-to-r from-[#FACC15] to-[#EAB308] border border-[#FACC15]/50 shadow-[0_8px_28px_rgba(250,204,21,0.18)] hover:shadow-[0_10px_36px_rgba(56,189,248,0.12)] hover:-translate-y-[1px] active:translate-y-0"
+                className="w-full h-14 font-black text-xl text-white transition-all duration-300 relative overflow-hidden group bg-gradient-to-b from-[#E0823D] to-[#9A4B1A] border border-white/15 shadow-[0_8px_28px_rgba(224,130,61,0.16)] hover:shadow-[0_10px_36px_rgba(224,130,61,0.24)] hover:-translate-y-[1px] active:translate-y-0"
               >
-                <span className="relative z-10">Play 20 ETB</span>
+                <span className="relative z-10">20 ETB (Fortune)</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-white/35 via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
 
               <button
                 type="button"
                 onClick={() => goPlay(50)}
-                className="w-full h-14 font-black text-xl text-[#2B1B00] transition-all duration-300 relative overflow-hidden group bg-gradient-to-r from-[#FACC15] to-[#EAB308] border border-[#FACC15]/50 shadow-[0_8px_28px_rgba(250,204,21,0.18)] hover:shadow-[0_10px_36px_rgba(56,189,248,0.12)] hover:-translate-y-[1px] active:translate-y-0"
+                className="w-full h-14 font-black text-xl text-white transition-all duration-300 relative overflow-hidden group bg-gradient-to-b from-[#A31F24] to-[#5C0D10] border border-white/15 shadow-[0_8px_28px_rgba(163,31,36,0.16)] hover:shadow-[0_10px_36px_rgba(163,31,36,0.24)] hover:-translate-y-[1px] active:translate-y-0"
               >
-                <span className="relative z-10">Play 50 ETB</span>
+                <span className="relative z-10">50 ETB (Buna)</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-white/35 via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
             </div>
