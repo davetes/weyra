@@ -7,7 +7,11 @@ const { buildDepositKeyboard, handleDepositSelection } = require("./deposit");
 const { setupWithdraw } = require("./withdraw");
 const { setupInvite } = require("./invite");
 const { setupReport } = require("./report");
-const { notifyEntertainers, forwardToEntertainers, getEntertainerIds } = require("./entertainer");
+const {
+  notifyEntertainers,
+  forwardToEntertainers,
+  getEntertainerIds,
+} = require("./entertainer");
 
 const prisma = new PrismaClient();
 
@@ -211,13 +215,9 @@ function setupCommands(bot) {
     const ok = await ensurePhoneRegistered(bot, chatId, player);
     if (!ok) return;
 
-    await bot.sendMessage(
-      chatId,
-      "🎮 Tap 'Play Now' to open Weyra Bingo.",
-      {
-        reply_markup: buildPlayNowWebAppKeyboard(tid),
-      },
-    );
+    await bot.sendMessage(chatId, "🎮 Tap 'Play Now' to open Weyra Bingo.", {
+      reply_markup: buildPlayNowWebAppKeyboard(tid),
+    });
   });
 
   // /deposit — show deposit options
@@ -382,7 +382,7 @@ function setupCommands(bot) {
               await bot.sendMessage(
                 refTid,
                 "🎉 Referral bonus received!\n" +
-                  "A new player joined using your link. +3.00 ETB\n" +
+                  "A new player joined using your link. +5.00 ETB\n" +
                   "Bonus added to Play Wallet.",
               );
             } catch (_) {}
@@ -547,13 +547,9 @@ function setupCommands(bot) {
 
     if (data === "play_now") {
       await bot.answerCallbackQuery(query.id).catch(() => {});
-      await bot.sendMessage(
-        chatId,
-        "🎮 Tap 'Play Now' to open Weyra Bingo.",
-        {
-          reply_markup: buildPlayNowWebAppKeyboard(tid),
-        },
-      );
+      await bot.sendMessage(chatId, "🎮 Tap 'Play Now' to open Weyra Bingo.", {
+        reply_markup: buildPlayNowWebAppKeyboard(tid),
+      });
       return;
     }
 
@@ -646,7 +642,7 @@ function setupCommands(bot) {
       const link = `https://t.me/${botInfo.username}?start=ref_${tid}`;
       await bot.sendMessage(
         chatId,
-        `🎁 *Invite Friends*\n\nShare your referral link:\n\`${link}\`\n\nYou'll receive *3 ETB* for each new player who joins using your link!`,
+        `🎁 *Invite Friends*\n\nShare your referral link:\n\`${link}\`\n\nYou'll receive *5 ETB* for each new player who joins using your link!`,
         {
           parse_mode: "Markdown",
           reply_markup: {
@@ -727,7 +723,9 @@ function setupCommands(bot) {
     try {
       if (player) {
         const method = String(depositMethod || "");
-        const amount = depositAmountStr ? parsePositiveAmount(depositAmountStr) : null;
+        const amount = depositAmountStr
+          ? parsePositiveAmount(depositAmountStr)
+          : null;
         const depositReq = await prisma.depositRequest.create({
           data: {
             playerId: player.id,
@@ -752,33 +750,41 @@ function setupCommands(bot) {
     await forwardToEntertainers(bot, msg.chat.id, msg.message_id);
 
     const meta =
-      `💳 Deposit Request #${depositRequestId || 'N/A'}\n` +
+      `💳 Deposit Request #${depositRequestId || "N/A"}\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
       `User: @${username} (id: <code>${tid}</code>)\n` +
       `Phone: ${phone}\n` +
-      `Amount: ${depositAmountStr || 'N/A'} ETB\n` +
-      `Method: ${depositMethod || 'N/A'}\n` +
+      `Amount: ${depositAmountStr || "N/A"} ETB\n` +
+      `Method: ${depositMethod || "N/A"}\n` +
       `Caption: ${caption}`;
 
-    const replyMarkup = depositRequestId ? {
-      inline_keyboard: [
-        [
-          { text: "✅ Approve", callback_data: `approve_deposit:${depositRequestId}` },
-          { text: "❌ Reject", callback_data: `reject_deposit:${depositRequestId}` },
-        ],
-        [
-          { text: "Open User", url: `tg://user?id=${tid}` },
-          { text: "Copy ID", callback_data: `copy_tid:${tid}` },
-        ],
-      ],
-    } : {
-      inline_keyboard: [
-        [
-          { text: "Open User", url: `tg://user?id=${tid}` },
-          { text: "Copy ID", callback_data: `copy_tid:${tid}` },
-        ],
-      ],
-    };
+    const replyMarkup = depositRequestId
+      ? {
+          inline_keyboard: [
+            [
+              {
+                text: "✅ Approve",
+                callback_data: `approve_deposit:${depositRequestId}`,
+              },
+              {
+                text: "❌ Reject",
+                callback_data: `reject_deposit:${depositRequestId}`,
+              },
+            ],
+            [
+              { text: "Open User", url: `tg://user?id=${tid}` },
+              { text: "Copy ID", callback_data: `copy_tid:${tid}` },
+            ],
+          ],
+        }
+      : {
+          inline_keyboard: [
+            [
+              { text: "Open User", url: `tg://user?id=${tid}` },
+              { text: "Copy ID", callback_data: `copy_tid:${tid}` },
+            ],
+          ],
+        };
 
     await notifyEntertainers(bot, meta, {
       parse_mode: "HTML",
