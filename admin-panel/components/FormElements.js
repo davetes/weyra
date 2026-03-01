@@ -11,7 +11,7 @@ export function Input({ icon: Icon, className = "", ...props }) {
         </div>
       )}{" "}
       <input
-        className={`w-full bg-bg-secondary border border-border rounded-xl text-sm text-slate-200 placeholder:text-muted transition-colors focus:border-accent/50 ${Icon ? "pl-9 pr-3" : "px-3"} py-2.5 ${className}`}
+        className={`w-full bg-bg-secondary/90 border border-border/80 rounded-xl text-sm text-slate-200 placeholder:text-muted transition-all duration-200 hover:border-border-light/80 focus:border-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-bg ${Icon ? "pl-9 pr-3" : "px-3"} py-2.5 ${className}`}
         {...props}
       />{" "}
     </div>
@@ -27,7 +27,7 @@ export function SearchInput({ className = "", ...props }) {
 export function Select({ children, className = "", ...props }) {
   return (
     <select
-      className={`bg-bg-secondary border border-border rounded-xl px-3 py-2.5 text-sm text-slate-200 transition-colors focus:border-accent/50 appearance-none cursor-pointer ${className}`}
+      className={`bg-bg-secondary/90 border border-border/80 rounded-xl px-3 py-2.5 text-sm text-slate-200 transition-all duration-200 hover:border-border-light/80 focus:border-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-bg appearance-none cursor-pointer ${className}`}
       {...props}
     >
       {children}{" "}

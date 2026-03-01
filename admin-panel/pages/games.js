@@ -44,7 +44,7 @@ export default function GamesPage() {
 }
 
 function GamesInner({ token, admin }) {
-  const canRead = useMemo(() => hasPerm(admin, "settings.read"), [admin]);
+  const canRead = useMemo(() => hasPerm(admin, "games.read"), [admin]);
 
   const stakes = [10, 20, 50];
   const [stake, setStake] = useState(10);

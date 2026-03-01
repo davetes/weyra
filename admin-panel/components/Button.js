@@ -12,14 +12,15 @@ export default function Button({
 }) {
   const variants = {
     default:
-      "bg-panel border border-border text-slate-200 hover:bg-panel-hover hover:border-border-light",
+      "bg-panel/90 border border-border/80 text-slate-200 hover:bg-panel-hover/90 hover:border-border-light/90",
     primary:
       "bg-accent hover:bg-accent-hover text-white shadow-glow hover:shadow-glow-lg",
     success: "bg-success/90 hover:bg-success text-white",
     danger: "bg-danger/90 hover:bg-danger text-white",
-    ghost: "text-slate-300 hover:bg-white/5 hover:text-slate-100",
+    ghost:
+      "text-slate-300 hover:text-slate-100 hover:bg-white/5 border border-transparent",
     outline:
-      "border border-border text-slate-300 hover:bg-white/5 hover:border-border-light",
+      "bg-transparent border border-border/80 text-slate-200 hover:bg-white/5 hover:border-border-light/90",
   };
 
   const sizes = {
@@ -31,7 +32,7 @@ export default function Button({
 
   return (
     <button
-      className={`inline-flex items-center justify-center font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant] || variants.default} ${sizes[size] || sizes.md} ${className}`}
+      className={`inline-flex items-center justify-center font-medium select-none whitespace-nowrap transition-all duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg active:translate-y-[1px] ${variants[variant] || variants.default} ${sizes[size] || sizes.md} ${className}`}
       disabled={disabled || loading}
       {...props}
     >

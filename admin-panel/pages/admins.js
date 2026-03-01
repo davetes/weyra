@@ -21,6 +21,7 @@ const PERMS = [
   { id: "players.read", label: "View players" },
   { id: "players.ban", label: "Ban / Unban players" },
   { id: "game.control", label: "Game control (pause/restart)" },
+  { id: "games.read", label: "View games" },
   { id: "deposit.read", label: "View deposit requests" },
   { id: "deposit.decide", label: "Approve / Reject deposits" },
   { id: "withdraw.read", label: "View withdraw requests" },
@@ -484,7 +485,14 @@ function AdminsInner({ token, admin }) {
                             </Button>
                           </>
                         ) : (
-                          <span className="text-xs text-muted">-</span>
+                          <span className="text-xs text-muted">
+                            {admin?.role === "super_admin" &&
+                            a.role === "super_admin" ? (
+                              <Badge variant="accent">Protected</Badge>
+                            ) : (
+                              "-"
+                            )}
+                          </span>
                         )}
                       </div>
                     </td>

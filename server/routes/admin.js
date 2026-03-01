@@ -17,6 +17,7 @@ const PERMS = {
   players_read: "players.read",
   players_ban: "players.ban",
   admins_manage: "admins.manage",
+  games_read: "games.read",
   settings_read: "settings.read",
   settings_write: "settings.write",
   game_control: "game.control",
@@ -1200,7 +1201,7 @@ router.get("/stats", requireAuth(), async (req, res) => {
 router.get(
   "/games",
   requireAuth(),
-  requirePerm(PERMS.settings_read),
+  requirePerm(PERMS.games_read),
   async (req, res) => {
     try {
       const stake = parseInt(String(req.query.stake || "0"), 10);
@@ -1260,7 +1261,7 @@ router.get(
 router.get(
   "/games/:id",
   requireAuth(),
-  requirePerm(PERMS.settings_read),
+  requirePerm(PERMS.games_read),
   async (req, res) => {
     try {
       const id = parseInt(String(req.params.id || "0"), 10);

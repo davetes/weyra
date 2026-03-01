@@ -23,7 +23,7 @@ import {
 const NAV = [
   { href: "/app", label: "Dashboard", icon: IconDashboard },
   { href: "/rooms", label: "Rooms", perm: "settings.read", icon: IconGamepad },
-  { href: "/games", label: "Games", perm: "settings.read", icon: IconGamepad },
+  { href: "/games", label: "Games", perm: "games.read", icon: IconGamepad },
   { href: "/players", label: "Players", perm: "players.read", icon: IconUsers },
   {
     href: "/transactions",
@@ -121,25 +121,25 @@ export default function AdminShell({
         : "text-success";
 
   return (
-    <div className="min-h-screen bg-bg text-slate-100 flex">
+    <div className="min-h-screen text-slate-100 flex bg-[radial-gradient(1200px_circle_at_20%_0%,rgba(99,102,241,0.14),transparent_45%),radial-gradient(900px_circle_at_80%_10%,rgba(6,182,212,0.08),transparent_40%),linear-gradient(to_bottom,#0f172a_0%,#0a0f1a_55%,#060a12_100%)]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-[260px] bg-panel border-r border-border flex flex-col transition-transform duration-300 shadow-sidebar ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-[270px] bg-panel/95 border-r border-border/80 flex flex-col transition-transform duration-300 shadow-sidebar ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         {/* Logo area */}
-        <div className="px-5 py-5 border-b border-border">
+        <div className="px-5 py-5 border-b border-border/80">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-accent-hover flex items-center justify-center text-white font-bold text-sm shadow-glow">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-accent-hover flex items-center justify-center text-white font-bold text-sm shadow-glow ring-1 ring-white/10">
               W
             </div>
             <div>
@@ -167,16 +167,23 @@ export default function AdminShell({
                 key={item.href}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                   active
                     ? "bg-accent/15 text-accent-light shadow-sm border border-accent/20"
                     : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
                 }`}
               >
-                <Icon size={18} className={active ? "text-accent-light" : ""} />
+                <Icon
+                  size={18}
+                  className={
+                    active
+                      ? "text-accent-light"
+                      : "text-slate-500 group-hover:text-slate-200"
+                  }
+                />
                 <span className="flex-1">{item.label}</span>
                 {badgeCount > 0 && (
-                  <span className="bg-danger text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1">
+                  <span className="bg-danger text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1 shadow-sm">
                     {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 )}
@@ -186,9 +193,9 @@ export default function AdminShell({
         </nav>
 
         {/* User section */}
-        <div className="px-3 py-4 border-t border-border space-y-3">
+        <div className="px-3 py-4 border-t border-border/80 space-y-3">
           <div className="flex items-center gap-3 px-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent/40 to-accent-hover/40 flex items-center justify-center text-accent-light font-bold text-xs uppercase">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent/40 to-accent-hover/40 flex items-center justify-center text-accent-light font-bold text-xs uppercase ring-1 ring-white/10">
               {(admin?.username || "?")[0]}
             </div>
             <div className="flex-1 min-w-0">
@@ -204,7 +211,7 @@ export default function AdminShell({
             </div>
           </div>
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/20"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 border border-transparent hover:border-red-500/20"
             onClick={onLogout}
           >
             <IconLogout size={16} />
@@ -216,21 +223,23 @@ export default function AdminShell({
       {/* Main content */}
       <main className="flex-1 min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-bg/80 backdrop-blur-xl border-b border-border px-6 py-4">
+        <header className="sticky top-0 z-30 bg-bg/80 backdrop-blur-xl border-b border-border/80 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
                 onClick={() => setSidebarOpen(true)}
               >
                 <IconMenu size={20} />
               </button>
               <div>
-                <h1 className="text-lg font-bold text-slate-100">{title}</h1>
+                <h1 className="text-lg font-bold text-slate-100 tracking-tight">
+                  {title}
+                </h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="relative p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition">
+              <button className="relative p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
                 <IconBell size={18} />
                 {(pendingCounts.pendingDeposits > 0 ||
                   pendingCounts.pendingWithdraws > 0) && (
@@ -242,7 +251,7 @@ export default function AdminShell({
         </header>
 
         {/* Page content */}
-        <div className="p-6 animate-fade-in">{children}</div>
+        <div className="p-6 lg:p-8 animate-fade-in">{children}</div>
       </main>
     </div>
   );

@@ -6,7 +6,7 @@ export default function Badge({
   className = "",
 }) {
   const variants = {
-    default: "bg-slate-800 text-slate-300 border-slate-700",
+    default: "bg-slate-800/70 text-slate-200 border-slate-700/60",
     success: "bg-success-muted text-success border-success/20",
     danger: "bg-danger-muted text-danger border-danger/20",
     warning: "bg-warning-muted text-warning border-warning/20",
@@ -16,7 +16,7 @@ export default function Badge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${variants[variant] || variants.default} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border shadow-sm ${variants[variant] || variants.default} ${className}`}
     >
       {" "}
       {dot && (
