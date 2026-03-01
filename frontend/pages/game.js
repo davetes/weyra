@@ -85,6 +85,7 @@ export default function GamePage() {
   const [audioOn, setAudioOn] = useState(false);
   const [suppressCalls, setSuppressCalls] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [disqualifiedSlots, setDisqualifiedSlots] = useState([false, false]);
 
   const socketRef = useRef(null);
   const audioRef = useRef(null);
@@ -133,6 +134,12 @@ export default function GamePage() {
   useEffect(() => {
     if (!gameStarted || winner) {
       autoClaimedRef.current = [false, false];
+    }
+  }, [gameStarted, winner]);
+
+  useEffect(() => {
+    if (!gameStarted || winner) {
+      setDisqualifiedSlots([false, false]);
     }
   }, [gameStarted, winner]);
 
@@ -707,7 +714,13 @@ export default function GamePage() {
       .then((data) => {
         if (data?.disqualified) {
           setToastMessage(data?.error || "No valid bingo");
-          scheduleReturnToPlay(6000);
+          setDisqualifiedSlots((prev) => {
+            const next = Array.isArray(prev)
+              ? prev.slice(0, 2)
+              : [false, false];
+            next[slot ?? 0] = true;
+            return next;
+          });
           return;
         }
         const idx = myIndices?.[slot ?? 0];
@@ -803,6 +816,7 @@ export default function GamePage() {
     const tryAutoClaim = (slot) => {
       const autoOn = slot === 1 ? autoSelect1 : autoSelect0;
       if (!autoOn || autoClaimedRef.current[slot]) return;
+      if (disqualifiedSlots?.[slot]) return;
       const card = myCards?.[slot];
       if (!card) return;
       const result = checkBingo(card, calledSet);
@@ -813,7 +827,15 @@ export default function GamePage() {
 
     tryAutoClaim(0);
     tryAutoClaim(1);
-  }, [autoSelect0, autoSelect1, calledSet, myCards, gameStarted, winner]);
+  }, [
+    autoSelect0,
+    autoSelect1,
+    calledSet,
+    myCards,
+    gameStarted,
+    winner,
+    disqualifiedSlots,
+  ]);
 
   function isWinningCell(r, c, d) {
     if (!d) return false;
@@ -1101,7 +1123,7 @@ export default function GamePage() {
                         : null;
 
                     const slotPicks = slot === 1 ? picks1 : picks0;
-                    const enabled = !!card;
+                    const enabled = !!card && !disqualifiedSlots?.[slot];
                     const autoOn = slot === 1 ? autoSelect1 : autoSelect0;
                     const manualAllowed = enabled && !autoOn;
 
