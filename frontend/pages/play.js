@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { ArrowLeftFromLine } from "lucide-react";
@@ -53,6 +53,34 @@ const LETTER_BG = {
   O: "bg-pink-bingo",
 };
 const LETTERS = ["B", "I", "N", "G", "O"];
+const NUMBERS = Array.from({ length: 200 }, (_, i) => i + 1);
+
+/* ── Memoized grid cell to avoid re-rendering all 200 on every state update ── */
+const GridCell = React.memo(function GridCell({ n, isTaken, isSelected, onClick }) {
+  const base =
+    "relative font-black rounded sm:rounded aspect-square flex items-center justify-center select-none text-sm sm:text-lg leading-none border-2 transition-colors duration-150";
+  const cls = isSelected
+    ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 border-amber-300 text-white shadow-lg shadow-amber-500/30"
+    : isTaken
+      ? "bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 border-rose-300 text-white shadow-sm"
+      : "bg-emerald-900/40 border-emerald-500/30 text-emerald-100 shadow-sm hover:bg-emerald-800/50 active:scale-95";
+
+  return (
+    <button
+      type="button"
+      className={`${base} ${cls}`}
+      disabled={isTaken && !isSelected}
+      onClick={onClick}
+    >
+      {n}
+      {isSelected && (
+        <span className="absolute top-0.5 right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-white/90 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] text-purple-600 font-black shadow-md">
+          ✓
+        </span>
+      )}
+    </button>
+  );
+});
 
 export default function PlayPage() {
   const router = useRouter();
@@ -82,7 +110,17 @@ export default function PlayPage() {
   const lastPlayState = useRef({});
   const lastTakenSigRef = useRef("");
 
-  const numbers = Array.from({ length: 200 }, (_, i) => i + 1);
+  /* ── Refs to hold latest state values so refreshState callback stays stable ── */
+  const acceptedCountRef = useRef(acceptedCount);
+  const acceptedCardsRef = useRef(acceptedCards);
+  const gameIdRef = useRef(gameId);
+  const walletRef = useRef(wallet);
+  const giftRef = useRef(gift);
+  useEffect(() => { acceptedCountRef.current = acceptedCount; }, [acceptedCount]);
+  useEffect(() => { acceptedCardsRef.current = acceptedCards; }, [acceptedCards]);
+  useEffect(() => { gameIdRef.current = gameId; }, [gameId]);
+  useEffect(() => { walletRef.current = wallet; }, [wallet]);
+  useEffect(() => { giftRef.current = gift; }, [gift]);
 
   async function acceptCard(index, slot) {
     if (!TID || !index) return;
@@ -178,7 +216,7 @@ export default function PlayPage() {
       firstLoad.current = false;
 
       const nextGameId = data.game_id ?? "-";
-      if (nextGameId !== gameId) setGameId(nextGameId);
+      if (nextGameId !== gameIdRef.current) setGameId(nextGameId);
 
       const takenArr = (data.taken || []).map(String);
       takenArr.sort((a, b) => Number(a) - Number(b));
@@ -189,10 +227,10 @@ export default function PlayPage() {
       }
 
       const nextAccepted = data.accepted_count || 0;
-      if (nextAccepted !== acceptedCount) setAcceptedCount(nextAccepted);
+      if (nextAccepted !== acceptedCountRef.current) setAcceptedCount(nextAccepted);
 
       const nextAcceptedCards = data.accepted_cards || 0;
-      if (nextAcceptedCards !== acceptedCards)
+      if (nextAcceptedCards !== acceptedCardsRef.current)
         setAcceptedCards(nextAcceptedCards);
       if (Array.isArray(data.my_indices) && !data.started) {
         const a =
@@ -202,9 +240,9 @@ export default function PlayPage() {
         setSelectedA(Number.isFinite(a) && a > 0 ? a : null);
         setSelectedB(Number.isFinite(b) && b > 0 ? b : null);
       }
-      if (typeof data.wallet === "number" && data.wallet !== wallet)
+      if (typeof data.wallet === "number" && data.wallet !== walletRef.current)
         setWallet(data.wallet);
-      if (typeof data.gift === "number" && data.gift !== gift)
+      if (typeof data.gift === "number" && data.gift !== giftRef.current)
         setGift(data.gift);
 
       const remaining = data.countdown_remaining;
@@ -215,10 +253,6 @@ export default function PlayPage() {
       } else {
         if (!data.started) setCountdown("-");
       }
-      const myIndices = Array.isArray(data.my_indices) ? data.my_indices : [];
-      const hasMyCardInStartedGame = myIndices.some(
-        (idx) => Number.isFinite(Number(idx)) && Number(idx) > 0,
-      );
 
       if (!data.started) {
         pushedToGameRef.current = false;
@@ -240,7 +274,7 @@ export default function PlayPage() {
       );
       setSplashVisible(false);
     }
-  }, [STAKE, TID, router, acceptedCards, acceptedCount, gift, gameId, wallet]);
+  }, [STAKE, TID, router]);
 
   function startCountdown(iso, initialRemaining = 30) {
     const start = new Date(iso).getTime();
@@ -413,27 +447,20 @@ export default function PlayPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto py-1.5 sm:py-2">
-          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 backdrop-blur-xl border-y border-white/10 py-1.5 sm:py-2 shadow-xl h-full flex flex-col border-l border-r border-slate-600/30">
-            <div className="flex-1 overflow-y-auto no-scrollbar px-2">
+          <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 border-y border-white/10 py-1.5 sm:py-2 shadow-xl h-full flex flex-col border-l border-r border-slate-600/30">
+            <div className="flex-1 overflow-y-auto no-scrollbar px-2" style={{ willChange: 'transform', WebkitOverflowScrolling: 'touch', contentVisibility: 'auto', containIntrinsicSize: 'auto 2000px' }}>
               <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
-                {numbers.map((n) => {
+                {NUMBERS.map((n) => {
                   const key = String(n);
                   const isTaken = taken.has(key);
                   const isSelected = selectedA === n || selectedB === n;
-                  const base =
-                    "relative font-black rounded sm:rounded aspect-square flex items-center justify-center select-none text-sm sm:text-lg leading-none border-2 transition-all duration-200";
-                  const cls = isSelected
-                    ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 border-amber-300 text-white shadow-lg shadow-amber-500/30 scale-105"
-                    : isTaken
-                      ? "bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 border-rose-300 text-white shadow-md shadow-rose-500/20"
-                      : "bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 text-emerald-100 shadow-md hover:bg-emerald-500/30 hover:scale-105 active:scale-95";
 
                   return (
-                    <button
+                    <GridCell
                       key={n}
-                      type="button"
-                      className={`${base} ${cls}`}
-                      disabled={isTaken && !isSelected}
+                      n={n}
+                      isTaken={isTaken}
+                      isSelected={isSelected}
                       onClick={() => {
                         if (selectedA === n) {
                           cancelCard(0, n);
@@ -473,14 +500,7 @@ export default function PlayPage() {
                         setSelectedB(n);
                         acceptCard(n, 1);
                       }}
-                    >
-                      {n}
-                      {isSelected && (
-                        <span className="absolute top-0.5 right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-white/90 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] text-purple-600 font-black shadow-md">
-                          ✓
-                        </span>
-                      )}
-                    </button>
+                    />
                   );
                 })}
               </div>
