@@ -77,6 +77,7 @@ export default function PlayPage() {
 
   const countdownTimerRef = useRef(null);
   const pollRef = useRef(null);
+  const pushedToGameRef = useRef(false);
   const firstLoad = useRef(true);
   const lastPlayState = useRef({});
   const lastTakenSigRef = useRef("");
@@ -219,7 +220,12 @@ export default function PlayPage() {
         (idx) => Number.isFinite(Number(idx)) && Number(idx) > 0,
       );
 
-      if (data.started && hasMyCardInStartedGame) {
+      if (!data.started) {
+        pushedToGameRef.current = false;
+      }
+
+      if (data.started && !pushedToGameRef.current) {
+        pushedToGameRef.current = true;
         router.push(`/game?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
       }
 
