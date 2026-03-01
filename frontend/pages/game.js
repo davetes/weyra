@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { io } from "socket.io-client";
-import { Eye, Info, Volume2, VolumeX } from "lucide-react";
+import { Eye, Info, Volume2, VolumeX, Trophy, X, Clock3 } from "lucide-react";
 
 /* ── Deterministic card (same as play.js / server) ── */
 function mulberry32(seed) {
@@ -715,6 +715,7 @@ export default function GamePage() {
           const fallbackDetails = {
             ...data,
             picks: [...picks].map(String),
+            tid: String(TID || ""),
           };
           if (socketRef.current?.connected) {
             if (winnerSyncTimeoutRef.current) {
@@ -840,6 +841,20 @@ export default function GamePage() {
   const winnerCalledSet = winner?.called
     ? new Set(winner.called.map(String))
     : null;
+
+  const winnerTid =
+    winner?.details?.tid != null
+      ? String(winner.details.tid)
+      : winner?.details?.telegramId != null
+        ? String(winner.details.telegramId)
+        : null;
+  const tidSelf = String(TID || "").trim();
+  const isSelfWinner =
+    (!!winnerTid && String(winnerTid || "").trim() === tidSelf) ||
+    (Array.isArray(winner?.details?.winners) &&
+      winner.details.winners.some(
+        (w) => String(w?.telegramId || "").trim() === tidSelf,
+      ));
 
   return (
     <>
@@ -1256,110 +1271,136 @@ export default function GamePage() {
 
       {/* Winner Modal */}
       {winner && (
-        <div className="fixed inset-0 bg-gradient-to-br from-black/90 via-slate-950/95 to-black/90 backdrop-blur-xl flex items-center justify-center z-[9999] animate-in fade-in duration-300">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-2 border-indigo-400/40 rounded-[28px] shadow-[0_0_60px_rgba(99,102,241,0.3)] p-5 max-w-[520px] w-[95vw] overflow-hidden">
-            {/* Header Banner */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-violet-500 to-purple-600 text-white font-black text-center rounded-2xl py-4 mb-5 text-4xl tracking-widest shadow-xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-              <span className="relative z-10">🎉 BINGO! 🎉</span>
-            </div>
-
-            {/* Winner Name Section */}
-            <div className="flex flex-col items-center gap-2 justify-center my-5">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl animate-bounce">🏆</span>
-                <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 bg-clip-text text-transparent font-black text-3xl uppercase tracking-tight">
-                  {Array.isArray(winner.names) && winner.names.length
-                    ? winner.names.join(" | ")
-                    : winner.name}
-                </span>
-                <span
-                  className="text-3xl animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                >
-                  🏆
-                </span>
-              </div>
-              <span className="text-slate-400 font-bold text-sm tracking-wider uppercase">
-                Has Won The Game
-              </span>
-            </div>
-
-            {/* The Winning Card Container */}
-            <div className="bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 border-2 border-slate-600/50 rounded-2xl p-4 my-3 shadow-inner">
-              {/* B-I-N-G-O Letters */}
-              <div className="grid grid-cols-5 gap-2 mb-3">
-                {LETTERS.map((l) => (
-                  <div
-                    key={l}
-                    className={`${LETTER_BG[l]} text-white font-black text-center rounded-xl aspect-square flex items-center justify-center text-sm shadow-lg`}
-                  >
-                    {l}
-                  </div>
-                ))}
-              </div>
-
-              {/* The Card Grid */}
-              <div className="bg-gradient-to-br from-slate-950/70 to-slate-900/70 rounded-xl p-3 grid grid-cols-5 gap-2 border border-slate-700/50">
-                {winCardRows &&
-                  winCardRows.flat().map((val, i) => {
-                    const r = Math.floor(i / 5),
-                      c = i % 5;
-                    const isFree = val === "FREE";
-                    const isWin = isWinningCell(r, c, winner.details);
-                    const isMarked =
-                      isFree ||
-                      (winnerCalledSet
-                        ? winnerCalledSet.has(String(val))
-                        : calledSet.has(String(val)));
-
-                    return (
-                      <div
-                        key={i}
-                        className={`relative rounded-xl aspect-square flex items-center justify-center font-black border-2 text-xs sm:text-sm transition-all
-                  ${
-                    isWin
-                      ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 border-indigo-300 text-white shadow-[0_0_20px_rgba(99,102,241,0.6)] z-10 scale-110"
-                      : isMarked
-                        ? "bg-gradient-to-br from-emerald-500/30 to-green-500/30 border-emerald-400/60 text-emerald-300"
-                        : isFree
-                          ? "bg-gradient-to-br from-amber-400 to-orange-400 border-amber-300 text-amber-900 animate-pulse shadow-md shadow-amber-400/40"
-                          : "bg-slate-800/60 border-slate-700/60 text-slate-500"
-                  }`}
-                      >
-                        {isFree ? "⭐" : val}
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-start sm:items-center justify-center z-[9999] animate-in fade-in duration-200 overflow-y-auto"
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+          }}
+        >
+          <div className="w-full sm:max-w-[560px] sm:w-[95vw] max-h-[92vh] sm:max-h-[90vh] overflow-hidden rounded-[26px] border-2 border-slate-600/40 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 shadow-2xl">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-purple-500/15 to-emerald-500/10" />
+              <div
+                className="relative px-4 pb-3"
+                style={{
+                  paddingTop: "calc(env(safe-area-inset-top, 0px) + 0px)",
+                }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-orange-400/10 border border-amber-300/30 flex items-center justify-center shadow-sm shadow-amber-400/10">
+                      <Trophy className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-black tracking-[0.2em] text-slate-400 uppercase">
+                        {isSelfWinner ? "Victory" : "Winner"}
                       </div>
-                    );
-                  })}
-              </div>
+                      <div className="text-lg sm:text-xl font-black text-slate-100 truncate">
+                        {isSelfWinner
+                          ? "YOU WON!"
+                          : Array.isArray(winner.names) && winner.names.length
+                            ? winner.names.join(" | ")
+                            : winner.name}
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Info Text */}
-              <div className="flex justify-between items-center mt-4 px-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                  Board #{winner.index}
-                </span>
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/50"></div>
-                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 shadow-sm shadow-indigo-400/50"></div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-slate-600/40 bg-slate-950/30 text-slate-200">
+                      <Clock3 className="w-4 h-4 text-slate-300" />
+                      <span className="font-black tabular-nums text-sm">
+                        {winner.countdown ?? 5}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWinner(null);
+                        winnerRef.current = null;
+                        setSuppressCalls(false);
+                        scheduleReturnToPlay(0);
+                      }}
+                      className="w-10 h-10 rounded-xl border border-slate-600/40 bg-slate-950/30 hover:bg-slate-900/40 active:scale-95 transition-all flex items-center justify-center"
+                      aria-label="Close"
+                    >
+                      <X className="w-5 h-5 text-slate-200" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="text-[12px] text-slate-400 font-bold">
+                    Board
+                    <span className="text-slate-200 font-black ml-1">
+                      #{winner.index}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-[11px] font-black text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 shadow-sm shadow-emerald-400/40" />
+                      Marked
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] font-black text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 shadow-sm shadow-indigo-400/40" />
+                      Winning
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Numbers List */}
-            <div className="mt-4 p-3 bg-gradient-to-br from-slate-950/60 to-slate-900/60 rounded-xl text-center border border-slate-700/30">
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-2 tracking-widest">
-                Winning Sequence
-              </p>
-              <div className="text-[11px] sm:text-xs text-indigo-300 font-mono break-all leading-relaxed">
-                {winnerPickList.length ? winnerPickList.join(" • ") : "—"}
-              </div>
-            </div>
+            <div
+              className="px-4 pb-5 overflow-y-auto"
+              style={{
+                paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
+              }}
+            >
+              <div className="mt-2 bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-900/70 border-2 border-slate-600/30 rounded-2xl p-4 shadow-inner">
+                <div className="grid grid-cols-5 gap-2 mb-3">
+                  {LETTERS.map((l) => (
+                    <div
+                      key={l}
+                      className={`${LETTER_BG[l]} text-white font-black text-center rounded-xl aspect-square flex items-center justify-center text-sm shadow-sm`}
+                    >
+                      {l}
+                    </div>
+                  ))}
+                </div>
 
-            {/* Countdown Footer */}
-            <div className="relative mt-5 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-indigo-500/30 blur-2xl rounded-full"></div>
-              <div className="relative bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-indigo-400/50 text-indigo-300 w-14 h-14 flex items-center justify-center rounded-full font-black text-2xl shadow-xl shadow-indigo-500/20">
-                {winner.countdown ?? 5}
+                <div className="bg-gradient-to-br from-slate-950/70 to-slate-900/70 rounded-xl p-3 grid grid-cols-5 gap-2 border border-slate-700/40">
+                  {winCardRows &&
+                    winCardRows.flat().map((val, i) => {
+                      const r = Math.floor(i / 5);
+                      const c = i % 5;
+                      const isFree = val === "FREE";
+                      const isWin = isWinningCell(r, c, winner.details);
+                      const isMarked =
+                        isFree ||
+                        (winnerCalledSet
+                          ? winnerCalledSet.has(String(val))
+                          : calledSet.has(String(val)));
+
+                      return (
+                        <div
+                          key={i}
+                          className={`relative rounded-xl aspect-square flex items-center justify-center font-black border-2 text-xs sm:text-sm transition-all duration-200
+                            ${
+                              isWin
+                                ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 border-indigo-300 text-white shadow-[0_0_18px_rgba(99,102,241,0.55)] z-10 scale-[1.08]"
+                                : isMarked
+                                  ? "bg-gradient-to-br from-emerald-500/25 to-green-500/20 border-emerald-400/60 text-emerald-200"
+                                  : isFree
+                                    ? "bg-gradient-to-br from-amber-400 to-orange-400 border-amber-300 text-amber-900 shadow-md shadow-amber-400/30"
+                                    : "bg-gradient-to-br from-slate-800/70 to-slate-900/60 border-slate-700/50 text-slate-300"
+                            }
+                          `}
+                        >
+                          {isFree ? "⭐" : val}
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
             </div>
           </div>

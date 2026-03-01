@@ -220,27 +220,32 @@ async function handleClaimBingo(req, res, io) {
     // Broadcast winner
     const winnerName =
       player.username || player.phone || `Player ${player.telegramId}`;
+    const payout = parseFloat(pot.toString());
     io.to(`game_${stake}`).emit("message", {
       type: "winner",
       winner: winnerName,
+      tid: tidStr,
       index: sel.index,
       slot,
       pattern: result.pattern,
       row: result.row,
       col: result.col,
       picks: picks.map(String),
+      payout,
     });
 
     await cache.set(
       `winner_${stake}`,
       {
         winner: winnerName,
+        tid: tidStr,
         index: sel.index,
         slot,
         pattern: result.pattern,
         row: result.row,
         col: result.col,
         picks: picks.map(String),
+        payout,
         at: Date.now(),
       },
       10,
