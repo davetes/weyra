@@ -109,6 +109,7 @@ export default function PlayPage() {
   const firstLoad = useRef(true);
   const lastPlayState = useRef({});
   const lastTakenSigRef = useRef("");
+  const pendingActionRef = useRef(0); // guards against polling overwriting optimistic selection
 
   /* ── Refs to hold latest state values so refreshState callback stays stable ── */
   const acceptedCountRef = useRef(acceptedCount);
@@ -124,53 +125,62 @@ export default function PlayPage() {
 
   async function acceptCard(index, slot) {
     if (!TID || !index) return;
-    const form = new URLSearchParams();
-    form.set("tid", String(TID));
-    form.set("stake", String(STAKE));
-    form.set("index", String(index));
-    form.set("slot", String(slot ?? 0));
-    form.set("action", "accept");
-    const res = await fetch("/api/select", { method: "POST", body: form });
-
-    if (res.ok) {
-      const data = await res.json();
-      setTaken(new Set((data.taken || []).map(String)));
-      setAcceptedCount(data.accepted_count || 0);
-      // Countdown is now handled in refreshState with server values
-      return;
-    }
-
-    if (res.status === 409) {
-      alert("This card has just been taken by another player.");
-      await refreshState();
-      return;
-    }
-
-    let msg = "Failed";
+    pendingActionRef.current++;
     try {
-      const data = await res.json();
-      if (data?.error) msg = data.error;
-    } catch (_) {}
-    alert(msg);
-    await refreshState();
+      const form = new URLSearchParams();
+      form.set("tid", String(TID));
+      form.set("stake", String(STAKE));
+      form.set("index", String(index));
+      form.set("slot", String(slot ?? 0));
+      form.set("action", "accept");
+      const res = await fetch("/api/select", { method: "POST", body: form });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTaken(new Set((data.taken || []).map(String)));
+        setAcceptedCount(data.accepted_count || 0);
+        return;
+      }
+
+      if (res.status === 409) {
+        alert("This card has just been taken by another player.");
+        await refreshState();
+        return;
+      }
+
+      let msg = "Failed";
+      try {
+        const data = await res.json();
+        if (data?.error) msg = data.error;
+      } catch (_) { }
+      alert(msg);
+      await refreshState();
+    } finally {
+      pendingActionRef.current--;
+    }
   }
 
   async function cancelCard(slot, index) {
     if (!TID) return;
-    if (index != null) {
-      setTaken((prev) => {
-        const next = new Set(prev);
-        next.delete(String(index));
-        return next;
-      });
+    pendingActionRef.current++;
+    try {
+      if (index != null) {
+        setTaken((prev) => {
+          const next = new Set(prev);
+          next.delete(String(index));
+          return next;
+        });
+      }
+      const form = new URLSearchParams();
+      form.set("tid", String(TID));
+      form.set("stake", String(STAKE));
+      form.set("slot", String(slot ?? 0));
+      form.set("action", "cancel");
+      await fetch("/api/select", { method: "POST", body: form }).catch(() => { });
+      await refreshState();
+    } finally {
+      pendingActionRef.current--;
     }
-    const form = new URLSearchParams();
-    form.set("tid", String(TID));
-    form.set("stake", String(STAKE));
-    form.set("slot", String(slot ?? 0));
-    form.set("action", "cancel");
-    await fetch("/api/select", { method: "POST", body: form }).catch(() => {});
-    await refreshState();
   }
 
   const refreshState = useCallback(async () => {
@@ -209,7 +219,7 @@ export default function PlayPage() {
             body: `tid=${encodeURIComponent(TID)}&stake=${STAKE}`,
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
           });
-        } catch (_) {}
+        } catch (_) { }
         firstLoad.current = false;
         return refreshState();
       }
@@ -232,7 +242,7 @@ export default function PlayPage() {
       const nextAcceptedCards = data.accepted_cards || 0;
       if (nextAcceptedCards !== acceptedCardsRef.current)
         setAcceptedCards(nextAcceptedCards);
-      if (Array.isArray(data.my_indices) && !data.started) {
+      if (Array.isArray(data.my_indices) && !data.started && pendingActionRef.current === 0) {
         const a =
           data.my_indices[0] != null ? Number(data.my_indices[0]) : null;
         const b =
@@ -516,11 +526,10 @@ export default function PlayPage() {
             {(selectedA || selectedB) && (
               <div className="mt-2 grid grid-cols-2 gap-1 sm:gap-1.5 flex-none">
                 <div
-                  className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${
-                    activeSlot === 0
+                  className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${activeSlot === 0
                       ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
                       : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
-                  }`}
+                    }`}
                   role="button"
                   tabIndex={0}
                   onClick={() => setActiveSlot(0)}
@@ -542,11 +551,10 @@ export default function PlayPage() {
                       cardRowsA.flat().map((val, i) => (
                         <div
                           key={i}
-                          className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
-                            val === "FREE"
+                          className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${val === "FREE"
                               ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
                               : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
-                          }`}
+                            }`}
                         >
                           {val === "FREE" ? "★" : val}
                         </div>
@@ -556,11 +564,10 @@ export default function PlayPage() {
 
                 {selectedB ? (
                   <div
-                    className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${
-                      activeSlot === 1
+                    className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${activeSlot === 1
                         ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
                         : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
-                    }`}
+                      }`}
                     role="button"
                     tabIndex={0}
                     onClick={() => setActiveSlot(1)}
@@ -582,11 +589,10 @@ export default function PlayPage() {
                         cardRowsB.flat().map((val, i) => (
                           <div
                             key={i}
-                            className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${
-                              val === "FREE"
+                            className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${val === "FREE"
                                 ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
                                 : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
-                            }`}
+                              }`}
                           >
                             {val === "FREE" ? "★" : val}
                           </div>

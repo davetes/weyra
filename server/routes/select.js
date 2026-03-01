@@ -165,6 +165,22 @@ async function handleSelect(req, res) {
           ...(reqSlot != null ? { slot: reqSlot } : {}),
         },
       });
+
+      // If countdown is running, check if we dropped below 2 players
+      if (game.countdownStartedAt && !game.startedAt) {
+        const remainingSels = await prisma.selection.findMany({
+          where: { gameId: game.id, accepted: true },
+          select: { playerId: true },
+        });
+        const remainingPlayers = new Set(remainingSels.map((s) => String(s.playerId))).size;
+        if (remainingPlayers < 2) {
+          await prisma.game.update({
+            where: { id: game.id },
+            data: { countdownStartedAt: null },
+          });
+        }
+      }
+
       return res.json({ ok: true });
     }
 

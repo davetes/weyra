@@ -55,8 +55,8 @@ async function handleGameState(req, res, io) {
       include: { player: true },
     });
 
-    // Release stale selections (no heartbeat for 15s, pre-countdown)
-    if (!game.countdownStartedAt) {
+    // Release stale selections (no heartbeat for 15s, pre-game)
+    if (!game.startedAt) {
       for (const sel of selections) {
         const hbKey = `hb_${game.id}_${sel.player.telegramId}`;
         const lastHb = await cache.get(hbKey);
@@ -130,14 +130,23 @@ async function handleGameState(req, res, io) {
       });
     }
 
-    // Check countdown expiry → start game
+    // Check countdown expiry → start game (only if ≥2 players still present)
     let started = !!game.startedAt;
     let countdownRemaining = null;
     if (game.countdownStartedAt && !started) {
       const elapsed =
         (Date.now() - new Date(game.countdownStartedAt).getTime()) / 1000;
       countdownRemaining = Math.max(0, 30 - Math.floor(elapsed));
-      if (countdownRemaining <= 0) {
+
+      // If players dropped below 2 during countdown, reset countdown
+      if (acceptedPlayersCount < 2) {
+        game = await prisma.game.update({
+          where: { id: game.id },
+          data: { countdownStartedAt: null },
+        });
+        countdownRemaining = null;
+      } else if (countdownRemaining <= 0) {
+        // Countdown expired AND still ≥2 players → start the game
         // Generate sequence
         let sequence = [];
         for (let i = 1; i <= 75; i++) sequence.push(i);
