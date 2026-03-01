@@ -13,6 +13,10 @@ const nextConfig = {
         source: "/static/:path*",
         destination: "http://localhost:4000/static/:path*",
       },
+      {
+        source: "/ws/:path*",
+        destination: "http://localhost:4000/ws/:path*",
+      },
     ];
   },
 };
