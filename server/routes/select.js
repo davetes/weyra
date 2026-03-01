@@ -79,25 +79,20 @@ async function handleSelect(req, res) {
           .json({ ok: false, error: "Insufficient balance" });
       }
 
-      // Check if index already taken
+      // Check if index already taken by another player
       const existing = await prisma.selection.findFirst({
-        where: { gameId: game.id, index },
+        where: { gameId: game.id, index, NOT: { playerId: player.id } },
       });
       if (existing) {
         return res.status(409).json({ ok: false, error: "Card already taken" });
       }
 
-      // Check if player already selected
-      const playerSel = await prisma.selection.findFirst({
-        where: { gameId: game.id, playerId: player.id, slot },
-      });
-      if (playerSel) {
-        // Update selection
-        await prisma.selection.update({
-          where: { id: playerSel.id },
-          data: { index, accepted: true, autoEnabled: true },
+      // Atomic: delete old selection for this slot, then create new one
+      // Handles rapid selection changes where cancel+accept race
+      try {
+        await prisma.selection.deleteMany({
+          where: { gameId: game.id, playerId: player.id, slot },
         });
-      } else {
         await prisma.selection.create({
           data: {
             gameId: game.id,
@@ -108,6 +103,12 @@ async function handleSelect(req, res) {
             autoEnabled: true,
           },
         });
+      } catch (err) {
+        // P2002 = unique constraint violation (concurrent request took this card)
+        if (err?.code === "P2002") {
+          return res.status(409).json({ ok: false, error: "Card already taken" });
+        }
+        throw err; // re-throw other errors
       }
 
       // Re-count accepted (cards + players)

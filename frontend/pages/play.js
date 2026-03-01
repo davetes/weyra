@@ -82,26 +82,40 @@ const GridCell = React.memo(function GridCell({ n, isTaken, isSelected, onClick 
   );
 });
 
+/* ── SessionStorage cache for instant display on page open ── */
+function getCachedPlayData() {
+  try {
+    const raw = sessionStorage.getItem('play_cache');
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+function setCachedPlayData(d) {
+  try { sessionStorage.setItem('play_cache', JSON.stringify(d)); } catch (_) { }
+}
+
 export default function PlayPage() {
   const router = useRouter();
   const { stake: stakeQ, tid: tidQ } = router.query;
   const STAKE = parseInt(stakeQ || "10", 10);
   const TID = tidQ || "";
 
+  const cached = useMemo(() => getCachedPlayData(), []);
+
   const [splashVisible, setSplashVisible] = useState(false);
   const [splashError, setSplashError] = useState("");
   const [taken, setTaken] = useState(new Set());
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [acceptedCards, setAcceptedCards] = useState(0);
-  const [gameId, setGameId] = useState("-");
-  const [wallet, setWallet] = useState(0);
-  const [gift, setGift] = useState(0);
+  const [gameId, setGameId] = useState(cached?.gameId ?? "-");
+  const [wallet, setWallet] = useState(cached?.wallet ?? 0);
+  const [gift, setGift] = useState(cached?.gift ?? 0);
   const [countdown, setCountdown] = useState("-");
   const [selectedA, setSelectedA] = useState(null);
   const [selectedB, setSelectedB] = useState(null);
   const [activeSlot, setActiveSlot] = useState(0);
   const [showInsufficient, setShowInsufficient] = useState(false);
   const [insufficientNeed, setInsufficientNeed] = useState(0);
+  const [dataLoaded, setDataLoaded] = useState(cached?.wallet != null);
 
   const countdownTimerRef = useRef(null);
   const pollRef = useRef(null);
@@ -274,6 +288,9 @@ export default function PlayPage() {
       }
 
       setSplashVisible(false);
+      setDataLoaded(true);
+      // Cache wallet/gift/gameId for instant display on next visit
+      setCachedPlayData({ wallet: walletRef.current, gift: giftRef.current, gameId: gameIdRef.current });
     } catch (err) {
       const isAbort =
         err &&
@@ -443,14 +460,14 @@ export default function PlayPage() {
               <span className="opacity-80">Main Wallet:</span>
               <br />
               <span className="text-sm sm:text-base">
-                {Number(wallet || 0).toFixed(2)}
+                {dataLoaded ? Number(wallet || 0).toFixed(2) : "..."}
               </span>
             </div>
             <div className="bg-cyan-500/20 backdrop-blur-md border border-slate-400/30 text-cyan-300 font-bold rounded-none px-1.5 py-1.5 sm:px-2 sm:py-1.5 text-[10px] sm:text-xs text-center whitespace-normal leading-tight min-w-0 shadow-sm">
               <span className="opacity-80">play wallet:</span>
               <br />
               <span className="text-sm sm:text-base">
-                {Number(gift || 0).toFixed(2)}
+                {dataLoaded ? Number(gift || 0).toFixed(2) : "..."}
               </span>
             </div>
           </div>
@@ -459,7 +476,7 @@ export default function PlayPage() {
         <div className="flex-1 overflow-y-auto py-1.5 sm:py-2">
           <div className="bg-gradient-to-br from-slate-800/90 via-slate-800/80 to-slate-900/90 border-y border-white/10 py-1.5 sm:py-2 shadow-xl h-full flex flex-col border-l border-r border-slate-600/30">
             <div className="flex-1 overflow-y-auto no-scrollbar px-2" style={{ willChange: 'transform', WebkitOverflowScrolling: 'touch', contentVisibility: 'auto', containIntrinsicSize: 'auto 2000px' }}>
-              <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
+              <div className={`grid grid-cols-8 gap-1 sm:gap-1.5 ${!dataLoaded ? 'opacity-40 pointer-events-none' : ''}`}>
                 {NUMBERS.map((n) => {
                   const key = String(n);
                   const isTaken = taken.has(key);
@@ -472,6 +489,7 @@ export default function PlayPage() {
                       isTaken={isTaken}
                       isSelected={isSelected}
                       onClick={() => {
+                        if (!dataLoaded) return;
                         if (selectedA === n) {
                           cancelCard(0, n);
                           setSelectedA(null);
@@ -506,7 +524,6 @@ export default function PlayPage() {
                           return;
                         }
 
-                        cancelCard(1, selectedB);
                         setSelectedB(n);
                         acceptCard(n, 1);
                       }}
@@ -527,8 +544,8 @@ export default function PlayPage() {
               <div className="mt-2 grid grid-cols-2 gap-1 sm:gap-1.5 flex-none">
                 <div
                   className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${activeSlot === 0
-                      ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
-                      : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
+                    ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
+                    : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
                     }`}
                   role="button"
                   tabIndex={0}
@@ -552,8 +569,8 @@ export default function PlayPage() {
                         <div
                           key={i}
                           className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${val === "FREE"
-                              ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
-                              : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
+                            ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
+                            : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
                             }`}
                         >
                           {val === "FREE" ? "★" : val}
@@ -565,8 +582,8 @@ export default function PlayPage() {
                 {selectedB ? (
                   <div
                     className={`border-2 rounded-none p-1.5 sm:p-2 transition-all duration-300 ${activeSlot === 1
-                        ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
-                        : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
+                      ? "bg-gradient-to-br from-indigo-950/80 via-slate-900/80 to-purple-950/80 border-indigo-400/60 shadow-lg shadow-indigo-500/20"
+                      : "bg-gradient-to-br from-slate-900/70 via-slate-900/60 to-slate-800/70 border-slate-600/40"
                       }`}
                     role="button"
                     tabIndex={0}
@@ -590,8 +607,8 @@ export default function PlayPage() {
                           <div
                             key={i}
                             className={`rounded-none aspect-square flex items-center justify-center font-black border text-sm sm:text-base leading-none transition-all ${val === "FREE"
-                                ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
-                                : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
+                              ? "bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-amber-900 shadow-sm shadow-amber-400/30"
+                              : "bg-gradient-to-br from-teal-800/70 to-teal-900/80 border-teal-500/40 text-white"
                               }`}
                           >
                             {val === "FREE" ? "★" : val}
