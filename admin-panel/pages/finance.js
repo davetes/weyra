@@ -46,6 +46,11 @@ function FinanceInner({ token, admin }) {
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
 
+  const [peopleTab, setPeopleTab] = useState("deposits");
+  const [peopleRange, setPeopleRange] = useState("daily");
+  const [peoplePage, setPeoplePage] = useState(1);
+  const peoplePageSize = 8;
+
   async function load() {
     if (!canRead) return;
     setLoading(true);
@@ -74,6 +79,28 @@ function FinanceInner({ token, admin }) {
 
   const totals = data?.totals || null;
   const profit = data?.profit || null;
+  const people = data?.people || null;
+  const depositPeople = people?.deposits || null;
+  const withdrawPeople = people?.withdrawals || null;
+
+  const activePeopleList = useMemo(() => {
+    const source = peopleTab === "withdrawals" ? withdrawPeople : depositPeople;
+    const list = source?.[peopleRange];
+    return Array.isArray(list) ? list : [];
+  }, [depositPeople, withdrawPeople, peopleTab, peopleRange]);
+
+  const peopleTotalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(activePeopleList.length / peoplePageSize));
+  }, [activePeopleList.length]);
+
+  const peoplePageRows = useMemo(() => {
+    const start = (peoplePage - 1) * peoplePageSize;
+    return activePeopleList.slice(start, start + peoplePageSize);
+  }, [activePeopleList, peoplePage]);
+
+  useEffect(() => {
+    setPeoplePage(1);
+  }, [peopleTab, peopleRange, day]);
 
   return (
     <AdminShell
@@ -186,6 +213,114 @@ function FinanceInner({ token, admin }) {
               </div>
             )}
           </Card>
+
+          {(depositPeople || withdrawPeople) && (
+            <Card title="Deposits & Withdrawals">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={peopleTab === "deposits" ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setPeopleTab("deposits")}
+                  >
+                    Deposits
+                  </Button>
+                  <Button
+                    variant={
+                      peopleTab === "withdrawals" ? "primary" : "outline"
+                    }
+                    size="sm"
+                    onClick={() => setPeopleTab("withdrawals")}
+                  >
+                    Withdrawals
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={peopleRange === "daily" ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setPeopleRange("daily")}
+                  >
+                    Day
+                  </Button>
+                  <Button
+                    variant={peopleRange === "week" ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setPeopleRange("week")}
+                  >
+                    Week
+                  </Button>
+                  <Button
+                    variant={peopleRange === "month" ? "primary" : "outline"}
+                    size="sm"
+                    onClick={() => setPeopleRange("month")}
+                  >
+                    Month
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4 border border-border rounded-xl bg-bg-secondary/20 overflow-hidden">
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs font-medium text-muted uppercase tracking-wider border-b border-border">
+                        <th className="px-4 py-3">Player</th>
+                        <th className="py-3">Count</th>
+                        <th className="px-4 py-3 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {peoplePageRows.map((p) => (
+                        <tr key={`${peopleTab}_${peopleRange}_${p.playerId}`}>
+                          <td className="px-4 py-3 text-slate-200">{p.name}</td>
+                          <td className="py-3 text-muted">{p.count || 0}</td>
+                          <td className="px-4 py-3 text-right text-slate-100 font-medium tabular-nums">
+                            {formatMoney(p.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                      {peoplePageRows.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="px-4 py-10 text-center text-sm text-muted"
+                          >
+                            No rows.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+                  <div className="text-xs text-muted mr-2">
+                    Page {peoplePage} of {peopleTotalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={peoplePage <= 1}
+                    onClick={() => setPeoplePage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={peoplePage >= peopleTotalPages}
+                    onClick={() =>
+                      setPeoplePage((p) => Math.min(peopleTotalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </AdminShell>

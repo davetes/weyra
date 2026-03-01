@@ -134,6 +134,89 @@ async function computeFinanceTotals(start, end) {
   };
 }
 
+async function computeDepositsByPlayer(start, end, take = 20) {
+  const rows = await prisma.depositRequest.groupBy({
+    by: ["playerId"],
+    where: {
+      status: "approved",
+      decidedAt: { gte: start, lte: end },
+      amount: { not: null },
+    },
+    _sum: { amount: true },
+    _count: { _all: true },
+  });
+
+  const playerIds = rows.map((r) => r.playerId);
+  const players = await prisma.player.findMany({
+    where: { id: { in: playerIds } },
+    select: { id: true, telegramId: true, username: true, phone: true },
+  });
+  const byId = new Map(players.map((p) => [p.id, p]));
+
+  const mapped = rows
+    .map((r) => {
+      const p = byId.get(r.playerId) || null;
+      const amount =
+        r._sum.amount != null
+          ? new Decimal(r._sum.amount.toString())
+          : new Decimal(0);
+      return {
+        playerId: r.playerId,
+        telegramId: p?.telegramId != null ? String(p.telegramId) : null,
+        name:
+          p?.username ||
+          p?.phone ||
+          (p?.telegramId != null ? `Player ${String(p.telegramId)}` : "Player"),
+        amount: amount.toFixed(2),
+        count: r._count?._all || 0,
+      };
+    })
+    .sort((a, b) => Number(b.amount) - Number(a.amount));
+
+  return mapped.slice(0, take);
+}
+
+async function computeWithdrawalsByPlayer(start, end, take = 20) {
+  const rows = await prisma.withdrawRequest.groupBy({
+    by: ["playerId"],
+    where: {
+      status: "approved",
+      decidedAt: { gte: start, lte: end },
+    },
+    _sum: { amount: true },
+    _count: { _all: true },
+  });
+
+  const playerIds = rows.map((r) => r.playerId);
+  const players = await prisma.player.findMany({
+    where: { id: { in: playerIds } },
+    select: { id: true, telegramId: true, username: true, phone: true },
+  });
+  const byId = new Map(players.map((p) => [p.id, p]));
+
+  const mapped = rows
+    .map((r) => {
+      const p = byId.get(r.playerId) || null;
+      const amount =
+        r._sum.amount != null
+          ? new Decimal(r._sum.amount.toString())
+          : new Decimal(0);
+      return {
+        playerId: r.playerId,
+        telegramId: p?.telegramId != null ? String(p.telegramId) : null,
+        name:
+          p?.username ||
+          p?.phone ||
+          (p?.telegramId != null ? `Player ${String(p.telegramId)}` : "Player"),
+        amount: amount.toFixed(2),
+        count: r._count?._all || 0,
+      };
+    })
+    .sort((a, b) => Number(b.amount) - Number(a.amount));
+
+  return mapped.slice(0, take);
+}
+
 async function audit(req, { action, entityType, entityId, before, after }) {
   try {
     await prisma.adminAuditLog.create({
@@ -376,6 +459,16 @@ router.get(
       const month = await computeFinanceTotals(startOfMonth(day), end);
       const year = await computeFinanceTotals(startOfYear(day), end);
 
+      const [depDaily, depWeek, depMonth, wdDaily, wdWeek, wdMonth] =
+        await Promise.all([
+          computeDepositsByPlayer(start, end),
+          computeDepositsByPlayer(startOfWeekMonday(day), end),
+          computeDepositsByPlayer(startOfMonth(day), end),
+          computeWithdrawalsByPlayer(start, end),
+          computeWithdrawalsByPlayer(startOfWeekMonday(day), end),
+          computeWithdrawalsByPlayer(startOfMonth(day), end),
+        ]);
+
       return res.json({
         ok: true,
         day: start.toISOString().slice(0, 10),
@@ -393,6 +486,18 @@ router.get(
           week: week.net.toFixed(2),
           month: month.net.toFixed(2),
           year: year.net.toFixed(2),
+        },
+        people: {
+          deposits: {
+            daily: depDaily,
+            week: depWeek,
+            month: depMonth,
+          },
+          withdrawals: {
+            daily: wdDaily,
+            week: wdWeek,
+            month: wdMonth,
+          },
         },
       });
     } catch (err) {

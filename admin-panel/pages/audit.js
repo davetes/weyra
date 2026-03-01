@@ -50,6 +50,9 @@ function AuditInner({ token, admin }) {
   const [entityId, setEntityId] = useState("");
   const [limit, setLimit] = useState(200);
 
+  const [page, setPage] = useState(1);
+  const pageSize = 3;
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -67,6 +70,7 @@ function AuditInner({ token, admin }) {
         token,
       });
       setRows(Array.isArray(res.logs) ? res.logs : []);
+      setPage(1);
     } catch (err) {
       if (err?.status === 401) {
         saveToken(null);
@@ -82,6 +86,19 @@ function AuditInner({ token, admin }) {
   useEffect(() => {
     load();
   }, [canRead]);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(rows.length / pageSize));
+  }, [rows.length]);
+
+  const pageRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return rows.slice(start, start + pageSize);
+  }, [rows, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [entityType, entityId, limit]);
 
   const pendingCounts = { pendingDeposits: 0, pendingWithdraws: 0 };
 
@@ -151,7 +168,7 @@ function AuditInner({ token, admin }) {
               <div className="text-sm text-muted">No logs found.</div>
             ) : (
               <div className="space-y-3">
-                {rows.map((l) => {
+                {pageRows.map((l) => {
                   const before = parseJsonOrText(l.before);
                   const after = parseJsonOrText(l.after);
                   return (
@@ -182,7 +199,11 @@ function AuditInner({ token, admin }) {
                             Before
                           </div>
                           <pre className="text-xs bg-bg border border-border rounded-xl p-3 overflow-auto max-h-48">
-{before == null ? "-" : typeof before === "string" ? before : JSON.stringify(before, null, 2)}
+                            {before == null
+                              ? "-"
+                              : typeof before === "string"
+                                ? before
+                                : JSON.stringify(before, null, 2)}
                           </pre>
                         </div>
                         <div>
@@ -190,13 +211,39 @@ function AuditInner({ token, admin }) {
                             After
                           </div>
                           <pre className="text-xs bg-bg border border-border rounded-xl p-3 overflow-auto max-h-48">
-{after == null ? "-" : typeof after === "string" ? after : JSON.stringify(after, null, 2)}
+                            {after == null
+                              ? "-"
+                              : typeof after === "string"
+                                ? after
+                                : JSON.stringify(after, null, 2)}
                           </pre>
                         </div>
                       </div>
                     </div>
                   );
                 })}
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <div className="text-xs text-muted mr-2">
+                    Page {page} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loading || page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loading || page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
