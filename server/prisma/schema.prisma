@@ -33,6 +33,7 @@ model AdminUser {
   passwordHash String   @map("password_hash") @db.VarChar(255)
   role         String   @db.VarChar(32)
   permissions  String   @default("[]") @db.Text
+  roomStake    Int?     @map("room_stake")
   createdAt    DateTime @default(now()) @map("created_at")
 
   sessions AdminSession[]

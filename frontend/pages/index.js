@@ -8,6 +8,7 @@ export default function Home() {
   const router = useRouter();
   const [toast, setToast] = useState("");
   const [logoError, setLogoError] = useState(false);
+  const [stakeState, setStakeState] = useState({});
 
   const tid = useMemo(() => {
     const raw = router.query?.tid;
@@ -26,6 +27,57 @@ export default function Home() {
     const t = setTimeout(() => setToast(""), 2500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    let alive = true;
+    const stakes = [10, 20, 50];
+
+    const refresh = async () => {
+      try {
+        const results = await Promise.all(
+          stakes.map(async (s) => {
+            const r = await fetch(`/api/stake_state?stake=${s}`);
+            if (!r.ok) return [s, null];
+            const d = await r.json();
+            return [s, d];
+          }),
+        );
+        if (!alive) return;
+        setStakeState((prev) => {
+          const next = { ...prev };
+          for (const [s, d] of results) {
+            if (d && d.ok) next[String(s)] = d;
+          }
+          return next;
+        });
+      } catch (_) {}
+    };
+
+    refresh();
+    const iv = setInterval(refresh, 2500);
+    return () => {
+      alive = false;
+      clearInterval(iv);
+    };
+  }, []);
+
+  function renderStakeStatus(stake) {
+    const s = stakeState?.[String(stake)] || null;
+    const active = !!s?.started;
+    return (
+      <div className="flex-1 flex justify-center">
+        <div
+          className={`px-2 py-1 text-[10px] font-black border ${
+            active
+              ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/40"
+              : "bg-slate-900/40 text-slate-300 border-white/10"
+          }`}
+        >
+          {active ? "ACTIVE" : "WAITING"}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -104,6 +156,7 @@ export default function Home() {
                     <div className="stake-btn-title">10 ETB</div>
                     <div className="stake-btn-sub">Weyra</div>
                   </div>
+                  {renderStakeStatus(10)}
                   <div className="stake-btn-chip">PLAY</div>
                 </div>
               </button>
@@ -118,6 +171,7 @@ export default function Home() {
                     <div className="stake-btn-title">20 ETB</div>
                     <div className="stake-btn-sub">Fortune</div>
                   </div>
+                  {renderStakeStatus(20)}
                   <div className="stake-btn-chip">PLAY</div>
                 </div>
               </button>
@@ -132,6 +186,7 @@ export default function Home() {
                     <div className="stake-btn-title">50 ETB</div>
                     <div className="stake-btn-sub">Buna</div>
                   </div>
+                  {renderStakeStatus(50)}
                   <div className="stake-btn-chip">PLAY</div>
                 </div>
               </button>

@@ -108,6 +108,9 @@ function PlayersInner({ token, admin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [players, setPlayers] = useState([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
+  const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState(null);
   const [actionError, setActionError] = useState("");
   const [txOpen, setTxOpen] = useState(false);
@@ -130,11 +133,12 @@ function PlayersInner({ token, admin }) {
     setActionError("");
     try {
       const res = await apiFetch(
-        `/api/admin/players?q=${encodeURIComponent(q)}`,
+        `/api/admin/players?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`,
         { token },
       );
       const nextPlayers = res.players || [];
       setPlayers(nextPlayers);
+      setTotal(Number(res.total || 0));
 
       const lastId = loadLastPlayerId();
       if (lastId && !selected) {
@@ -157,8 +161,17 @@ function PlayersInner({ token, admin }) {
     load();
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [page]);
+
   const canRead = useMemo(() => hasPerm(admin, "players.read"), [admin]);
   const canModerate = useMemo(() => hasPerm(admin, "players.ban"), [admin]);
+
+  const totalPages = useMemo(() => {
+    const t = Number(total || 0);
+    return Math.max(1, Math.ceil(t / pageSize));
+  }, [total]);
 
   function openAdjustCash(p) {
     if (!p) return;
@@ -257,7 +270,8 @@ function PlayersInner({ token, admin }) {
 
   function handleSearch(e) {
     e.preventDefault();
-    load();
+    setPage(1);
+    if (page === 1) load();
   }
 
   return (
@@ -738,7 +752,10 @@ function PlayersInner({ token, admin }) {
             <Button
               variant="outline"
               icon={IconRefresh}
-              onClick={load}
+              onClick={() => {
+                setPage(1);
+                if (page === 1) load();
+              }}
               loading={loading}
             >
               Refresh{" "}
@@ -761,10 +778,33 @@ function PlayersInner({ token, admin }) {
           </Card>
         ) : (
           <Card
-            title={`Players (${players.length})`}
+            title={`Players (${total || players.length})`}
             icon={IconUsers}
             noPadding
           >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border/60">
+              <div className="text-xs text-muted">
+                Page {page} of {totalPages}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
             <div className="overflow-auto">
               <table className="w-full text-sm">
                 <thead>

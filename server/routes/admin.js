@@ -1198,12 +1198,192 @@ router.get("/stats", requireAuth(), async (req, res) => {
 });
 
 router.get(
+  "/games",
+  requireAuth(),
+  requirePerm(PERMS.settings_read),
+  async (req, res) => {
+    try {
+      const stake = parseInt(String(req.query.stake || "0"), 10);
+      if (![10, 20, 50].includes(stake)) {
+        return res.status(400).json({ ok: false, error: "Invalid stake" });
+      }
+
+      const limit = Math.min(
+        Math.max(1, parseInt(String(req.query.limit || "50"), 10) || 50),
+        200,
+      );
+
+      const games = await prisma.game.findMany({
+        where: { stake },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          stake: true,
+          active: true,
+          finished: true,
+          createdAt: true,
+          countdownStartedAt: true,
+          startedAt: true,
+          stakesCharged: true,
+          chargedCount: true,
+        },
+      });
+
+      const ids = games.map((g) => g.id);
+      const counts = await prisma.selection.groupBy({
+        by: ["gameId"],
+        where: { gameId: { in: ids } },
+        _count: { _all: true },
+      });
+      const countByGameId = new Map(
+        counts.map((r) => [r.gameId, r._count._all]),
+      );
+
+      return res.json({
+        ok: true,
+        stake,
+        games: games.map((g) => ({
+          ...g,
+          selectionsCount: countByGameId.get(g.id) || 0,
+        })),
+      });
+    } catch (err) {
+      console.error("games list error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.get(
+  "/games/:id",
+  requireAuth(),
+  requirePerm(PERMS.settings_read),
+  async (req, res) => {
+    try {
+      const id = parseInt(String(req.params.id || "0"), 10);
+      if (!id) return res.status(400).json({ ok: false, error: "Invalid id" });
+
+      const game = await prisma.game.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          stake: true,
+          active: true,
+          finished: true,
+          createdAt: true,
+          countdownStartedAt: true,
+          startedAt: true,
+          stakesCharged: true,
+          chargedCount: true,
+        },
+      });
+      if (!game) return res.status(404).json({ ok: false, error: "Not found" });
+
+      const selections = await prisma.selection.findMany({
+        where: { gameId: id },
+        orderBy: [{ accepted: "desc" }, { id: "asc" }],
+        select: {
+          id: true,
+          gameId: true,
+          playerId: true,
+          slot: true,
+          index: true,
+          accepted: true,
+          autoEnabled: true,
+          player: {
+            select: {
+              id: true,
+              telegramId: true,
+              username: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      const mappedSelections = selections.map((s) => ({
+        ...s,
+        player: s.player
+          ? {
+              ...s.player,
+              telegramId:
+                s.player.telegramId != null
+                  ? String(s.player.telegramId)
+                  : null,
+            }
+          : null,
+      }));
+
+      const winnerTx = await prisma.transaction.findMany({
+        where: {
+          kind: "win",
+          note: { contains: `Won game #${id}` },
+        },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          playerId: true,
+          amount: true,
+          note: true,
+          createdAt: true,
+          player: {
+            select: {
+              telegramId: true,
+              username: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      return res.json({
+        ok: true,
+        game,
+        selections: mappedSelections,
+        winners: winnerTx.map((t) => ({
+          id: t.id,
+          playerId: t.playerId,
+          telegramId:
+            t.player?.telegramId != null ? String(t.player.telegramId) : null,
+          name:
+            t.player?.username ||
+            t.player?.phone ||
+            (t.player?.telegramId != null
+              ? `Player ${String(t.player.telegramId)}`
+              : "Player"),
+          amount: t.amount != null ? String(t.amount) : "0",
+          note: t.note || "",
+          createdAt: t.createdAt,
+        })),
+      });
+    } catch (err) {
+      console.error("games detail error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.get(
   "/players",
   requireAuth(),
   requirePerm(PERMS.players_read),
   async (req, res) => {
     try {
       const q = String(req.query.q || "").trim();
+
+      const page = Math.max(
+        1,
+        parseInt(String(req.query.page || "1"), 10) || 1,
+      );
+      const pageSize = Math.min(
+        Math.max(1, parseInt(String(req.query.pageSize || "8"), 10) || 8),
+        100,
+      );
 
       let qTid = null;
       if (q && /^\d+$/.test(q)) {
@@ -1227,7 +1407,7 @@ router.get(
       const players = await prisma.player.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: 500,
+        take: 2000,
         select: {
           id: true,
           telegramId: true,
@@ -1277,7 +1457,26 @@ router.get(
         };
       });
 
-      return res.json({ ok: true, players: out });
+      out.sort((a, b) => {
+        const as = a.lastSeen != null ? Number(a.lastSeen) : -1;
+        const bs = b.lastSeen != null ? Number(b.lastSeen) : -1;
+        if (as !== bs) return bs - as;
+        const ac = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bc = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bc - ac;
+      });
+
+      const total = out.length;
+      const start = (page - 1) * pageSize;
+      const pageRows = out.slice(start, start + pageSize);
+
+      return res.json({
+        ok: true,
+        page,
+        pageSize,
+        total,
+        players: pageRows,
+      });
     } catch (err) {
       console.error("players error:", err);
       return res
@@ -1542,6 +1741,7 @@ router.get(
           username: true,
           role: true,
           permissions: true,
+          roomStake: true,
           createdAt: true,
         },
       });
@@ -1565,7 +1765,8 @@ router.post(
   requireRole(["super_admin"]),
   async (req, res) => {
     try {
-      const { username, password, role, permissions } = req.body || {};
+      const { username, password, role, permissions, roomStake } =
+        req.body || {};
       if (!username || !password || !role)
         return res
           .status(400)
@@ -1585,18 +1786,28 @@ router.post(
         ? permissions.map(String).filter(Boolean)
         : [];
 
+      const stakeRaw =
+        roomStake == null || String(roomStake).trim() === ""
+          ? null
+          : parseInt(String(roomStake), 10);
+      if (stakeRaw != null && ![10, 20, 50].includes(stakeRaw)) {
+        return res.status(400).json({ ok: false, error: "Invalid room stake" });
+      }
+
       const admin = await prisma.adminUser.create({
         data: {
           username: String(username).trim(),
           passwordHash: makePasswordHash(String(password)),
           role: normalizedRole,
           permissions: JSON.stringify(nextPerms),
+          roomStake: stakeRaw,
         },
         select: {
           id: true,
           username: true,
           role: true,
           permissions: true,
+          roomStake: true,
           createdAt: true,
         },
       });

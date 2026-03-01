@@ -23,6 +23,7 @@ import {
 const NAV = [
   { href: "/app", label: "Dashboard", icon: IconDashboard },
   { href: "/rooms", label: "Rooms", perm: "settings.read", icon: IconGamepad },
+  { href: "/games", label: "Games", perm: "settings.read", icon: IconGamepad },
   { href: "/players", label: "Players", perm: "players.read", icon: IconUsers },
   {
     href: "/transactions",

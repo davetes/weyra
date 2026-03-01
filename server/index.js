@@ -17,6 +17,7 @@ const handleDepositRequest = require("./routes/depositRequest");
 const handleWithdrawRequest = require("./routes/withdrawRequest");
 const handleDepositAccounts = require("./routes/depositAccounts");
 const handleWalletRequests = require("./routes/walletRequests");
+const handleStakeState = require("./routes/stakeState");
 const adminRoutes = require("./routes/admin");
 const setupSocket = require("./socket");
 const { startCallTicker } = require("./callTicker");
@@ -39,6 +40,7 @@ app.use("/static", express.static(path.join(__dirname, "..", "public")));
 
 // API Routes
 app.get("/api/game_state", (req, res) => handleGameState(req, res, io));
+app.get("/api/stake_state", (req, res) => handleStakeState(req, res));
 app.get("/api/profile", (req, res) => handleProfile(req, res));
 app.get("/api/history", (req, res) => handleHistory(req, res));
 app.get("/api/deposit_accounts", (req, res) => handleDepositAccounts(req, res));

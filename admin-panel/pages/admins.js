@@ -14,6 +14,7 @@ import {
   IconTrash,
   IconPlus,
   IconCheck,
+  IconEye,
 } from "../components/Icons";
 
 const PERMS = [
@@ -46,13 +47,31 @@ function AdminsInner({ token, admin }) {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState("admin");
   const [permissions, setPermissions] = useState(["players.read"]);
+  const [roomStake, setRoomStake] = useState("");
 
   const [editing, setEditing] = useState(null);
   const [editPerms, setEditPerms] = useState([]);
 
+  const [detailsAdmin, setDetailsAdmin] = useState(null);
+
   const canManageAdmins = useMemo(() => admin?.role === "super_admin", [admin]);
+
+  function getPermLabel(id) {
+    return PERMS.find((p) => p.id === id)?.label || id;
+  }
+
+  function getRoleLabel(roleValue) {
+    if (roleValue === "super_admin") return "Super Admin";
+    if (roleValue === "entertainer") return "Entertainer";
+    return "Admin";
+  }
+
+  function getRoomLabel(roomStakeValue) {
+    return roomStakeValue ? `Room ${roomStakeValue}` : "All Rooms";
+  }
 
   async function load() {
     setLoading(true);
@@ -100,15 +119,25 @@ function AdminsInner({ token, admin }) {
     setLoading(true);
     setError("");
     try {
+      const normalizedRoomStake =
+        !roomStake || roomStake === "all" ? null : Number(roomStake);
       await apiFetch("/api/admin/admins", {
         token,
         method: "POST",
-        body: { username, password, role, permissions },
+        body: {
+          username,
+          password,
+          role,
+          permissions,
+          roomStake: normalizedRoomStake,
+        },
       });
       setUsername("");
       setPassword("");
+      setShowPassword(false);
       setRole("admin");
       setPermissions(["players.read"]);
+      setRoomStake("");
       await load();
     } catch (err) {
       setError(err?.message || "Failed to create");
@@ -198,6 +227,66 @@ function AdminsInner({ token, admin }) {
           )}
         </Modal>
 
+        {/* Admin Details Modal */}
+        <Modal
+          open={!!detailsAdmin}
+          onClose={() => setDetailsAdmin(null)}
+          title={`Admin details: ${detailsAdmin?.username || ""}`}
+        >
+          {detailsAdmin && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-xl border border-border bg-white/5 p-3">
+                  <div className="text-xs text-muted uppercase tracking-wider">
+                    Role
+                  </div>
+                  <div className="mt-1 text-sm text-slate-200 font-medium">
+                    {getRoleLabel(detailsAdmin.role)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-white/5 p-3">
+                  <div className="text-xs text-muted uppercase tracking-wider">
+                    Room access
+                  </div>
+                  <div className="mt-1 text-sm text-slate-200 font-medium">
+                    {getRoomLabel(detailsAdmin.roomStake)}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-medium text-muted mb-2 uppercase tracking-wider">
+                  What this admin can do
+                </div>
+                {Array.isArray(detailsAdmin.permissions) &&
+                detailsAdmin.permissions.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[...detailsAdmin.permissions].sort().map((perm) => (
+                      <div
+                        key={perm}
+                        className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-bg-secondary"
+                      >
+                        <IconCheck size={16} className="text-accent" />
+                        <div className="text-sm text-slate-200">
+                          {getPermLabel(perm)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted">No permissions.</div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setDetailsAdmin(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
         {error && (
           <div className="bg-danger-muted border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
             {error}
@@ -206,21 +295,46 @@ function AdminsInner({ token, admin }) {
 
         {canManageAdmins ? (
           <Card title="Create New Admin" icon={IconPlus}>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
               <Input
                 placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
-              <Input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  className="w-full bg-bg-secondary border border-border rounded-xl text-sm text-slate-200 placeholder:text-muted transition-colors focus:border-accent/50 px-3 pr-11 py-2.5"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-slate-200 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((s) => !s)}
+                >
+                  <IconEye
+                    size={18}
+                    className={showPassword ? "text-slate-200" : ""}
+                  />
+                </button>
+              </div>
               <Select value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="admin">Admin</option>
                 <option value="entertainer">Entertainer</option>
+              </Select>
+              <Select
+                value={roomStake}
+                onChange={(e) => setRoomStake(e.target.value)}
+              >
+                <option value="">None</option>
+                <option value="all">All Rooms</option>
+                <option value="10">Room 10</option>
+                <option value="20">Room 20</option>
+                <option value="50">Room 50</option>
               </Select>
             </div>
 
@@ -281,6 +395,7 @@ function AdminsInner({ token, admin }) {
                   <th className="px-5 py-3">ID</th>
                   <th className="pr-3 py-3">Username</th>
                   <th className="pr-3 py-3">Role</th>
+                  <th className="pr-3 py-3">Room</th>
                   <th className="pr-3 py-3">Permissions</th>
                   <th className="pr-3 py-3">Created</th>
                   <th className="pr-5 py-3 text-right">Actions</th>
@@ -316,6 +431,9 @@ function AdminsInner({ token, admin }) {
                             : "Admin"}
                       </Badge>
                     </td>
+                    <td className="pr-3 py-3 text-muted text-xs">
+                      {a.roomStake ? `Room ${a.roomStake}` : "All"}
+                    </td>
                     <td className="pr-3 py-3 text-muted text-xs max-w-[300px]">
                       {Array.isArray(a.permissions) && a.permissions.length > 0
                         ? a.permissions
@@ -329,6 +447,14 @@ function AdminsInner({ token, admin }) {
                     </td>
                     <td className="pr-5 py-3">
                       <div className="flex justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          icon={IconEye}
+                          onClick={() => setDetailsAdmin(a)}
+                        >
+                          Details
+                        </Button>
                         {admin?.role === "super_admin" &&
                         a.role !== "super_admin" ? (
                           <>
@@ -367,7 +493,7 @@ function AdminsInner({ token, admin }) {
                 {admins.length === 0 && !loading && (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="text-center py-12 text-muted text-sm"
                     >
                       No admin users found
