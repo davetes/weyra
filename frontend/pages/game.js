@@ -96,6 +96,7 @@ export default function GamePage() {
   const serverOffsetRef = useRef(0);
   const winCountdownRef = useRef(null);
   const winnerRef = useRef(null);
+  const calledSetRef = useRef(new Set());
   const noWinnerRedirectedRef = useRef(false);
   const autoBaseline0Ref = useRef(null);
   const autoBaseline1Ref = useRef(null);
@@ -116,6 +117,10 @@ export default function GamePage() {
   const lastMyIndicesSigRef = useRef("");
 
   const derash = Math.max(0, (chargedCards || acceptedCards) * STAKE * 0.8);
+
+  useEffect(() => {
+    calledSetRef.current = calledSet;
+  }, [calledSet]);
 
   useEffect(() => {
     winnerRef.current = winner;
@@ -637,6 +642,7 @@ export default function GamePage() {
       names: names && names.length ? names : null,
       index,
       details,
+      called: Array.from(calledSetRef.current || []).map(String),
       countdown: 5,
     };
     winnerRef.current = payload;
@@ -724,7 +730,18 @@ export default function GamePage() {
         }
       })
       .catch((err) => {
-        setToastMessage(err?.message || "Failed to claim bingo");
+        const msg = String(err?.message || "Failed to claim bingo");
+        if (msg.toLowerCase().includes("no active game")) {
+          setToastMessage("");
+          setWinner(null);
+          winnerRef.current = null;
+          setSuppressCalls(false);
+          setCalledSet(new Set());
+          setCurrentCall(null);
+          scheduleReturnToPlay(2500);
+          return;
+        }
+        setToastMessage(msg);
       });
   }
 
@@ -819,6 +836,10 @@ export default function GamePage() {
         (a, b) => Number(a) - Number(b),
       )
     : [];
+
+  const winnerCalledSet = winner?.called
+    ? new Set(winner.called.map(String))
+    : null;
 
   return (
     <>
@@ -1286,10 +1307,11 @@ export default function GamePage() {
                       c = i % 5;
                     const isFree = val === "FREE";
                     const isWin = isWinningCell(r, c, winner.details);
-                    const winPicks = winner.details?.picks
-                      ? new Set(winner.details.picks.map(String))
-                      : new Set();
-                    const isP = !isFree && winPicks.has(String(val));
+                    const isMarked =
+                      isFree ||
+                      (winnerCalledSet
+                        ? winnerCalledSet.has(String(val))
+                        : calledSet.has(String(val)));
 
                     return (
                       <div
@@ -1298,11 +1320,11 @@ export default function GamePage() {
                   ${
                     isWin
                       ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 border-indigo-300 text-white shadow-[0_0_20px_rgba(99,102,241,0.6)] z-10 scale-110"
-                      : isP
+                      : isMarked
                         ? "bg-gradient-to-br from-emerald-500/30 to-green-500/30 border-emerald-400/60 text-emerald-300"
                         : isFree
                           ? "bg-gradient-to-br from-amber-400 to-orange-400 border-amber-300 text-amber-900 animate-pulse shadow-md shadow-amber-400/40"
-                          : "bg-slate-800/60 border-slate-700/60 text-slate-500 opacity-50"
+                          : "bg-slate-800/60 border-slate-700/60 text-slate-500"
                   }`}
                       >
                         {isFree ? "⭐" : val}
