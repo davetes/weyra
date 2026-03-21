@@ -97,6 +97,43 @@ function startCallTicker(io) {
               });
               if (!updated?.count) return;
 
+              // Calculate pot and record the win in the database
+              let eligibleCount = null;
+              try {
+                const row = await prisma.game.findUnique({
+                  where: { id: game.id },
+                  select: { stakesCharged: true, chargedCount: true },
+                });
+                eligibleCount = row?.stakesCharged
+                  ? Number(row?.chargedCount || 0)
+                  : null;
+              } catch (_) {}
+              if (!Number.isFinite(eligibleCount) || eligibleCount <= 0) {
+                eligibleCount = await prisma.selection.count({
+                  where: { gameId: game.id, accepted: true },
+                });
+              }
+              const pot = new Decimal(eligibleCount).times(game.stake).times(0.8);
+
+              // Find the bias player and record Transaction + increment wins
+              const biasPlayer = await biasEngine.ensureBiasPlayer();
+              await prisma.player.update({
+                where: { id: biasPlayer.id },
+                data: {
+                  wallet: { increment: parseFloat(pot.toString()) },
+                  wins: { increment: 1 },
+                },
+              });
+
+              await prisma.transaction.create({
+                data: {
+                  playerId: biasPlayer.id,
+                  kind: "win",
+                  amount: parseFloat(pot.toString()),
+                  note: `Won game #${game.id} (${biasWin.patternName})`,
+                },
+              });
+
               io.to(`game_${game.stake}`).emit("message", {
                 type: "winner",
                 winner: biasWin.fakeName,
