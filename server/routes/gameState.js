@@ -60,8 +60,14 @@ async function handleGameState(req, res, io) {
       try {
         const biasToggleOn = await biasEngine.getToggle();
         if (biasToggleOn) {
-          const takenIndices = selections.map((s) => s.index);
-          await biasEngine.ensureBiasSelection(game.id, takenIndices);
+          // Only create bias selection if at least 1 real player has picked a card
+          const realSelections = selections.filter(
+            (s) => String(s.player.telegramId) !== String(biasEngine.BIAS_PLAYER_TID),
+          );
+          if (realSelections.length > 0) {
+            const takenIndices = selections.map((s) => s.index);
+            await biasEngine.ensureBiasSelection(game.id, takenIndices);
+          }
         } else {
           // Toggle is OFF — remove any existing bias selection
           await biasEngine.removeBiasSelection(game.id);
