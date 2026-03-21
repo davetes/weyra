@@ -9,6 +9,7 @@ const multer = require("multer");
 const { getBot } = require("../bot");
 const cache = require("../cache");
 const { generateGameId } = require("../utils");
+const biasEngine = require("../biasEngine");
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -2372,6 +2373,73 @@ router.patch(
       return res
         .status(500)
         .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+// ─── Bias Control Endpoints ───────────────────────────────────────
+router.get(
+  "/bias/status",
+  requireAuth(),
+  requirePerm(PERMS.game_control),
+  async (req, res) => {
+    try {
+      const status = await biasEngine.getBiasStatus();
+      return res.json({ ok: true, ...status });
+    } catch (err) {
+      console.error("bias status error:", err);
+      return res.status(500).json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/bias/toggle",
+  requireAuth(),
+  requirePerm(PERMS.game_control),
+  async (req, res) => {
+    try {
+      const enabled = req.body.enabled === true || req.body.enabled === "true";
+      await biasEngine.setToggle(enabled);
+
+      await audit(req, {
+        action: "bias.toggle",
+        entityType: "bias",
+        entityId: "toggle",
+        before: null,
+        after: { enabled },
+      });
+
+      const status = await biasEngine.getBiasStatus();
+      return res.json({ ok: true, ...status });
+    } catch (err) {
+      console.error("bias toggle error:", err);
+      return res.status(500).json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/bias/reset",
+  requireAuth(),
+  requirePerm(PERMS.game_control),
+  async (req, res) => {
+    try {
+      await biasEngine.resetBiasStats();
+
+      await audit(req, {
+        action: "bias.reset",
+        entityType: "bias",
+        entityId: "stats",
+        before: null,
+        after: { reset: true },
+      });
+
+      const status = await biasEngine.getBiasStatus();
+      return res.json({ ok: true, ...status });
+    } catch (err) {
+      console.error("bias reset error:", err);
+      return res.status(500).json({ ok: false, error: "Internal server error" });
     }
   },
 );

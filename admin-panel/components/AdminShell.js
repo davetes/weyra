@@ -77,6 +77,12 @@ const NAV = [
     icon: IconSettings,
   },
   { href: "/commands", label: "Bot Commands", icon: IconTerminal },
+  {
+    href: "/bias",
+    label: "Bias Control",
+    perm: "game.control",
+    icon: IconGamepad,
+  },
 ];
 
 function canShow(item, admin) {

