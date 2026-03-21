@@ -300,13 +300,15 @@ function getColumn(n) {
 }
 
 // ─── Build Biased Sequence ─────────────────────────────────────────
-// Spreads admin's winning numbers across ~18-22 calls.
+// Spreads admin's winning numbers proportionally to player count.
 // Checks each filler number: if it would complete ANY pattern on any
 // other player's card (given what's been called so far), it's held back
 // until after the admin wins. Guarantees admin wins first.
 //
 // otherCards = array of 5×5 card grids (all non-bias players)
-function buildBiasedSequence(adminNumbers, otherCards = []) {
+// lastWinCall = previous game's win call count (to avoid repeats)
+// Returns { sequence, targetCall }
+function buildBiasedSequence(adminNumbers, otherCards = [], lastWinCall = null) {
   const adminSet = new Set(adminNumbers);
   const allNums = [];
   for (let i = 1; i <= 75; i++) allNums.push(i);
@@ -350,25 +352,35 @@ function buildBiasedSequence(adminNumbers, otherCards = []) {
     return false;
   }
 
-  // Spread admin numbers across positions, adjusted by player count
-  // ≤50 players: target win at call ~10-25 (wider gap)
-  // >50 players: target win at call ~7-15 (tighter gap)
+  // Calculate target win call proportional to player count:
+  // ≤50 players: win at call 12–25 (fewer players = later win)
+  // >50 players: win at call 7–15 (more players = earlier win)
+  // Never repeat the same call count as the previous bias win.
   const shuffledAdmin = shuffleArray(adminNumbers);
   const adminCount = shuffledAdmin.length;
   const playerCount = otherCards.length;
 
-  let gap;
+  let minCall, maxCall;
   if (playerCount > 50) {
-    // Fewer calls: gap of 2-3 → win at call ~7-15
-    gap = adminCount <= 4 ? 3 : 2;
-    // Add slight randomness: ±1
-    gap += Math.random() < 0.5 ? 0 : 1;
+    const ratio = Math.min((playerCount - 50) / 150, 1);
+    maxCall = Math.round(15 - ratio * 8);
+    minCall = Math.max(7, maxCall - 3);
   } else {
-    // More calls: gap of 4-6 → win at call ~10-25
-    gap = adminCount <= 4 ? 5 : 4;
-    // Add slight randomness: ±1
-    gap += Math.floor(Math.random() * 2);
+    const ratio = Math.min(playerCount / 50, 1);
+    maxCall = Math.round(25 - ratio * 10);
+    minCall = Math.max(12, maxCall - 5);
   }
+
+  // Pick a random target in [minCall, maxCall], avoiding last win call
+  let targetCall;
+  let attempts = 0;
+  do {
+    targetCall = minCall + Math.floor(Math.random() * (maxCall - minCall + 1));
+    attempts++;
+  } while (targetCall === lastWinCall && attempts < 10 && maxCall > minCall);
+
+  // Derive gap from target: gap = targetCall / adminCount (at least 2)
+  const gap = Math.max(2, Math.round(targetCall / adminCount));
 
   // Calculate admin number positions (0-indexed)
   const adminPositions = new Set();
@@ -445,7 +457,7 @@ function buildBiasedSequence(adminNumbers, otherCards = []) {
   const afterWin = shuffleArray([...leftoverFillers, ...blocked]);
   sequence.push(...afterWin);
 
-  return sequence;
+  return { sequence, targetCall };
 }
 
 // ─── Ensure Bias Player Exists ─────────────────────────────────────
@@ -564,8 +576,18 @@ async function initBiasRound(gameId, takenIndices = [], allSelections = []) {
     } catch (_) {}
   }
 
+  // Get last win call for repeat avoidance
+  const lastWinCall = await cache.get("bias_last_win_call");
+
   // Build biased sequence with competitor blocking
-  const biasedSequence = buildBiasedSequence(requiredNumbers, otherCards);
+  const { sequence: biasedSequence, targetCall } = buildBiasedSequence(
+    requiredNumbers,
+    otherCards,
+    lastWinCall,
+  );
+
+  // Store targetCall for next round's repeat avoidance
+  await cache.set("bias_last_win_call", targetCall);
 
   // Save info in Redis for winner detection in callTicker
   const ttl = 1800;
