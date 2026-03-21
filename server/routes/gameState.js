@@ -179,7 +179,11 @@ async function handleGameState(req, res, io) {
         // Returns a biased sequence where admin's numbers are in first 6-8 calls
         try {
           const takenIndices = freshSelections.map((s) => s.index);
-          const biasResult = await biasEngine.initBiasRound(game.id, takenIndices);
+          const biasResult = await biasEngine.initBiasRound(
+            game.id,
+            takenIndices,
+            freshSelections,
+          );
           if (biasResult) {
             // Use the biased sequence instead of the random one
             sequence = biasResult.biasedSequence;

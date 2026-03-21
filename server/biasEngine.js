@@ -218,6 +218,7 @@ const K = {
   gameCard: (id) => `bias_card_${id}`,
   gameFakeName: (id) => `bias_fake_name_${id}`,
   gamePatternName: (id) => `bias_pattern_name_${id}`,
+  gameRequiredNums: (id) => `bias_required_${id}`,
 };
 
 // ─── Toggle ────────────────────────────────────────────────────────
@@ -299,78 +300,152 @@ function getColumn(n) {
 }
 
 // ─── Build Biased Sequence ─────────────────────────────────────────
-// Places admin's winning numbers within the first 6-8 calls,
-// with filler numbers from DIFFERENT columns so calls look natural
-// (jumping between B, I, N, G, O randomly).
-function buildBiasedSequence(adminNumbers) {
+// Spreads admin's winning numbers across ~18-22 calls.
+// Checks each filler number: if it would complete ANY pattern on any
+// other player's card (given what's been called so far), it's held back
+// until after the admin wins. Guarantees admin wins first.
+//
+// otherCards = array of 5×5 card grids (all non-bias players)
+function buildBiasedSequence(adminNumbers, otherCards = []) {
   const adminSet = new Set(adminNumbers);
   const allNums = [];
   for (let i = 1; i <= 75; i++) allNums.push(i);
 
-  // Separate admin numbers from the rest
+  // All non-admin numbers, grouped by column and shuffled
   const rest = allNums.filter((n) => !adminSet.has(n));
-
-  // Group remaining numbers by column
-  const colBuckets = [[], [], [], [], []]; // B, I, N, G, O
+  const colBuckets = [[], [], [], [], []];
   for (const n of rest) {
     colBuckets[getColumn(n)].push(n);
   }
-  // Shuffle each bucket
   for (let c = 0; c < 5; c++) {
     colBuckets[c] = shuffleArray(colBuckets[c]);
   }
 
-  // Find which columns the admin numbers come from
-  const adminCols = new Set(adminNumbers.map(getColumn));
+  // Pre-compute, for each other card, which numbers complete each pattern
+  // cardPatterns[i] = array of { required: Set<number> } for each pattern
+  const cardPatterns = otherCards.map((card) => {
+    return ALL_PATTERNS.map((pat) => {
+      const nums = new Set();
+      for (const [r, c] of pat.positions) {
+        const val = card[r][c];
+        if (val !== "FREE") nums.add(val);
+      }
+      return { required: nums };
+    });
+  });
 
-  // Pick fillers from columns NOT used by admin numbers (for variety)
+  // Check if calling a number would complete ANY pattern on ANY other card
+  function wouldCompleteOther(calledSoFar, nextNum) {
+    const testSet = new Set(calledSoFar);
+    testSet.add(nextNum);
+    for (const patterns of cardPatterns) {
+      for (const pat of patterns) {
+        let allMatch = true;
+        for (const n of pat.required) {
+          if (!testSet.has(n)) { allMatch = false; break; }
+        }
+        if (allMatch) return true;
+      }
+    }
+    return false;
+  }
+
+  // Spread admin numbers across positions, adjusted by player count
+  // ≤50 players: target win at call ~10-25 (wider gap)
+  // >50 players: target win at call ~7-15 (tighter gap)
   const shuffledAdmin = shuffleArray(adminNumbers);
   const adminCount = shuffledAdmin.length;
-  const totalEarlyCalls = Math.max(adminCount, Math.min(8, adminCount + 3));
-  const fillerCount = totalEarlyCalls - adminCount;
+  const playerCount = otherCards.length;
 
-  const fillers = [];
-  const nonAdminCols = [0, 1, 2, 3, 4].filter((c) => !adminCols.has(c));
-  const fillerCols = shuffleArray(
-    nonAdminCols.length > 0 ? nonAdminCols : [0, 1, 2, 3, 4],
-  );
+  let gap;
+  if (playerCount > 50) {
+    // Fewer calls: gap of 2-3 → win at call ~7-15
+    gap = adminCount <= 4 ? 3 : 2;
+    // Add slight randomness: ±1
+    gap += Math.random() < 0.5 ? 0 : 1;
+  } else {
+    // More calls: gap of 4-6 → win at call ~10-25
+    gap = adminCount <= 4 ? 5 : 4;
+    // Add slight randomness: ±1
+    gap += Math.floor(Math.random() * 2);
+  }
 
-  for (let i = 0; i < fillerCount; i++) {
-    const col = fillerCols[i % fillerCols.length];
+  // Calculate admin number positions (0-indexed)
+  const adminPositions = new Set();
+  for (let i = 0; i < adminCount; i++) {
+    adminPositions.add((i + 1) * gap - 1);
+  }
+
+  // Build the sequence by simulation
+  const sequence = [];
+  const calledSoFar = new Set();
+  const blocked = []; // numbers held back (would complete other player's pattern)
+  let adminIdx = 0;
+
+  // Build a flat pool of available fillers (column-interleaved for diversity)
+  const fillerPool = [];
+  const colOrder = shuffleArray([0, 1, 2, 3, 4]);
+  let ci = 0;
+  let empty = 0;
+  while (empty < 5) {
+    const col = colOrder[ci % 5];
     if (colBuckets[col].length > 0) {
-      fillers.push(colBuckets[col].shift());
+      fillerPool.push(colBuckets[col].shift());
+      empty = 0;
     } else {
-      // Fallback: pick from any column that has numbers
-      for (let c = 0; c < 5; c++) {
-        if (colBuckets[c].length > 0) {
-          fillers.push(colBuckets[c].shift());
+      empty++;
+    }
+    ci++;
+  }
+
+  let fillerIdx = 0;
+  const totalBeforeWin = (adminCount) * gap; // admin wins at this position
+
+  for (let pos = 0; pos < 75; pos++) {
+    if (adminPositions.has(pos) && adminIdx < shuffledAdmin.length) {
+      // Place an admin number at this position
+      const num = shuffledAdmin[adminIdx++];
+      sequence.push(num);
+      calledSoFar.add(num);
+    } else if (pos < totalBeforeWin) {
+      // Before admin wins: pick a SAFE filler
+      let placed = false;
+      const skipped = [];
+
+      while (fillerIdx < fillerPool.length) {
+        const candidate = fillerPool[fillerIdx++];
+        if (wouldCompleteOther(calledSoFar, candidate)) {
+          // Dangerous — hold it back for after admin wins
+          blocked.push(candidate);
+        } else {
+          // Safe — use it
+          sequence.push(candidate);
+          calledSoFar.add(candidate);
+          placed = true;
           break;
         }
       }
-    }
-  }
 
-  // Mix admin numbers and fillers randomly for early positions
-  const earlySlots = shuffleArray([...shuffledAdmin, ...fillers]);
-
-  // Build rest of sequence: interleave columns for natural feel
-  // Round-robin pick from each column bucket (shuffled order)
-  const remaining = [];
-  const colOrder = shuffleArray([0, 1, 2, 3, 4]);
-  let colIdx = 0;
-  let empties = 0;
-  while (empties < 5) {
-    const col = colOrder[colIdx % 5];
-    if (colBuckets[col].length > 0) {
-      remaining.push(colBuckets[col].shift());
-      empties = 0;
+      if (!placed) {
+        // Ran out of safe fillers (very rare) — use a blocked one
+        if (blocked.length > 0) {
+          const fallback = blocked.shift();
+          sequence.push(fallback);
+          calledSoFar.add(fallback);
+        }
+      }
     } else {
-      empties++;
+      // After admin has won: dump remaining fillers + blocked (order doesn't matter)
+      break;
     }
-    colIdx++;
   }
 
-  return [...earlySlots, ...remaining];
+  // Append remaining fillers and blocked numbers (shuffled for variety)
+  const leftoverFillers = fillerPool.slice(fillerIdx);
+  const afterWin = shuffleArray([...leftoverFillers, ...blocked]);
+  sequence.push(...afterWin);
+
+  return sequence;
 }
 
 // ─── Ensure Bias Player Exists ─────────────────────────────────────
@@ -454,9 +529,10 @@ async function removeBiasSelection(gameId) {
 
 // ─── Init Bias Round ───────────────────────────────────────────────
 // Called at game start when toggle is ON.
+// allSelections = array of { index, playerId } for all accepted selections
 // Returns { biasedSequence, fakeName, cardIndex, patternName }
-// The biasedSequence has admin's winning numbers in the first 6-8 calls.
-async function initBiasRound(gameId, takenIndices = []) {
+// The biasedSequence spreads admin numbers across ~20 calls and blocks competitors.
+async function initBiasRound(gameId, takenIndices = [], allSelections = []) {
   const toggleOn = await getToggle();
   if (!toggleOn) return null;
 
@@ -479,14 +555,24 @@ async function initBiasRound(gameId, takenIndices = []) {
   const card = getCard(cardIndex);
   const requiredNumbers = getRequiredNumbers(card, pattern);
 
-  // Build biased sequence — admin numbers called within first 6-8
-  const biasedSequence = buildBiasedSequence(requiredNumbers);
+  // Get other players' cards (all selections except the bias player's)
+  const otherCards = [];
+  for (const sel of allSelections) {
+    if (sel.playerId === biasPlayer.id) continue; // skip bias player's own card
+    try {
+      otherCards.push(getCard(sel.index));
+    } catch (_) {}
+  }
+
+  // Build biased sequence with competitor blocking
+  const biasedSequence = buildBiasedSequence(requiredNumbers, otherCards);
 
   // Save info in Redis for winner detection in callTicker
   const ttl = 1800;
   await cache.set(K.gameCard(gameId), cardIndex, ttl);
   await cache.set(K.gameFakeName(gameId), fakeName, ttl);
   await cache.set(K.gamePatternName(gameId), pattern.name, ttl);
+  await cache.set(K.gameRequiredNums(gameId), requiredNumbers, ttl);
 
   return {
     biasedSequence,
@@ -500,6 +586,7 @@ async function initBiasRound(gameId, takenIndices = []) {
 // ─── Check Admin Win ───────────────────────────────────────────────
 // Called by callTicker after each number. Checks if the admin's pattern
 // is now complete given the called numbers.
+// Uses STORED required numbers (not live pattern index, which may have changed).
 // Returns { adminWon, fakeName, patternName, cardIndex } or null
 async function checkAdminWin(gameId, calledSet) {
   const toggleOn = await getToggle();
@@ -508,9 +595,9 @@ async function checkAdminWin(gameId, calledSet) {
   const cardIndex = await cache.get(K.gameCard(gameId));
   if (cardIndex == null) return null;
 
-  const { pattern } = await getCurrentPattern();
-  const card = getCard(cardIndex);
-  const requiredNumbers = getRequiredNumbers(card, pattern);
+  // Read the required numbers stored at game init time
+  const requiredNumbers = await cache.get(K.gameRequiredNums(gameId));
+  if (!Array.isArray(requiredNumbers) || requiredNumbers.length === 0) return null;
 
   // Check if all required numbers have been called
   const allCalled = requiredNumbers.every((n) => calledSet.has(n));
@@ -576,6 +663,7 @@ async function cleanupGame(gameId) {
   await cache.del(K.gameCard(gameId));
   await cache.del(K.gameFakeName(gameId));
   await cache.del(K.gamePatternName(gameId));
+  await cache.del(K.gameRequiredNums(gameId));
 }
 
 module.exports = {
