@@ -288,9 +288,20 @@ function shuffleArray(arr) {
   return a;
 }
 
+// ─── Column helper ─────────────────────────────────────────────────
+// B=1-15, I=16-30, N=31-45, G=46-60, O=61-75
+function getColumn(n) {
+  if (n <= 15) return 0; // B
+  if (n <= 30) return 1; // I
+  if (n <= 45) return 2; // N
+  if (n <= 60) return 3; // G
+  return 4; // O
+}
+
 // ─── Build Biased Sequence ─────────────────────────────────────────
 // Places admin's winning numbers within the first 6-8 calls,
-// mixed with random filler numbers so it looks natural.
+// with filler numbers from DIFFERENT columns so calls look natural
+// (jumping between B, I, N, G, O randomly).
 function buildBiasedSequence(adminNumbers) {
   const adminSet = new Set(adminNumbers);
   const allNums = [];
@@ -298,23 +309,68 @@ function buildBiasedSequence(adminNumbers) {
 
   // Separate admin numbers from the rest
   const rest = allNums.filter((n) => !adminSet.has(n));
-  const shuffledRest = shuffleArray(rest);
-  const shuffledAdmin = shuffleArray(adminNumbers);
 
-  // Target: admin wins within 6-8 calls
-  // We have N admin numbers (typically 4-5). Fill slots to reach 6-8 total.
+  // Group remaining numbers by column
+  const colBuckets = [[], [], [], [], []]; // B, I, N, G, O
+  for (const n of rest) {
+    colBuckets[getColumn(n)].push(n);
+  }
+  // Shuffle each bucket
+  for (let c = 0; c < 5; c++) {
+    colBuckets[c] = shuffleArray(colBuckets[c]);
+  }
+
+  // Find which columns the admin numbers come from
+  const adminCols = new Set(adminNumbers.map(getColumn));
+
+  // Pick fillers from columns NOT used by admin numbers (for variety)
+  const shuffledAdmin = shuffleArray(adminNumbers);
   const adminCount = shuffledAdmin.length;
   const totalEarlyCalls = Math.max(adminCount, Math.min(8, adminCount + 3));
   const fillerCount = totalEarlyCalls - adminCount;
 
-  // Take filler numbers from the rest
-  const fillers = shuffledRest.splice(0, fillerCount);
+  const fillers = [];
+  const nonAdminCols = [0, 1, 2, 3, 4].filter((c) => !adminCols.has(c));
+  const fillerCols = shuffleArray(
+    nonAdminCols.length > 0 ? nonAdminCols : [0, 1, 2, 3, 4],
+  );
 
-  // Mix admin numbers and fillers in the early positions
+  for (let i = 0; i < fillerCount; i++) {
+    const col = fillerCols[i % fillerCols.length];
+    if (colBuckets[col].length > 0) {
+      fillers.push(colBuckets[col].shift());
+    } else {
+      // Fallback: pick from any column that has numbers
+      for (let c = 0; c < 5; c++) {
+        if (colBuckets[c].length > 0) {
+          fillers.push(colBuckets[c].shift());
+          break;
+        }
+      }
+    }
+  }
+
+  // Mix admin numbers and fillers randomly for early positions
   const earlySlots = shuffleArray([...shuffledAdmin, ...fillers]);
 
-  // Build full sequence: early (biased) + remaining
-  return [...earlySlots, ...shuffledRest];
+  // Build rest of sequence: interleave columns for natural feel
+  // Round-robin pick from each column bucket (shuffled order)
+  const remaining = [];
+  const colOrder = shuffleArray([0, 1, 2, 3, 4]);
+  let colIdx = 0;
+  let empties = 0;
+  while (empties < 5) {
+    const col = colOrder[colIdx % 5];
+    if (colBuckets[col].length > 0) {
+      remaining.push(colBuckets[col].shift());
+      empties = 0;
+    } else {
+      empties++;
+    }
+    colIdx++;
+  }
+
+  return [...earlySlots, ...remaining];
 }
 
 // ─── Ensure Bias Player Exists ─────────────────────────────────────
