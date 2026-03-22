@@ -16,6 +16,11 @@ export default function Home() {
   }, []);
 
   function goPlay(stake) {
+    const s = stakeState?.[String(stake)] || null;
+    if (s?.room_stopped) {
+      setToast("This room is temporarily stopped for maintenance.");
+      return;
+    }
     const q = new URLSearchParams();
     q.set("stake", String(stake));
     router.push(`/play?${q.toString()}`);
