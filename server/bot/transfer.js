@@ -148,22 +148,51 @@ function setupTransfer(bot, userState) {
         return;
       }
 
-      const sender = await prisma.player.findUnique({
-        where: { telegramId: BigInt(tid) },
+      // Use transaction to prevent TOCTOU race on balance
+      const result = await prisma.$transaction(async (tx) => {
+        const sender = await tx.player.findUnique({
+          where: { telegramId: BigInt(tid) },
+        });
+        const recipient = await tx.player.findUnique({
+          where: { telegramId: recipientTid },
+        });
+        if (!sender || !recipient) {
+          throw new Error("not_registered");
+        }
+
+        const sbal = new Decimal(sender.wallet.toString());
+        if (sbal.lt(amount)) {
+          throw new Error("insufficient");
+        }
+
+        const newSenderBal = sbal.minus(amount);
+        const newRecipientBal = new Decimal(recipient.wallet.toString()).plus(
+          amount,
+        );
+        await tx.player.update({
+          where: { id: sender.id },
+          data: { wallet: newSenderBal.toNumber() },
+        });
+        await tx.player.update({
+          where: { id: recipient.id },
+          data: { wallet: newRecipientBal.toNumber() },
+        });
+
+        return { newSenderBal, recipient };
+      }).catch((err) => {
+        if (err.message === "not_registered") return "not_registered";
+        if (err.message === "insufficient") return "insufficient";
+        throw err;
       });
-      const recipient = await prisma.player.findUnique({
-        where: { telegramId: recipientTid },
-      });
-      if (!sender || !recipient) {
+
+      if (result === "not_registered") {
         await bot.sendMessage(
           chatId,
           "Please register first using /start and share your phone number.",
         );
         return;
       }
-
-      const sbal = new Decimal(sender.wallet.toString());
-      if (sbal.lt(amount)) {
+      if (result === "insufficient") {
         await bot.sendMessage(
           chatId,
           "You don't have a sufficient amount to withdraw. Please try again.",
@@ -172,32 +201,20 @@ function setupTransfer(bot, userState) {
         return;
       }
 
-      const newSenderBal = sbal.minus(amount);
-      const newRecipientBal = new Decimal(recipient.wallet.toString()).plus(
-        amount,
-      );
-      await prisma.player.update({
-        where: { id: sender.id },
-        data: { wallet: newSenderBal.toNumber() },
-      });
-      await prisma.player.update({
-        where: { id: recipient.id },
-        data: { wallet: newRecipientBal.toNumber() },
-      });
-
       userState.delete(tid);
 
       await bot.sendMessage(
         chatId,
         "Transfer successful.\n" +
           `Sent: ${amount.toFixed(2)} ETB\n` +
-          `To: ${recipient.username || "-"} (${info.recipientPhone || "-"})\n` +
-          `New Balance: ${newSenderBal.toFixed(2)} ETB`,
+          `To: ${result.recipient.username || "-"} (${info.recipientPhone || "-"})\n` +
+          `New Balance: ${result.newSenderBal.toFixed(2)} ETB`,
       );
 
       try {
+        const newRecipientBal = new Decimal(result.recipient.wallet.toString()).plus(amount);
         await bot.sendMessage(
-          Number(recipient.telegramId),
+          Number(result.recipient.telegramId),
           "You have received a transfer.\n" +
             `Amount: +${amount.toFixed(2)} ETB\n` +
             `New Balance: ${newRecipientBal.toFixed(2)} ETB`,

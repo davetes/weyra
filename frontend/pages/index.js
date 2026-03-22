@@ -3,6 +3,7 @@ import Head from "next/head";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { History, Wallet, User, Gamepad2 } from "lucide-react";
+import { getTid } from "../lib/telegram";
 
 export default function Home() {
   const router = useRouter();
@@ -11,14 +12,12 @@ export default function Home() {
   const [stakeState, setStakeState] = useState({});
 
   const tid = useMemo(() => {
-    const raw = router.query?.tid;
-    return raw != null ? String(raw) : "";
-  }, [router.query]);
+    return getTid();
+  }, []);
 
   function goPlay(stake) {
     const q = new URLSearchParams();
     q.set("stake", String(stake));
-    if (tid) q.set("tid", tid);
     router.push(`/play?${q.toString()}`);
   }
 
@@ -205,7 +204,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")
+                  router.push("/")
                 }
                 className="flex flex-col items-center justify-center py-2 bg-gradient-to-br from-[#38bdf8]/20 to-[#1d4ed8]/20 border border-[#38bdf8]/35 text-white shadow-[0_0_18px_rgba(56,189,248,0.12)]"
               >
@@ -216,11 +215,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid
-                      ? `/history?tid=${encodeURIComponent(tid)}`
-                      : "/history",
-                  )
+                  router.push("/history")
                 }
                 className="flex flex-col items-center justify-center py-2 text-slate-300 hover:bg-white/5 transition-all"
               >
@@ -231,9 +226,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet",
-                  )
+                  router.push("/wallet")
                 }
                 className="flex flex-col items-center justify-center py-2 text-slate-300 hover:bg-white/5 transition-all"
               >
@@ -244,11 +237,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid
-                      ? `/profile?tid=${encodeURIComponent(tid)}`
-                      : "/profile",
-                  )
+                  router.push("/profile")
                 }
                 className="flex flex-col items-center justify-center py-2 text-slate-300 hover:bg-white/5 transition-all"
               >

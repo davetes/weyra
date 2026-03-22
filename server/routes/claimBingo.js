@@ -98,7 +98,9 @@ async function disqualifySelection({ io, stake, game, sel, tidStr, slot }) {
 
 async function handleClaimBingo(req, res, io) {
   try {
-    const { tidStr, tidBig } = parseTid(req.body.tid);
+    // Use validated tid from initData middleware (secure)
+    const tidBig = req.validatedTid || null;
+    const tidStr = tidBig ? String(tidBig) : "";
     const stake = parseInt(req.body.stake || "10", 10);
     const slot = parseInt(req.body.slot ?? "0", 10);
     let picks = [];

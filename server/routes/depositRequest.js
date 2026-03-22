@@ -15,7 +15,8 @@ function parseTid(input) {
 
 async function handleDepositRequest(req, res) {
   try {
-    const { tidBig } = parseTid(req.body?.tid ?? req.query?.tid);
+    // Use validated tid from initData middleware (secure)
+    const tidBig = req.validatedTid || null;
     if (!tidBig) {
       return res.status(400).json({ ok: false, error: "Missing tid" });
     }

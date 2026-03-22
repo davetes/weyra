@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { ArrowLeftFromLine } from "lucide-react";
+import { apiFetch, getTid } from "../lib/telegram";
 
 /* ── Deterministic card generator (same as server/utils.js) ── */
 function mulberry32(seed) {
@@ -95,9 +96,14 @@ function setCachedPlayData(d) {
 
 export default function PlayPage() {
   const router = useRouter();
-  const { stake: stakeQ, tid: tidQ } = router.query;
+  const { stake: stakeQ } = router.query;
   const STAKE = parseInt(stakeQ || "10", 10);
-  const TID = tidQ || "";
+  // Get TID from Telegram WebApp (secure, not from URL)
+  const [TID, setTID] = useState("");
+  useEffect(() => {
+    const tid = getTid();
+    if (tid) setTID(tid);
+  }, []);
 
   const cached = useMemo(() => getCachedPlayData(), []);
 
@@ -142,12 +148,11 @@ export default function PlayPage() {
     pendingActionRef.current++;
     try {
       const form = new URLSearchParams();
-      form.set("tid", String(TID));
       form.set("stake", String(STAKE));
       form.set("index", String(index));
       form.set("slot", String(slot ?? 0));
       form.set("action", "accept");
-      const res = await fetch("/api/select", { method: "POST", body: form });
+      const res = await apiFetch("/api/select", { method: "POST", body: form });
 
       if (res.ok) {
         const data = await res.json();
@@ -186,11 +191,10 @@ export default function PlayPage() {
         });
       }
       const form = new URLSearchParams();
-      form.set("tid", String(TID));
       form.set("stake", String(STAKE));
       form.set("slot", String(slot ?? 0));
       form.set("action", "cancel");
-      await fetch("/api/select", { method: "POST", body: form }).catch(() => { });
+      await apiFetch("/api/select", { method: "POST", body: form }).catch(() => { });
       await refreshState();
     } finally {
       pendingActionRef.current--;
@@ -206,8 +210,8 @@ export default function PlayPage() {
     try {
       const controller = new AbortController();
       const to = setTimeout(() => controller.abort(), 7000);
-      const res = await fetch(
-        `/api/game_state?stake=${STAKE}&tid=${encodeURIComponent(TID)}`,
+      const res = await apiFetch(
+        `/api/game_state?stake=${STAKE}`,
         { signal: controller.signal },
       );
       clearTimeout(to);
@@ -228,9 +232,9 @@ export default function PlayPage() {
         !data.started
       ) {
         try {
-          await fetch("/api/abandon", {
+          await apiFetch("/api/abandon", {
             method: "POST",
-            body: `tid=${encodeURIComponent(TID)}&stake=${STAKE}`,
+            body: `stake=${STAKE}`,
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
           });
         } catch (_) { }
@@ -284,7 +288,7 @@ export default function PlayPage() {
 
       if (data.started && !pushedToGameRef.current) {
         pushedToGameRef.current = true;
-        router.push(`/game?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        router.push(`/game?stake=${STAKE}`);
       }
 
       setSplashVisible(false);
@@ -351,11 +355,9 @@ export default function PlayPage() {
     const handle = () => {
       const s = lastPlayState.current;
       if (s.my_indices != null && !s.countdown_started_at && !s.started) {
-        const payload = `tid=${encodeURIComponent(TID)}&stake=${STAKE}`;
-        navigator.sendBeacon(
-          "/api/abandon",
-          new Blob([payload], { type: "application/x-www-form-urlencoded" }),
-        );
+        // Note: sendBeacon cannot set custom headers, so abandon on unload
+        // will not carry initData. This is acceptable since abandon is
+        // also guarded by heartbeat timeout on the server.
       }
     };
     window.addEventListener("beforeunload", handle);

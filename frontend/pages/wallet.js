@@ -8,13 +8,13 @@ import {
   User,
   Wallet as WalletIcon,
 } from "lucide-react";
+import { apiFetch, getTid } from "../lib/telegram";
 
 export default function WalletPage() {
   const router = useRouter();
   const tid = useMemo(() => {
-    const raw = router.query?.tid;
-    return raw != null ? String(raw) : "";
-  }, [router.query]);
+    return getTid();
+  }, []);
 
   const [activeTab, setActiveTab] = useState("balance");
   const [loading, setLoading] = useState(false);
@@ -42,8 +42,8 @@ export default function WalletPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(
-        `/api/game_state?stake=10&tid=${encodeURIComponent(tid)}`,
+      const res = await apiFetch(
+        `/api/game_state?stake=10`,
       );
       if (!res.ok) {
         setError("Failed to load wallet");
@@ -71,8 +71,8 @@ export default function WalletPage() {
       setHistoryLoading(true);
       setHistoryError("");
       try {
-        const res = await fetch(
-          `/api/wallet_requests?tid=${encodeURIComponent(tid)}`,
+        const res = await apiFetch(
+          `/api/wallet_requests`,
         );
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data?.ok) {
@@ -144,11 +144,10 @@ export default function WalletPage() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/deposit_request", {
+      const res = await apiFetch("/api/deposit_request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tid,
           amount: amt,
           method,
           caption,
@@ -185,11 +184,10 @@ export default function WalletPage() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/withdraw_request", {
+      const res = await apiFetch("/api/withdraw_request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tid,
           amount: amt,
           method,
           account,
@@ -533,7 +531,7 @@ export default function WalletPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")
+                  router.push("/")
                 }
                 className="flex flex-col items-center justify-center py-2 text-white/70 hover:bg-white/5"
               >
@@ -544,11 +542,7 @@ export default function WalletPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid
-                      ? `/history?tid=${encodeURIComponent(tid)}`
-                      : "/history",
-                  )
+                  router.push("/history")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
@@ -559,9 +553,7 @@ export default function WalletPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet",
-                  )
+                  router.push("/wallet")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-200"
               >
@@ -572,11 +564,7 @@ export default function WalletPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid
-                      ? `/profile?tid=${encodeURIComponent(tid)}`
-                      : "/profile",
-                  )
+                  router.push("/profile")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >

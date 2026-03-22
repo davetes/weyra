@@ -90,10 +90,32 @@ function setupConvert(bot, userState) {
       return;
     }
 
-    const player = await prisma.player.findUnique({
-      where: { telegramId: BigInt(tid) },
+    // Use transaction to prevent TOCTOU race on balance
+    const updated = await prisma.$transaction(async (tx) => {
+      const freshPlayer = await tx.player.findUnique({
+        where: { telegramId: BigInt(tid) },
+      });
+      if (!freshPlayer) {
+        throw new Error("not_found");
+      }
+      const freshGift = new Decimal(freshPlayer.gift.toString());
+      if (freshGift.lt(amount)) {
+        throw new Error("insufficient");
+      }
+      return tx.player.update({
+        where: { id: freshPlayer.id },
+        data: {
+          gift: freshGift.minus(amount).toNumber(),
+          wallet: new Decimal(freshPlayer.wallet.toString()).plus(amount).toNumber(),
+        },
+      });
+    }).catch((err) => {
+      if (err.message === "not_found") return "not_found";
+      if (err.message === "insufficient") return "insufficient";
+      throw err;
     });
-    if (!player) {
+
+    if (updated === "not_found") {
       await bot.sendMessage(
         chatId,
         "Please register first using /start and share your phone number.",
@@ -101,20 +123,10 @@ function setupConvert(bot, userState) {
       userState.delete(tid);
       return;
     }
-
-    const gift = new Decimal(player.gift.toString());
-    if (gift.lt(amount)) {
+    if (updated === "insufficient") {
       await bot.sendMessage(chatId, "Insufficient coin to convert.");
       return;
     }
-
-    const updated = await prisma.player.update({
-      where: { id: player.id },
-      data: {
-        gift: gift.minus(amount).toNumber(),
-        wallet: new Decimal(player.wallet.toString()).plus(amount).toNumber(),
-      },
-    });
 
     userState.delete(tid);
 

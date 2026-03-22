@@ -15,7 +15,8 @@ function parseTid(input) {
 
 async function handleAbandon(req, res) {
   try {
-    const { tidBig } = parseTid(req.body.tid);
+    // Use validated tid from initData middleware (secure)
+    const tidBig = req.validatedTid || null;
     const stake = parseInt(req.body.stake || "10", 10);
 
     if (!tidBig) {

@@ -17,7 +17,8 @@ function parseTid(input) {
 
 async function handleSelect(req, res) {
   try {
-    const { tidBig } = parseTid(req.body.tid);
+    // Use validated tid from initData middleware (secure)
+    const tidBig = req.validatedTid || null;
     const stake = parseInt(req.body.stake || "10", 10);
     const index = parseInt(req.body.index || "0", 10);
     const slot = parseInt(req.body.slot ?? "0", 10);
@@ -195,7 +196,8 @@ async function handleSelect(req, res) {
 // POST /api/auto — toggle auto enabled for a slot
 async function handleAuto(req, res) {
   try {
-    const { tidBig } = parseTid(req.body.tid);
+    // Use validated tid from initData middleware (secure)
+    const tidBig = req.validatedTid || null;
     const stake = parseInt(req.body.stake || "10", 10);
     const slot = parseInt(req.body.slot ?? "0", 10);
     const auto = req.body.auto;

@@ -16,6 +16,7 @@ export default function App({ Component, pageProps }) {
           content="black-translucent"
         />
         <link rel="icon" href="/static/images/favicon.ico" />
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
       </Head>
       <div className="min-h-screen bg-bg">
         <Component {...pageProps} />

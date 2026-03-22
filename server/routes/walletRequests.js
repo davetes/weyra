@@ -15,7 +15,8 @@ function parseTid(input) {
 
 async function handleWalletRequests(req, res) {
   try {
-    const { tidBig } = parseTid(req.query.tid);
+    // Use validated tid from initData middleware (secure)
+    const tidBig = req.validatedTid || null;
     if (!tidBig) {
       return res.status(400).json({ ok: false, error: "Missing tid" });
     }

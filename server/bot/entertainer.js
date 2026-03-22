@@ -157,6 +157,15 @@ function setupEntertainer(bot) {
 
     const before = new Decimal(player.wallet.toString());
     const after = before.minus(amount);
+
+    // Prevent negative balance
+    if (after.lt(0)) {
+      return bot.sendMessage(
+        msg.chat.id,
+        `❌ Insufficient balance. Player has ${before.toFixed(2)} ETB, cannot subtract ${amount.toFixed(2)} ETB.`,
+      );
+    }
+
     await prisma.$transaction([
       prisma.player.update({
         where: { id: player.id },

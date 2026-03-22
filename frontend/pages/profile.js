@@ -11,14 +11,14 @@ import {
   Users,
   TrendingUp,
 } from "lucide-react";
+import { apiFetch, getTid } from "../lib/telegram";
 
 export default function ProfilePage() {
   const router = useRouter();
 
   const tid = useMemo(() => {
-    const raw = router.query?.tid;
-    return raw != null ? String(raw) : "";
-  }, [router.query]);
+    return getTid();
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -48,7 +48,7 @@ export default function ProfilePage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/profile?tid=${encodeURIComponent(tid)}`);
+      const res = await apiFetch(`/api/profile`);
       if (!res.ok) {
         setError("Failed to load profile");
         return;
@@ -294,7 +294,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")
+                  router.push("/")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
@@ -305,11 +305,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid
-                      ? `/history?tid=${encodeURIComponent(tid)}`
-                      : "/history",
-                  )
+                  router.push("/history")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
@@ -320,9 +316,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet",
-                  )
+                  router.push("/wallet")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
@@ -333,11 +327,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(
-                    tid
-                      ? `/profile?tid=${encodeURIComponent(tid)}`
-                      : "/profile",
-                  )
+                  router.push("/profile")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-200"
               >

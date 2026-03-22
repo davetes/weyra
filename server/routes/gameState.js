@@ -30,7 +30,9 @@ async function getPausedMsForGame(gameId) {
 async function handleGameState(req, res, io) {
   try {
     const stake = parseInt(req.query.stake || "10", 10);
-    const { tidStr, tidBig } = parseTid(req.query.tid);
+    // Use validated tid from initData middleware (secure)
+    const tidBig = req.validatedTid || null;
+    const tidStr = tidBig ? String(tidBig) : "";
 
     // Find or create active game for this stake
     let game = await prisma.game.findFirst({
@@ -219,38 +221,52 @@ async function handleGameState(req, res, io) {
         if (!game.stakesCharged) {
           let charged = 0;
           for (const sel of freshSelections) {
+            // Re-read balance at charge time to prevent negative balances
             const player = await prisma.player.findUnique({
               where: { id: sel.playerId },
             });
-            if (player) {
-              const walletDec = new Decimal(player.wallet.toString());
-              const giftDec = new Decimal(player.gift.toString());
-              const stakeDec = new Decimal(stake);
-              // Use play wallet (gift) first, then main wallet
-              let deductFromGift = Decimal.min(giftDec, stakeDec);
-              let remainder = stakeDec.minus(deductFromGift);
-              let deductFromWallet = Decimal.min(walletDec, remainder);
+            if (!player) continue;
 
-              await prisma.player.update({
-                where: { id: player.id },
-                data: {
-                  wallet: {
-                    decrement: parseFloat(deductFromWallet.toString()),
-                  },
-                  gift: { decrement: parseFloat(deductFromGift.toString()) },
-                },
-              });
+            const walletDec = new Decimal(player.wallet.toString());
+            const giftDec = new Decimal(player.gift.toString());
+            const stakeDec = new Decimal(stake);
+            const totalBalance = walletDec.plus(giftDec);
 
-              await prisma.transaction.create({
-                data: {
-                  playerId: player.id,
-                  kind: "stake",
-                  amount: -stake,
-                  note: `Stake for game #${game.id}`,
-                },
+            // Skip charging if insufficient balance — remove selection
+            if (totalBalance.lt(stakeDec)) {
+              console.warn(
+                `Skipping stake charge for player ${player.id}: balance ${totalBalance.toFixed(2)} < stake ${stake}`,
+              );
+              await prisma.selection.deleteMany({
+                where: { id: sel.id },
               });
-              charged++;
+              continue;
             }
+
+            // Use play wallet (gift) first, then main wallet
+            let deductFromGift = Decimal.min(giftDec, stakeDec);
+            let remainder = stakeDec.minus(deductFromGift);
+            let deductFromWallet = Decimal.min(walletDec, remainder);
+
+            await prisma.player.update({
+              where: { id: player.id },
+              data: {
+                wallet: {
+                  decrement: parseFloat(deductFromWallet.toString()),
+                },
+                gift: { decrement: parseFloat(deductFromGift.toString()) },
+              },
+            });
+
+            await prisma.transaction.create({
+              data: {
+                playerId: player.id,
+                kind: "stake",
+                amount: -stake,
+                note: `Stake for game #${game.id}`,
+              },
+            });
+            charged++;
           }
           await prisma.game.update({
             where: { id: game.id },

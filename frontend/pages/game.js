@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import { io } from "socket.io-client";
 import { Eye, Info, Volume2, VolumeX, Trophy, X, Clock3 } from "lucide-react";
+import { apiFetch, getTid } from "../lib/telegram";
 
 /* ── Deterministic card (same as play.js / server) ── */
 function mulberry32(seed) {
@@ -62,9 +63,14 @@ const LETTERS = ["B", "I", "N", "G", "O"];
 
 export default function GamePage() {
   const router = useRouter();
-  const { stake: stakeQ, tid: tidQ } = router.query;
+  const { stake: stakeQ } = router.query;
   const STAKE = parseInt(stakeQ || "10", 10);
-  const TID = tidQ || "";
+  // Get TID from Telegram WebApp (secure, not from URL)
+  const [TID, setTID] = useState("");
+  useEffect(() => {
+    const tid = getTid();
+    if (tid) setTID(tid);
+  }, []);
 
   const [players, setPlayers] = useState(0);
   const [acceptedCards, setAcceptedCards] = useState(0);
@@ -193,11 +199,10 @@ export default function GamePage() {
 
   function saveAutoSelect(slot, val) {
     // Save to server (don't update local state - poll will handle it)
-    fetch("/api/auto", {
+    apiFetch("/api/auto", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tid: TID,
         stake: STAKE,
         slot,
         auto: val,
@@ -386,7 +391,7 @@ export default function GamePage() {
         try {
           localStorage.clear();
         } catch (_) {}
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        router.push(`/play?stake=${STAKE}`);
       },
       Math.max(0, delayMs),
     );
@@ -395,8 +400,8 @@ export default function GamePage() {
   const refresh = useCallback(async () => {
     if (!TID) return;
     try {
-      const res = await fetch(
-        `/api/game_state?stake=${STAKE}&tid=${encodeURIComponent(TID)}`,
+      const res = await apiFetch(
+        `/api/game_state?stake=${STAKE}`,
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -423,7 +428,7 @@ export default function GamePage() {
       ) {
         endedNoWinnerRedirectedRef.current = true;
         setToastMessage("Round ended. Returning to lobby...");
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        router.push(`/play?stake=${STAKE}`);
         return;
       }
       if (
@@ -434,7 +439,7 @@ export default function GamePage() {
       ) {
         endedNoWinnerRedirectedRef.current = true;
         setToastMessage("Game ended. Returning to lobby...");
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        router.push(`/play?stake=${STAKE}`);
         return;
       }
       if (
@@ -445,7 +450,7 @@ export default function GamePage() {
       ) {
         endedNoWinnerRedirectedRef.current = true;
         setToastMessage("Game ended - no players left. Returning to lobby...");
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        router.push(`/play?stake=${STAKE}`);
         return;
       }
 
@@ -554,7 +559,7 @@ export default function GamePage() {
 
       if (noWinner && !noWinnerRedirectedRef.current && reached75) {
         noWinnerRedirectedRef.current = true;
-        router.push(`/play?stake=${STAKE}&tid=${encodeURIComponent(TID)}`);
+        router.push(`/play?stake=${STAKE}`);
       }
     } catch (_) {}
   }, [STAKE, TID, suppressCalls, audioOn, router]);
@@ -687,11 +692,10 @@ export default function GamePage() {
       });
     }
     const form = new URLSearchParams();
-    form.set("tid", TID);
     form.set("stake", String(STAKE));
     form.set("slot", String(slot ?? 0));
     form.set("picks", JSON.stringify([...picks]));
-    fetch("/api/claim_bingo", { method: "POST", body: form })
+    apiFetch("/api/claim_bingo", { method: "POST", body: form })
       .then(async (r) => {
         let data = null;
         try {

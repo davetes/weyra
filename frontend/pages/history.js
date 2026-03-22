@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Gamepad2, History as HistoryIcon, User, Wallet as WalletIcon } from "lucide-react";
+import { apiFetch, getTid } from "../lib/telegram";
 
 function formatDateTime(d) {
   try {
@@ -22,9 +23,8 @@ function formatDateTime(d) {
 export default function HistoryPage() {
   const router = useRouter();
   const tid = useMemo(() => {
-    const raw = router.query?.tid;
-    return raw != null ? String(raw) : "";
-  }, [router.query]);
+    return getTid();
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +36,7 @@ export default function HistoryPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/history?tid=${encodeURIComponent(tid)}`);
+      const res = await apiFetch(`/api/history`);
       if (!res.ok) {
         setError("Failed to load history");
         return;
@@ -153,7 +153,7 @@ export default function HistoryPage() {
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => router.push(tid ? `/?tid=${encodeURIComponent(tid)}` : "/")}
+                onClick={() => router.push("/")}
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
                 <Gamepad2 className="w-5 h-5" />
@@ -162,7 +162,7 @@ export default function HistoryPage() {
 
               <button
                 type="button"
-                onClick={() => router.push(tid ? `/history?tid=${encodeURIComponent(tid)}` : "/history")}
+                onClick={() => router.push("/history")}
                 className="flex flex-col items-center justify-center py-2 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-200"
               >
                 <HistoryIcon className="w-5 h-5" />
@@ -172,7 +172,7 @@ export default function HistoryPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/wallet?tid=${encodeURIComponent(tid)}` : "/wallet")
+                  router.push("/wallet")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
@@ -183,7 +183,7 @@ export default function HistoryPage() {
               <button
                 type="button"
                 onClick={() =>
-                  router.push(tid ? `/profile?tid=${encodeURIComponent(tid)}` : "/profile")
+                  router.push("/profile")
                 }
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
