@@ -32,12 +32,13 @@ function formatMs(ms) {
   return `${Math.round(n / 100) / 10}s`;
 }
 
-function RoomRow({ room, onPause, onResume, onRestart, busy }) {
+function RoomRow({ room, onPause, onResume, onRestart, onStop, onStart, busy }) {
   const stake = room.stake;
   const game = room.game;
 
   const started = !!game?.startedAt;
   const paused = !!room.pause?.paused;
+  const stopped = !!room.stop?.stopped;
 
   return (
     <Card title={`${stake} ETB Room`}>
@@ -55,6 +56,7 @@ function RoomRow({ room, onPause, onResume, onRestart, busy }) {
               <Badge variant="warning">Waiting</Badge>
             )}{" "}
             {paused && started && <Badge variant="danger">Paused</Badge>}
+            {stopped && <Badge variant="danger">Stopped</Badge>}
           </div>
           <div className="text-sm">
             <span className="text-muted">Players / Cards:</span>{" "}
@@ -77,7 +79,9 @@ function RoomRow({ room, onPause, onResume, onRestart, busy }) {
         <div className="space-y-2">
           <div className="text-sm">
             <span className="text-muted">Countdown:</span>{" "}
-            <span className="font-semibold">{formatDateTime(game?.countdownStartedAt)}</span>
+            <span className="font-semibold">
+              {formatDateTime(game?.countdownStartedAt)}
+            </span>
           </div>
           <div className="text-sm">
             <span className="text-muted">Started At:</span>{" "}
@@ -109,6 +113,20 @@ function RoomRow({ room, onPause, onResume, onRestart, busy }) {
               onClick={() => onRestart(stake)}
             >
               Restart
+            </Button>
+            <Button
+              variant="danger"
+              disabled={stopped || busy}
+              onClick={() => onStop(stake)}
+            >
+              Stop Play
+            </Button>
+            <Button
+              variant="success"
+              disabled={!stopped || busy}
+              onClick={() => onStart(stake)}
+            >
+              Start Play
             </Button>
           </div>
         </div>
@@ -178,6 +196,14 @@ function RoomsInner({ token, admin }) {
         await apiFetch(`/api/admin/rooms/${stake}/pause`, { token, method: "POST" });
       } else if (action === "resume") {
         await apiFetch(`/api/admin/rooms/${stake}/resume`, { token, method: "POST" });
+      } else if (action === "stop") {
+        const ok = window.confirm(
+          `Stop ${stake} ETB room? Players will see a maintenance message.`,
+        );
+        if (!ok) return;
+        await apiFetch(`/api/admin/rooms/${stake}/stop`, { token, method: "POST" });
+      } else if (action === "start") {
+        await apiFetch(`/api/admin/rooms/${stake}/start`, { token, method: "POST" });
       } else if (action === "restart") {
         const ok = window.confirm(
           `Restart stake room ${stake}? This will end the current game and create a new game.`,
@@ -238,6 +264,8 @@ function RoomsInner({ token, admin }) {
               onPause={(s) => act(s, "pause")}
               onResume={(s) => act(s, "resume")}
               onRestart={(s) => act(s, "restart")}
+              onStop={(s) => act(s, "stop")}
+              onStart={(s) => act(s, "start")}
             />
           ))}
         </div>

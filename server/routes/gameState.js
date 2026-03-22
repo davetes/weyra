@@ -27,12 +27,20 @@ async function getPausedMsForGame(gameId) {
   return Math.max(0, pauseMs + extra);
 }
 
+async function getRoomStopState(stake) {
+  const key = `stop_stake_${stake}`;
+  const raw = await cache.get(key);
+  return raw === 1 || raw === true || String(raw) === "1";
+}
+
 async function handleGameState(req, res, io) {
   try {
     const stake = parseInt(req.query.stake || "10", 10);
     // Use validated tid from initData middleware (secure)
     const tidBig = req.validatedTid || null;
     const tidStr = tidBig ? String(tidBig) : "";
+
+    const roomStopped = await getRoomStopState(stake);
 
     // Find or create active game for this stake
     let game = await prisma.game.findFirst({
@@ -390,6 +398,10 @@ async function handleGameState(req, res, io) {
       ok: true,
       stake,
       game_id: game.id,
+      room_stopped: roomStopped,
+      room_stop_message: roomStopped
+        ? "Temporarily stopped for maintenance"
+        : null,
       players: playersDisplay,
       accepted_count: acceptedPlayersCount,
       accepted_cards: acceptedCardsCount,

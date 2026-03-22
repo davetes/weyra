@@ -754,6 +754,25 @@ async function resumeGame(gameId) {
   return await getPauseState(gameId);
 }
 
+async function getRoomStopState(stake) {
+  const key = `stop_stake_${stake}`;
+  const raw = await cache.get(key);
+  const stopped = raw === 1 || raw === true || String(raw) === "1";
+  return { stopped };
+}
+
+async function stopRoom(stake) {
+  const key = `stop_stake_${stake}`;
+  await cache.set(key, 1);
+  return await getRoomStopState(stake);
+}
+
+async function startRoom(stake) {
+  const key = `stop_stake_${stake}`;
+  await cache.del(key);
+  return await getRoomStopState(stake);
+}
+
 function parsePermissions(adminUser) {
   try {
     const permsRaw =
@@ -1016,6 +1035,7 @@ router.get(
           where: { stake, active: true },
           orderBy: { createdAt: "desc" },
         });
+        const stop = await getRoomStopState(stake);
         if (!game) {
           rooms.push({
             stake,
@@ -1024,6 +1044,7 @@ router.get(
             lastCall: null,
             winner: null,
             pause: { paused: false, pauseMs: 0, pauseAt: null },
+            stop,
           });
           continue;
         }
@@ -1055,6 +1076,7 @@ router.get(
           lastCall: lastCall != null ? String(lastCall) : null,
           winner: winner || null,
           pause,
+          stop,
         });
       }
 
@@ -1110,6 +1132,37 @@ router.post(
 );
 
 router.post(
+  "/rooms/:stake/stop",
+  requireAuth(),
+  requirePerm(PERMS.settings_write),
+  async (req, res) => {
+    try {
+      const stake = parseInt(req.params.stake || "0", 10);
+      if (![10, 20, 50].includes(stake)) {
+        return res.status(400).json({ ok: false, error: "Invalid stake" });
+      }
+
+      const before = await getRoomStopState(stake);
+      const after = await stopRoom(stake);
+      await audit(req, {
+        action: "room.stop",
+        entityType: "stake_room",
+        entityId: String(stake),
+        before,
+        after,
+      });
+
+      return res.json({ ok: true, stake, stop: after });
+    } catch (err) {
+      console.error("room stop error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
   "/rooms/:stake/resume",
   requireAuth(),
   requirePerm(PERMS.settings_write),
@@ -1143,6 +1196,37 @@ router.post(
       return res.json({ ok: true, stake, gameId: game.id, pause: after });
     } catch (err) {
       console.error("resume error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/rooms/:stake/start",
+  requireAuth(),
+  requirePerm(PERMS.settings_write),
+  async (req, res) => {
+    try {
+      const stake = parseInt(req.params.stake || "0", 10);
+      if (![10, 20, 50].includes(stake)) {
+        return res.status(400).json({ ok: false, error: "Invalid stake" });
+      }
+
+      const before = await getRoomStopState(stake);
+      const after = await startRoom(stake);
+      await audit(req, {
+        action: "room.start",
+        entityType: "stake_room",
+        entityId: String(stake),
+        before,
+        after,
+      });
+
+      return res.json({ ok: true, stake, stop: after });
+    } catch (err) {
+      console.error("room start error:", err);
       return res
         .status(500)
         .json({ ok: false, error: "Internal server error" });

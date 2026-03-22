@@ -2,6 +2,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const { getCard, generateGameId } = require("../utils");
+const cache = require("../cache");
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,15 @@ async function handleSelect(req, res) {
 
     if (!tidBig) {
       return res.status(400).json({ ok: false, error: "Missing tid" });
+    }
+
+    const stopKey = `stop_stake_${stake}`;
+    const stopRaw = await cache.get(stopKey);
+    const roomStopped = stopRaw === 1 || stopRaw === true || String(stopRaw) === "1";
+    if (roomStopped && action !== "cancel") {
+      return res
+        .status(423)
+        .json({ ok: false, error: "Temporarily stopped for maintenance" });
     }
 
     const needsIndex = action === "preview" || action === "accept";

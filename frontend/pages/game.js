@@ -92,6 +92,7 @@ export default function GamePage() {
   const [suppressCalls, setSuppressCalls] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [disqualifiedSlots, setDisqualifiedSlots] = useState([false, false]);
+  const [roomStopped, setRoomStopped] = useState(false);
 
   const socketRef = useRef(null);
   const audioRef = useRef(null);
@@ -405,6 +406,16 @@ export default function GamePage() {
       );
       if (!res.ok) return;
       const data = await res.json();
+
+      if (data.room_stopped) {
+        const msg =
+          data.room_stop_message || "Temporarily stopped for maintenance";
+        setRoomStopped(true);
+        setToastMessage(msg);
+        router.push(`/play?stake=${STAKE}`);
+        return;
+      }
+      if (roomStopped) setRoomStopped(false);
 
       if (data?.winner && !winnerRef.current) {
         const w = data.winner;

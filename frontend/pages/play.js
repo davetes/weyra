@@ -122,6 +122,8 @@ export default function PlayPage() {
   const [showInsufficient, setShowInsufficient] = useState(false);
   const [insufficientNeed, setInsufficientNeed] = useState(0);
   const [dataLoaded, setDataLoaded] = useState(cached?.wallet != null);
+  const [roomStopped, setRoomStopped] = useState(false);
+  const [roomStopMessage, setRoomStopMessage] = useState("");
 
   const countdownTimerRef = useRef(null);
   const pollRef = useRef(null);
@@ -145,6 +147,10 @@ export default function PlayPage() {
 
   async function acceptCard(index, slot) {
     if (!TID || !index) return;
+    if (roomStopped) {
+      alert(roomStopMessage || "Temporarily stopped for maintenance");
+      return;
+    }
     pendingActionRef.current++;
     try {
       const form = new URLSearchParams();
@@ -222,6 +228,22 @@ export default function PlayPage() {
       }
       const data = await res.json();
       setSplashError("");
+
+      const stopMsg =
+        data.room_stop_message || "Temporarily stopped for maintenance";
+      if (data.room_stopped) {
+        if (!roomStopped || roomStopMessage !== stopMsg) {
+          setRoomStopped(true);
+          setRoomStopMessage(stopMsg);
+        }
+        setSplashVisible(false);
+        setDataLoaded(true);
+        return;
+      }
+      if (roomStopped) {
+        setRoomStopped(false);
+        setRoomStopMessage("");
+      }
 
       lastPlayState.current = data;
 
@@ -412,6 +434,15 @@ export default function PlayPage() {
             >
               Retry
             </button>
+          </div>
+        </div>
+      )}
+
+      {roomStopped && !splashVisible && !splashError && (
+        <div className="mx-auto max-w-[520px] px-2.5 sm:px-3 pt-3">
+          <div className="bg-gradient-to-r from-rose-600/90 to-red-600/90 text-white border border-rose-400/40 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-rose-500/20">
+            <span>⚠️</span>
+            <span>{roomStopMessage || "Temporarily stopped for maintenance"}</span>
           </div>
         </div>
       )}
