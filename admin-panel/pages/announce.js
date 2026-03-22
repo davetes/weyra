@@ -146,11 +146,18 @@ function AnnounceInner({ token, admin }) {
                 value={photo}
                 onChange={(e) => setPhoto(e.target.value)}
               />
-              <Input
-                placeholder="Caption for image (optional)"
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-              />
+              <div>
+                <div className="text-xs text-muted mb-2">
+                  Caption for image (optional, multiline)
+                </div>
+                <textarea
+                  rows={3}
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Caption for image (optional)"
+                  className="w-full bg-bg-secondary border border-border rounded-xl text-sm text-slate-200 placeholder:text-muted transition-colors focus:border-accent/50 px-3 py-2.5"
+                />
+              </div>
               <div className="text-sm">
                 <div className="text-xs text-muted mb-2">
                   Upload image (optional)
@@ -203,13 +210,20 @@ function AnnounceInner({ token, admin }) {
           )}
 
           {result && (
-            <Card title="Result">
-              <div className="text-sm">
-                Sent: <span className="font-semibold">{result.sent || 0}</span>
-              </div>
-              <div className="text-sm">
-                Failed:{" "}
-                <span className="font-semibold">{result.failed || 0}</span>
+            <Card title="Broadcast Result">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-bg-secondary rounded-xl px-4 py-3">
+                  <div className="text-2xl font-bold text-blue-400">{(result.sent || 0) + (result.failed || 0)}</div>
+                  <div className="text-xs text-muted mt-1">Total Players</div>
+                </div>
+                <div className="bg-bg-secondary rounded-xl px-4 py-3">
+                  <div className="text-2xl font-bold text-green-400">{result.sent || 0}</div>
+                  <div className="text-xs text-muted mt-1">Sent ✅</div>
+                </div>
+                <div className="bg-bg-secondary rounded-xl px-4 py-3">
+                  <div className="text-2xl font-bold text-red-400">{result.failed || 0}</div>
+                  <div className="text-xs text-muted mt-1">Failed ❌</div>
+                </div>
               </div>
             </Card>
           )}
