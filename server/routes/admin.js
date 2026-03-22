@@ -2671,7 +2671,7 @@ router.post(
         const updated = await tx.withdrawRequest.update({
           where: { id },
           data: {
-            amount: remaining.max(0).toNumber(),
+            amount: Decimal.max(remaining, 0).toNumber(),
             status: "approved",
             decidedAt: new Date(),
             decidedByAdminId: req.adminUser.id,
