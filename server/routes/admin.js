@@ -2650,39 +2650,37 @@ router.post(
         if (reqRow.status !== "pending") return "decided";
 
         const currentAmount = new Decimal(reqRow.amount.toString());
-        if (amountDec.gt(currentAmount)) return "too_much";
+        const creditAmount = Decimal.min(amountDec, currentAmount);
 
         await tx.player.update({
           where: { id: reqRow.playerId },
-          data: { gift: { increment: amountDec.toNumber() } },
+          data: { gift: { increment: creditAmount.toNumber() } },
         });
 
         await tx.transaction.create({
           data: {
             playerId: reqRow.playerId,
             kind: "gift_topup",
-            amount: amountDec.toNumber(),
+            amount: creditAmount.toNumber(),
             note: `Converted from withdraw #${id} by ${req.adminUser.username} (#${req.adminUser.id})`,
           },
         });
 
-        const remaining = currentAmount.minus(amountDec);
-        const autoApprove = remaining.lte(0);
+        // Always close the withdraw after conversion (spec: remove from list)
+        const remaining = currentAmount.minus(creditAmount);
         const updated = await tx.withdrawRequest.update({
           where: { id },
           data: {
             amount: remaining.max(0).toNumber(),
-            ...(autoApprove
-              ? {
-                  status: "approved",
-                  decidedAt: new Date(),
-                  decidedByAdminId: req.adminUser.id,
-                  decisionNote:
-                    note ||
-                    reqRow.decisionNote ||
-                    "Converted fully to gift wallet",
-                }
-              : { decisionNote: note || reqRow.decisionNote }),
+            status: "approved",
+            decidedAt: new Date(),
+            decidedByAdminId: req.adminUser.id,
+            decisionNote:
+              note ||
+              reqRow.decisionNote ||
+              (remaining.lte(0)
+                ? "Converted to gift wallet"
+                : "Partially converted to gift wallet"),
           },
         });
 
@@ -2695,11 +2693,6 @@ router.post(
         return res
           .status(409)
           .json({ ok: false, error: "Request already decided" });
-      if (result === "too_much")
-        return res
-          .status(400)
-          .json({ ok: false, error: "Amount exceeds withdraw request" });
-
       return res.json({ ok: true, request: serializeWithdrawRequest(result) });
     } catch (err) {
       console.error("withdraw convert_to_gift error:", err);

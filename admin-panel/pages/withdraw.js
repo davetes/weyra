@@ -254,7 +254,7 @@ function WithdrawInner({ token, admin }) {
                               onClick={() => convertToGift(r)}
                               loading={loading}
                             >
-                              Gift Wallet
+                              Add to Gift
                             </Button>
                             <Button
                               variant="danger"
