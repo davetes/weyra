@@ -2682,6 +2682,11 @@ router.post(
                 ? "Converted to gift wallet"
                 : "Partially converted to gift wallet"),
           },
+          include: {
+            player: {
+              select: { id: true, username: true, phone: true, wallet: true },
+            },
+          },
         });
 
         return updated;
