@@ -30,6 +30,7 @@ export default function HistoryPage() {
   const [error, setError] = useState("");
   const [totalGames, setTotalGames] = useState(0);
   const [games, setGames] = useState([]);
+  const [filter, setFilter] = useState("all"); // "all" | "won" | "lost"
 
   async function refresh() {
     if (!tid) return;
@@ -72,6 +73,27 @@ export default function HistoryPage() {
 
           <div className="mt-7 text-xl font-black">Recent Games</div>
 
+          <div className="mt-3 flex gap-2">
+            {[
+              { key: "all", label: "All", active: "bg-sky-500/20 border-sky-400/30 text-sky-200", count: games.length },
+              { key: "won", label: "Won", active: "bg-emerald-500/20 border-emerald-400/30 text-emerald-200", count: games.filter(g => String(g.result) !== "lost").length },
+              { key: "lost", label: "Lost", active: "bg-rose-500/20 border-rose-400/30 text-rose-200", count: games.filter(g => String(g.result) === "lost").length },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFilter(tab.key)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
+                  filter === tab.key
+                    ? tab.active
+                    : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
+
           {error && (
             <div className="mt-4 rounded-none border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 font-semibold">
               {error}
@@ -83,12 +105,22 @@ export default function HistoryPage() {
           )}
 
           <div className="mt-4 space-y-4">
-            {games.length === 0 && !loading ? (
-              <div className="rounded-none border border-white/10 bg-white/5 px-5 py-6 text-white/70 text-sm">
-                No games yet.
-              </div>
-            ) : (
-              games.map((g) => {
+            {(() => {
+              const filtered = filter === "all"
+                ? games
+                : filter === "won"
+                ? games.filter(g => String(g.result) !== "lost")
+                : games.filter(g => String(g.result) === "lost");
+
+              if (filtered.length === 0 && !loading) {
+                return (
+                  <div className="rounded-none border border-white/10 bg-white/5 px-5 py-6 text-white/70 text-sm">
+                    {filter === "all" ? "No games yet." : `No ${filter} games.`}
+                  </div>
+                );
+              }
+
+              return filtered.map((g) => {
                 const lost = String(g.result) === "lost";
                 return (
                   <div
@@ -143,8 +175,8 @@ export default function HistoryPage() {
                     </div>
                   </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </div>
 
