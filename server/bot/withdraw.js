@@ -6,10 +6,10 @@ const prisma = new PrismaClient();
 
 const MIN_WITHDRAW = new Decimal(100);
 const METHODS = [
-  { key: "telebirr", label: "Telebirr" },
-  { key: "cbe_birr", label: "CBE Birr" },
-  { key: "boa", label: "BOA" },
-  { key: "cbe", label: "CBE" },
+  { key: "telebirr", label: "Telebirr / ቴሌብር" },
+  { key: "cbe_birr", label: "CBE Birr / ሲቢኢ ብር" },
+  { key: "boa", label: "BOA / ቢኦኤ" },
+  { key: "cbe", label: "CBE / ሲቢኢ" },
 ];
 
 function setupWithdraw(bot, userState) {
@@ -62,7 +62,7 @@ function setupWithdraw(bot, userState) {
     if (!state || !state.withdrawStep) return;
 
     const text = msg.text.trim();
-    if (text.toLowerCase() === "cancel") {
+    if (text.toLowerCase() === "cancel" || text === "Cancel / ሰርዝ" || text === "ሰርዝ") {
       userState.delete(tid);
       await bot.sendMessage(chatId, "Withdraw cancelled.");
       return;
@@ -127,7 +127,7 @@ function setupWithdraw(bot, userState) {
         reply_markup: {
           keyboard: [
             METHODS.map((m) => ({ text: m.label })),
-            [{ text: "Cancel" }],
+            [{ text: "Cancel / ሰርዝ" }],
           ],
           resize_keyboard: true,
           one_time_keyboard: true,
@@ -140,7 +140,7 @@ function setupWithdraw(bot, userState) {
     if (state.withdrawStep === "method") {
       const norm = text.toLowerCase();
       const matched = METHODS.find(
-        (m) => m.key === norm || m.label.toLowerCase() === norm,
+        (m) => m.key === norm || m.label.toLowerCase() === norm || m.label === text || m.label.split(" / ")[0].toLowerCase() === norm,
       );
       if (!matched) {
         await bot.sendMessage(

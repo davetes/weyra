@@ -19,7 +19,7 @@ function setupInvite(bot) {
           inline_keyboard: [
             [
               {
-                text: "📣 Share Link",
+                text: "📣 Share Link / ሊንክ ያጋሩ",
                 url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Join weyra Bingo!")}`,
               },
             ],

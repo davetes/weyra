@@ -4,8 +4,8 @@ function buildDepositKeyboard() {
   return {
     inline_keyboard: [
       [
-        { text: "📲 Telebirr", callback_data: "deposit_telebirr" },
-        { text: "💵 CBE Birr", callback_data: "deposit_cbe_birr" },
+        { text: "📲 Telebirr / ቴሌብር", callback_data: "deposit_telebirr" },
+        { text: "💵 CBE Birr / ሲቢኢ ብር", callback_data: "deposit_cbe_birr" },
       ],
     ],
   };

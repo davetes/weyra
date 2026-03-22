@@ -66,18 +66,18 @@ const BUTTON_ROWS = (tid) => {
   ).replace(/\/$/, "");
   const withTid = tid ? `?tid=${tid}` : "";
   return [
-    [{ text: "🎮 Play Now", web_app: { url: `${WEBAPP_URL}/${withTid}` } }],
+    [{ text: "🎮 Play Now / ጨዋታ ጀምር", web_app: { url: `${WEBAPP_URL}/${withTid}` } }],
     [
-      { text: "💳 Deposit", callback_data: "deposit" },
-      { text: "🧾 Balance", callback_data: "check_balance" },
+      { text: "💳 Deposit /ግቢ ማድረጊያ", callback_data: "deposit" },
+      { text: "🧾 Balance /ቀሪ ሂሳብ", callback_data: "check_balance" },
     ],
     [
-      { text: "🎟️ Invite Friends", callback_data: "invite" },
-      { text: "🧩 Win Patterns", callback_data: "win_patterns" },
+      { text: "🎟️ Invite /ጓደኛ ጋብዝ", callback_data: "invite" },
+      { text: "🧩 Win Patterns /የአሸናፊ ቅጦች", callback_data: "win_patterns" },
     ],
     [
-      { text: "📘 How to Play", callback_data: "instructions" },
-      { text: "🆘 Support", callback_data: "support" },
+      { text: "📘 How to Play / እንዴት ይጫወቱ", callback_data: "instructions" },
+      { text: "🆘 Support / ድጋፍ", callback_data: "support" },
     ],
   ];
 };
@@ -91,17 +91,17 @@ function buildStakeKeyboard(tid) {
     inline_keyboard: [
       [
         {
-          text: "🎮 10 ETB",
+          text: "🎮 10 ብር / ETB",
           web_app: { url: `${WEBAPP_URL}/play?stake=10${withTid}` },
         },
         {
-          text: "🎮 20 ETB",
+          text: "🎮 20 ብር / ETB",
           web_app: { url: `${WEBAPP_URL}/play?stake=20${withTid}` },
         },
       ],
       [
         {
-          text: "🎮 50 ETB",
+          text: "🎮 50 ብር / ETB",
           web_app: { url: `${WEBAPP_URL}/play?stake=50${withTid}` },
         },
       ],
@@ -118,7 +118,7 @@ function buildPlayNowWebAppKeyboard(tid) {
     inline_keyboard: [
       [
         {
-          text: "🎮 Play Now",
+          text: "🎮 Play Now / ጨዋታ ጀምር",
           web_app: { url: `${WEBAPP_URL}/${withTid}` },
         },
       ],
@@ -133,8 +133,8 @@ async function ensurePhoneRegistered(bot, chatId, player) {
     reply_markup: {
       keyboard: [
         [
-          { text: "Share Phone Number", request_contact: true },
-          { text: "Cancel" },
+          { text: "Share Phone Number / ስልክ ቁጥር ያጋሩ", request_contact: true },
+          { text: "Cancel / ሰርዝ" },
         ],
       ],
       resize_keyboard: true,
@@ -419,7 +419,7 @@ function setupCommands(bot) {
         const state = getUserState(tid);
         if (state && state.awaitingDepositAmount) {
           const text = String(msg.text || "").trim();
-          if (text.toLowerCase() === "cancel") {
+          if (text.toLowerCase() === "cancel" || text === "Cancel / ሰርዝ" || text === "ሰርዝ") {
             state.awaitingDepositAmount = false;
             state.awaitingDepositReceipt = false;
             state.depositAmount = null;
@@ -535,7 +535,7 @@ function setupCommands(bot) {
 
         {
           reply_markup: {
-            keyboard: [[{ text: "Cancel" }]],
+            keyboard: [[{ text: "Cancel / ሰርዝ" }]],
             resize_keyboard: true,
             one_time_keyboard: true,
             input_field_placeholder: "e.g. 200",
@@ -649,7 +649,7 @@ function setupCommands(bot) {
             inline_keyboard: [
               [
                 {
-                  text: "📣 Share Link",
+                  text: "📣 Share Link / ሊንክ ያጋሩ",
                   switch_inline_query: `Join weyra Bingo! ${link}`,
                 },
               ],

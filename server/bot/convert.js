@@ -69,7 +69,7 @@ function setupConvert(bot, userState) {
     if (!state || state.convertStep !== "amount") return;
 
     const text = msg.text.trim();
-    if (text.toLowerCase() === "cancel") {
+    if (text.toLowerCase() === "cancel" || text === "Cancel / ሰርዝ" || text === "ሰርዝ") {
       userState.delete(tid);
       await bot.sendMessage(chatId, "Conversion cancelled.");
       return;
