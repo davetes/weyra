@@ -25,6 +25,12 @@ async function handleDepositRequest(req, res) {
     const caption = String(req.body?.caption || "").trim();
     const amountRaw = req.body?.amount;
 
+    // Validate method against allowed values
+    const ALLOWED_METHODS = ["Telebirr", "CBE Birr"];
+    if (method && !ALLOWED_METHODS.includes(method)) {
+      return res.status(400).json({ ok: false, error: "Invalid payment method" });
+    }
+
     const amountDec = new Decimal(amountRaw || 0);
     if (!amountDec.isFinite() || amountDec.lte(0)) {
       return res.status(400).json({ ok: false, error: "Invalid amount" });

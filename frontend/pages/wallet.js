@@ -359,12 +359,15 @@ export default function WalletPage() {
                       placeholder="Amount (ETB)"
                       className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none"
                     />
-                    <input
+                    <select
                       value={method}
                       onChange={(e) => setMethod(e.target.value)}
-                      placeholder="Method (e.g., Telebirr)"
-                      className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none"
-                    />
+                      className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none appearance-none"
+                    >
+                      <option value="" disabled>Select method</option>
+                      <option value="Telebirr">Telebirr</option>
+                      <option value="CBE Birr">CBE Birr</option>
+                    </select>
                     <input
                       value={caption}
                       onChange={(e) => setCaption(e.target.value)}
@@ -402,12 +405,15 @@ export default function WalletPage() {
                       placeholder="Amount (ETB)"
                       className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none"
                     />
-                    <input
+                    <select
                       value={method}
                       onChange={(e) => setMethod(e.target.value)}
-                      placeholder="Method (e.g., Telebirr)"
-                      className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none"
-                    />
+                      className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none appearance-none"
+                    >
+                      <option value="" disabled>Select method</option>
+                      <option value="Telebirr">Telebirr</option>
+                      <option value="CBE Birr">CBE Birr</option>
+                    </select>
                     <input
                       value={account}
                       onChange={(e) => setAccount(e.target.value)}

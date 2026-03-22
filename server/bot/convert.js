@@ -108,6 +108,16 @@ function setupConvert(bot, userState) {
           gift: freshGift.minus(amount).toNumber(),
           wallet: new Decimal(freshPlayer.wallet.toString()).plus(amount).toNumber(),
         },
+      }).then(async (updatedPlayer) => {
+        await tx.transaction.create({
+          data: {
+            playerId: freshPlayer.id,
+            kind: "convert",
+            amount: amount.toNumber(),
+            note: `Converted ${amount.toFixed(2)} from Play Wallet to Main Wallet`,
+          },
+        });
+        return updatedPlayer;
       });
     }).catch((err) => {
       if (err.message === "not_found") return "not_found";

@@ -178,6 +178,26 @@ function setupTransfer(bot, userState) {
           data: { wallet: newRecipientBal.toNumber() },
         });
 
+        // Log transaction for sender (debit)
+        await tx.transaction.create({
+          data: {
+            playerId: sender.id,
+            kind: "transfer_out",
+            amount: amount.negated().toNumber(),
+            note: `Transfer to ${recipient.username || recipient.phone || String(recipient.telegramId)}`,
+          },
+        });
+
+        // Log transaction for recipient (credit)
+        await tx.transaction.create({
+          data: {
+            playerId: recipient.id,
+            kind: "transfer_in",
+            amount: amount.toNumber(),
+            note: `Transfer from ${sender.username || sender.phone || String(sender.telegramId)}`,
+          },
+        });
+
         return { newSenderBal, recipient };
       }).catch((err) => {
         if (err.message === "not_registered") return "not_registered";
