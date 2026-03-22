@@ -53,6 +53,9 @@ async function handleWithdrawRequest(req, res) {
     if (!amountDec.isFinite() || amountDec.lte(0)) {
       return res.status(400).json({ ok: false, error: "Invalid amount" });
     }
+    if (amountDec.lt(100)) {
+      return res.status(400).json({ ok: false, error: "Minimum withdraw amount is 100 ETB" });
+    }
 
     const settings = await getSettings([
       "withdraw.max_per_tx",
