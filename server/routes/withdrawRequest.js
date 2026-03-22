@@ -1,5 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
+const { getBot } = require("../bot/index");
+const { notifyEntertainers, getEntertainerIds } = require("../bot/entertainer");
 
 const prisma = new PrismaClient();
 
@@ -87,7 +89,7 @@ async function handleWithdrawRequest(req, res) {
 
     const player = await prisma.player.findUnique({
       where: { telegramId: tidBig },
-      select: { id: true },
+      select: { id: true, username: true, phone: true, wallet: true },
     });
 
     if (!player) {
@@ -212,6 +214,44 @@ async function handleWithdrawRequest(req, res) {
     }
     if (result === "insufficient") {
       return res.status(400).json({ ok: false, error: "Insufficient wallet balance" });
+    }
+
+    // Notify admin entertainers via Telegram bot
+    try {
+      const bot = getBot();
+      const entertainerIds = getEntertainerIds();
+      if (bot && entertainerIds.length > 0) {
+        const balanceAfter = new Decimal(player.wallet.toString()).minus(amountDec);
+        const message =
+          `🏧 Withdrawal Request #${result.id}\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `User: @${player.username || "-"} (id: ${tidBig})\n` +
+          `Phone: ${player.phone || "-"}\n` +
+          `Amount: ${amountDec.toFixed(2)} ETB\n` +
+          `Method: ${method}\n` +
+          `Account: ${account}\n` +
+          `Balance After Hold: ${balanceAfter.toFixed(2)} ETB\n` +
+          `Source: MiniApp\n`;
+
+        await notifyEntertainers(bot, message, {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Approve",
+                  callback_data: `approve_withdraw:${result.id}`,
+                },
+                {
+                  text: "❌ Reject",
+                  callback_data: `reject_withdraw:${result.id}`,
+                },
+              ],
+            ],
+          },
+        });
+      }
+    } catch (notifyErr) {
+      console.error("withdraw admin notify error:", notifyErr.message);
     }
 
     return res.json({

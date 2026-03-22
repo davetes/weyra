@@ -1,5 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
+const { getBot } = require("../bot/index");
+const { notifyEntertainers, getEntertainerIds } = require("../bot/entertainer");
 
 const prisma = new PrismaClient();
 
@@ -38,7 +40,7 @@ async function handleDepositRequest(req, res) {
 
     const player = await prisma.player.findUnique({
       where: { telegramId: tidBig },
-      select: { id: true },
+      select: { id: true, username: true, phone: true },
     });
 
     if (!player) {
@@ -55,6 +57,42 @@ async function handleDepositRequest(req, res) {
         status: "pending",
       },
     });
+
+    // Notify admin entertainers via Telegram bot
+    try {
+      const bot = getBot();
+      const entertainerIds = getEntertainerIds();
+      if (bot && entertainerIds.length > 0) {
+        const message =
+          `💰 Deposit Request #${created.id}\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `User: @${player.username || "-"} (id: ${tidBig})\n` +
+          `Phone: ${player.phone || "-"}\n` +
+          `Amount: ${amountDec.toFixed(2)} ETB\n` +
+          `Method: ${method || "-"}\n` +
+          `Caption: ${caption || "-"}\n` +
+          `Source: MiniApp\n`;
+
+        await notifyEntertainers(bot, message, {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Approve",
+                  callback_data: `approve_deposit:${created.id}`,
+                },
+                {
+                  text: "❌ Reject",
+                  callback_data: `reject_deposit:${created.id}`,
+                },
+              ],
+            ],
+          },
+        });
+      }
+    } catch (notifyErr) {
+      console.error("deposit admin notify error:", notifyErr.message);
+    }
 
     return res.json({
       ok: true,
