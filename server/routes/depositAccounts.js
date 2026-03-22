@@ -2,8 +2,12 @@ async function handleDepositAccounts(req, res) {
   try {
     const telebirrPhone = String(process.env.TELEBIRR_PHONE || "").trim();
     const telebirrName = String(process.env.TELEBIRR_NAME || "").trim();
-    const cbeBirrPhone = String(process.env.CBE_BIRR_PHONE || "").trim();
-    const cbeBirrName = String(process.env.CBE_BIRR_NAME || "").trim();
+    const cbeBirrPhone = String(
+      process.env.CBE_BIRR_PHONE || "0909146096",
+    ).trim();
+    const cbeBirrName = String(
+      process.env.CBE_BIRR_NAME || "kalestidike",
+    ).trim();
 
     return res.json({
       ok: true,

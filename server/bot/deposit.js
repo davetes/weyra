@@ -43,8 +43,8 @@ function buildDepositMessage(data) {
   }
 
   if (data === "deposit_cbe_birr") {
-    const phone = process.env.CBE_BIRR_PHONE || "";
-    const name = process.env.CBE_BIRR_NAME || "Weyra Bingo";
+    const phone = process.env.CBE_BIRR_PHONE || "0909146096";
+    const name = process.env.CBE_BIRR_NAME || "kalestidike";
     return (
       `💰 CBEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
       `📱 Target: ${phone}\n` +
@@ -58,8 +58,8 @@ function buildDepositMessage(data) {
   }
 
   if (data === "deposit_telebirr") {
-    const phone = process.env.TELEBIRR_PHONE || "0968651265";
-    const name = process.env.TELEBIRR_NAME || "tesfahun";
+    const phone = process.env.TELEBIRR_PHONE;
+    const name = process.env.TELEBIRR_NAME;
     return (
       `💰 TELEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
       `📱 Target: ${phone}\n` +
