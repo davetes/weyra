@@ -174,104 +174,126 @@ async function handleGameState(req, res, io) {
         countdownRemaining = null;
       } else if (countdownRemaining <= 0) {
         // Countdown expired AND still ≥2 players → start the game
-        // Generate sequence
-        let sequence = [];
-        for (let i = 1; i <= 75; i++) sequence.push(i);
-        // Shuffle
-        for (let i = sequence.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [sequence[i], sequence[j]] = [sequence[j], sequence[i]];
-        }
 
-        // Initialize bias round if toggle is ON
-        // Returns a biased sequence where admin's numbers are in first 6-8 calls
-        try {
-          const takenIndices = freshSelections.map((s) => s.index);
-          const biasResult = await biasEngine.initBiasRound(
-            game.id,
-            takenIndices,
-            freshSelections,
-          );
-          if (biasResult) {
-            // Use the biased sequence instead of the random one
-            sequence = biasResult.biasedSequence;
-
-            // Re-fetch selections to include the bias player's selection
-            const updatedSels = await prisma.selection.findMany({
-              where: { gameId: game.id, accepted: true },
-              include: { player: true },
-            });
-            freshSelections.length = 0;
-            freshSelections.push(...updatedSels);
-          }
-        } catch (biasErr) {
-          console.error("biasEngine init error:", biasErr);
-        }
-
-        game = await prisma.game.update({
-          where: { id: game.id },
-          data: {
-            startedAt: new Date(),
-            sequence: JSON.stringify(sequence),
-          },
+        // ── ATOMIC GUARD: only ONE request starts the game ──
+        // updateMany with startedAt:null ensures only the first concurrent
+        // request succeeds (count===1). All others get count===0 and skip.
+        const startResult = await prisma.game.updateMany({
+          where: { id: game.id, startedAt: null },
+          data: { startedAt: new Date() },
         });
-        started = true;
 
-        // Charge stakes (includes bias player if present)
-        if (!game.stakesCharged) {
-          let charged = 0;
-          for (const sel of freshSelections) {
-            // Re-read balance at charge time to prevent negative balances
-            const player = await prisma.player.findUnique({
-              where: { id: sel.playerId },
-            });
-            if (!player) continue;
-
-            const walletDec = new Decimal(player.wallet.toString());
-            const giftDec = new Decimal(player.gift.toString());
-            const stakeDec = new Decimal(stake);
-            const totalBalance = walletDec.plus(giftDec);
-
-            // Skip charging if insufficient balance — remove selection
-            if (totalBalance.lt(stakeDec)) {
-              console.warn(
-                `Skipping stake charge for player ${player.id}: balance ${totalBalance.toFixed(2)} < stake ${stake}`,
-              );
-              await prisma.selection.deleteMany({
-                where: { id: sel.id },
-              });
-              continue;
-            }
-
-            // Use play wallet (gift) first, then main wallet
-            let deductFromGift = Decimal.min(giftDec, stakeDec);
-            let remainder = stakeDec.minus(deductFromGift);
-            let deductFromWallet = Decimal.min(walletDec, remainder);
-
-            await prisma.player.update({
-              where: { id: player.id },
-              data: {
-                wallet: {
-                  decrement: parseFloat(deductFromWallet.toString()),
-                },
-                gift: { decrement: parseFloat(deductFromGift.toString()) },
-              },
-            });
-
-            await prisma.transaction.create({
-              data: {
-                playerId: player.id,
-                kind: "stake",
-                amount: -stake,
-                note: `Stake for game #${game.id}`,
-              },
-            });
-            charged++;
+        if (startResult.count === 0) {
+          // Another request already started the game — just return current state
+          game = await prisma.game.findUnique({ where: { id: game.id } });
+          started = !!game.startedAt;
+        } else {
+          // WE are the one request that starts the game
+          // Generate sequence
+          let sequence = [];
+          for (let i = 1; i <= 75; i++) sequence.push(i);
+          // Shuffle
+          for (let i = sequence.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [sequence[i], sequence[j]] = [sequence[j], sequence[i]];
           }
-          await prisma.game.update({
+
+          // Initialize bias round if toggle is ON
+          // Returns a biased sequence where admin's numbers are in first 6-8 calls
+          try {
+            const takenIndices = freshSelections.map((s) => s.index);
+            const biasResult = await biasEngine.initBiasRound(
+              game.id,
+              takenIndices,
+              freshSelections,
+            );
+            if (biasResult) {
+              // Use the biased sequence instead of the random one
+              sequence = biasResult.biasedSequence;
+
+              // Re-fetch selections to include the bias player's selection
+              const updatedSels = await prisma.selection.findMany({
+                where: { gameId: game.id, accepted: true },
+                include: { player: true },
+              });
+              freshSelections.length = 0;
+              freshSelections.push(...updatedSels);
+            }
+          } catch (biasErr) {
+            console.error("biasEngine init error:", biasErr);
+          }
+
+          game = await prisma.game.update({
             where: { id: game.id },
-            data: { stakesCharged: true, chargedCount: charged },
+            data: {
+              sequence: JSON.stringify(sequence),
+            },
           });
+          started = true;
+
+          // ── ATOMIC GUARD: charge stakes only once ──
+          // updateMany with stakesCharged:false ensures only one request charges
+          const chargeGuard = await prisma.game.updateMany({
+            where: { id: game.id, stakesCharged: false },
+            data: { stakesCharged: true },
+          });
+
+          if (chargeGuard.count > 0) {
+            // We won the charge race — charge all selections
+            let charged = 0;
+            for (const sel of freshSelections) {
+              // Re-read balance at charge time to prevent negative balances
+              const player = await prisma.player.findUnique({
+                where: { id: sel.playerId },
+              });
+              if (!player) continue;
+
+              const walletDec = new Decimal(player.wallet.toString());
+              const giftDec = new Decimal(player.gift.toString());
+              const stakeDec = new Decimal(stake);
+              const totalBalance = walletDec.plus(giftDec);
+
+              // Skip charging if insufficient balance — remove selection
+              if (totalBalance.lt(stakeDec)) {
+                console.warn(
+                  `Skipping stake charge for player ${player.id}: balance ${totalBalance.toFixed(2)} < stake ${stake}`,
+                );
+                await prisma.selection.deleteMany({
+                  where: { id: sel.id },
+                });
+                continue;
+              }
+
+              // Use play wallet (gift) first, then main wallet
+              let deductFromGift = Decimal.min(giftDec, stakeDec);
+              let remainder = stakeDec.minus(deductFromGift);
+              let deductFromWallet = Decimal.min(walletDec, remainder);
+
+              await prisma.player.update({
+                where: { id: player.id },
+                data: {
+                  wallet: {
+                    decrement: parseFloat(deductFromWallet.toString()),
+                  },
+                  gift: { decrement: parseFloat(deductFromGift.toString()) },
+                },
+              });
+
+              await prisma.transaction.create({
+                data: {
+                  playerId: player.id,
+                  kind: "stake",
+                  amount: -stake,
+                  note: `Stake for game #${game.id}`,
+                },
+              });
+              charged++;
+            }
+            await prisma.game.update({
+              where: { id: game.id },
+              data: { chargedCount: charged },
+            });
+          }
         }
 
         // Broadcast sync
