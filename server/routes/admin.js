@@ -1736,8 +1736,12 @@ router.patch(
       const walletRaw = req.body && req.body.wallet;
       const deltaRaw = req.body && req.body.delta;
       const noteRaw = req.body && req.body.note;
+      const targetRaw = req.body && req.body.target;
       if (!id)
         return res.status(400).json({ ok: false, error: "Invalid player id" });
+
+      // "wallet" (main) or "gift" (play wallet); default to "wallet"
+      const target = targetRaw === "gift" ? "gift" : "wallet";
 
       const note = String(noteRaw || "").trim();
       const hasDelta =
@@ -1782,18 +1786,21 @@ router.patch(
         const player = await tx.player.findUnique({ where: { id } });
         if (!player) return null;
 
-        const prevWallet = new Decimal(player.wallet.toString());
-        const nextWallet = parsedWallet
+        const prevValue = new Decimal(player[target].toString());
+        const nextValue = parsedWallet
           ? parsedWallet
-          : prevWallet.plus(parsedDelta);
-        if (!nextWallet.isFinite() || nextWallet.lt(0)) {
-          throw new Error("Invalid next wallet");
+          : prevValue.plus(parsedDelta);
+        if (!nextValue.isFinite() || nextValue.lt(0)) {
+          throw new Error("Invalid next value");
         }
-        const delta = nextWallet.minus(prevWallet);
+        const delta = nextValue.minus(prevValue);
+
+        const updateData = {};
+        updateData[target] = nextValue.toNumber();
 
         const out = await tx.player.update({
           where: { id },
-          data: { wallet: nextWallet.toNumber() },
+          data: updateData,
           select: {
             id: true,
             telegramId: true,
@@ -1809,13 +1816,14 @@ router.patch(
         });
 
         if (!delta.isZero()) {
+          const targetLabel = target === "gift" ? "Gift wallet" : "Wallet";
           const extra = note ? ` | ${note}` : "";
           await tx.transaction.create({
             data: {
               playerId: id,
-              kind: "adjust_wallet",
+              kind: target === "gift" ? "adjust_gift" : "adjust_wallet",
               amount: delta.toNumber(),
-              note: `Wallet adjusted by ${req.adminUser.username} (#${req.adminUser.id})${extra}`,
+              note: `${targetLabel} adjusted by ${req.adminUser.username} (#${req.adminUser.id})${extra}`,
             },
           });
         }

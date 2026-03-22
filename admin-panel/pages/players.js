@@ -122,6 +122,7 @@ function PlayersInner({ token, admin }) {
   const txPageSize = 25;
   const [adjOpen, setAdjOpen] = useState(false);
   const [adjKind, setAdjKind] = useState("add");
+  const [adjTarget, setAdjTarget] = useState("wallet");
   const [adjAmount, setAdjAmount] = useState("");
   const [adjNote, setAdjNote] = useState("");
   const [adjSubmitting, setAdjSubmitting] = useState(false);
@@ -177,6 +178,7 @@ function PlayersInner({ token, admin }) {
     if (!p) return;
     setAdjError("");
     setAdjKind("add");
+    setAdjTarget("wallet");
     setAdjAmount("");
     setAdjNote("");
     setAdjOpen(true);
@@ -200,7 +202,7 @@ function PlayersInner({ token, admin }) {
       await apiFetch(`/api/admin/players/${selected.id}/wallet`, {
         token,
         method: "PATCH",
-        body: { delta: String(signed), note: adjNote },
+        body: { delta: String(signed), note: adjNote, target: adjTarget },
       });
 
       setAdjOpen(false);
@@ -295,6 +297,7 @@ function PlayersInner({ token, admin }) {
             setAdjAmount("");
             setAdjNote("");
             setAdjKind("add");
+            setAdjTarget("wallet");
           }}
           title="Adjust User Balance"
           maxWidth="max-w-xl"
@@ -377,6 +380,30 @@ function PlayersInner({ token, admin }) {
             <div>
               <div className="text-sm font-semibold text-slate-100 mb-2">
                 {" "}
+                Wallet Target{" "}
+              </div>{" "}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  className={`h-12 rounded-xl border text-sm font-semibold transition ${adjTarget === "wallet" ? "bg-primary text-white border-primary" : "bg-bg-secondary text-slate-200 border-border hover:bg-bg-secondary/70"}`}
+                  onClick={() => setAdjTarget("wallet")}
+                  disabled={adjSubmitting}
+                >
+                  💰 Main Wallet{" "}
+                </button>{" "}
+                <button
+                  type="button"
+                  className={`h-12 rounded-xl border text-sm font-semibold transition ${adjTarget === "gift" ? "bg-primary text-white border-primary" : "bg-bg-secondary text-slate-200 border-border hover:bg-bg-secondary/70"}`}
+                  onClick={() => setAdjTarget("gift")}
+                  disabled={adjSubmitting}
+                >
+                  🎁 Gift Wallet{" "}
+                </button>{" "}
+              </div>{" "}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-100 mb-2">
+                {" "}
                 Amount(ETB){" "}
               </div>{" "}
               <input
@@ -416,7 +443,7 @@ function PlayersInner({ token, admin }) {
                 disabled={!canModerate || adjSubmitting}
                 onClick={submitAdjustCash}
               >
-                {adjKind === "sub" ? "Subtract Cash" : "Add Cash"}{" "}
+                {adjKind === "sub" ? "Subtract from" : "Add to"} {adjTarget === "gift" ? "Gift Wallet" : "Main Wallet"}{" "}
               </Button>{" "}
               <Button
                 variant="outline"
