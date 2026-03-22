@@ -352,23 +352,33 @@ function buildBiasedSequence(adminNumbers, otherCards = [], lastWinCall = null) 
     return false;
   }
 
-  // Calculate target win call proportional to player count:
-  // ≤50 players: win at call 12–25 (fewer players = later win)
-  // >50 players: win at call 7–15 (more players = earlier win)
-  // Never repeat the same call count as the previous bias win.
+  // Win call range scales with player count:
+  // 2-5 players   → 20-25 calls (longer, looks natural)
+  // 6-9 players   → 18-23 calls (transition)
+  // 10-20 players → 17-22 calls (medium game)
+  // 21-29 players → 14-19 calls (transition)
+  // 30-50 players → 12-17 calls (shorter game)
+  // 51-100 players→ 10-15 calls (faster)
+  // 100+ players  → 7-10 calls  (quick finish)
   const shuffledAdmin = shuffleArray(adminNumbers);
   const adminCount = shuffledAdmin.length;
   const playerCount = otherCards.length;
 
   let minCall, maxCall;
-  if (playerCount > 50) {
-    const ratio = Math.min((playerCount - 50) / 150, 1);
-    maxCall = Math.round(15 - ratio * 8);
-    minCall = Math.max(7, maxCall - 3);
+  if (playerCount <= 5) {
+    minCall = 20; maxCall = 25;
+  } else if (playerCount <= 9) {
+    minCall = 18; maxCall = 23;
+  } else if (playerCount <= 20) {
+    minCall = 17; maxCall = 22;
+  } else if (playerCount <= 29) {
+    minCall = 14; maxCall = 19;
+  } else if (playerCount <= 50) {
+    minCall = 12; maxCall = 17;
+  } else if (playerCount <= 100) {
+    minCall = 10; maxCall = 15;
   } else {
-    const ratio = Math.min(playerCount / 50, 1);
-    maxCall = Math.round(25 - ratio * 10);
-    minCall = Math.max(12, maxCall - 5);
+    minCall = 7; maxCall = 10;
   }
 
   // Pick a random target in [minCall, maxCall], avoiding last win call
@@ -377,15 +387,18 @@ function buildBiasedSequence(adminNumbers, otherCards = [], lastWinCall = null) 
   do {
     targetCall = minCall + Math.floor(Math.random() * (maxCall - minCall + 1));
     attempts++;
-  } while (targetCall === lastWinCall && attempts < 10 && maxCall > minCall);
+  } while (targetCall === lastWinCall && attempts < 10);
 
-  // Derive gap from target: gap = targetCall / adminCount (at least 2)
-  const gap = Math.max(2, Math.round(targetCall / adminCount));
-
-  // Calculate admin number positions (0-indexed)
+  // Place admin numbers evenly across [0, targetCall-1]
+  // Last admin number lands exactly at targetCall-1 (0-indexed)
   const adminPositions = new Set();
-  for (let i = 0; i < adminCount; i++) {
-    adminPositions.add((i + 1) * gap - 1);
+  if (adminCount === 1) {
+    adminPositions.add(targetCall - 1);
+  } else {
+    const step = (targetCall - 1) / (adminCount - 1);
+    for (let i = 0; i < adminCount; i++) {
+      adminPositions.add(Math.round(i * step));
+    }
   }
 
   // Build the sequence by simulation
@@ -411,7 +424,7 @@ function buildBiasedSequence(adminNumbers, otherCards = [], lastWinCall = null) 
   }
 
   let fillerIdx = 0;
-  const totalBeforeWin = (adminCount) * gap; // admin wins at this position
+  const totalBeforeWin = targetCall; // admin wins at exactly this call number
 
   for (let pos = 0; pos < 75; pos++) {
     if (adminPositions.has(pos) && adminIdx < shuffledAdmin.length) {
