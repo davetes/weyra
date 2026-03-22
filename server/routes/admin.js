@@ -655,13 +655,13 @@ router.post(
             const useCaption = caption || legacyText || "";
             await liveBot.sendPhoto(tid, uploadedPath, {
               caption: useCaption || undefined,
-              parse_mode: "Markdown",
+              parse_mode: "HTML",
             });
             if (message || (legacyText && !caption)) {
               const followUp = message || legacyText;
               if (followUp) {
                 await liveBot.sendMessage(tid, followUp, {
-                  parse_mode: "Markdown",
+                  parse_mode: "HTML",
                   disable_web_page_preview: false,
                 });
               }
@@ -670,13 +670,13 @@ router.post(
             const useCaption = caption || legacyText || "";
             await liveBot.sendPhoto(tid, photo, {
               caption: useCaption || undefined,
-              parse_mode: "Markdown",
+              parse_mode: "HTML",
             });
             if (message || (legacyText && !caption)) {
               const followUp = message || legacyText;
               if (followUp) {
                 await liveBot.sendMessage(tid, followUp, {
-                  parse_mode: "Markdown",
+                  parse_mode: "HTML",
                   disable_web_page_preview: false,
                 });
               }
@@ -684,7 +684,7 @@ router.post(
           } else {
             const useMessage = message || legacyText;
             await liveBot.sendMessage(tid, useMessage, {
-              parse_mode: "Markdown",
+              parse_mode: "HTML",
               disable_web_page_preview: false,
             });
           }
