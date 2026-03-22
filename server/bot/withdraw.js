@@ -189,17 +189,38 @@ function setupWithdraw(bot, userState) {
           where: { telegramId: BigInt(tid) },
         });
         if (player) {
-          const withdrawReq = await prisma.withdrawRequest.create({
-            data: {
-              playerId: player.id,
-              telegramId: BigInt(tid),
-              amount: amount.toNumber(),
-              method,
-              account,
-              status: "pending",
-            },
+          const walletDec = new Decimal(player.wallet.toString());
+          if (walletDec.lt(amount)) {
+            await bot.sendMessage(chatId, "❌ Insufficient balance.");
+            return;
+          }
+
+          // Hold pattern: deduct immediately, refund on reject
+          const result = await prisma.$transaction(async (tx) => {
+            await tx.player.update({
+              where: { id: player.id },
+              data: { wallet: { decrement: amount.toNumber() } },
+            });
+            await tx.transaction.create({
+              data: {
+                playerId: player.id,
+                kind: "withdraw_hold",
+                amount: amount.negated().toNumber(),
+                note: "Withdraw request hold (pending admin approval)",
+              },
+            });
+            return tx.withdrawRequest.create({
+              data: {
+                playerId: player.id,
+                telegramId: BigInt(tid),
+                amount: amount.toNumber(),
+                method,
+                account,
+                status: "pending",
+              },
+            });
           });
-          withdrawRequestId = withdrawReq.id;
+          withdrawRequestId = result.id;
         }
       } catch (err) {
         console.error("withdraw request persist error:", err);
