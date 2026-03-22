@@ -329,64 +329,76 @@ function setupCommands(bot) {
       const firstPhone = !player.phone && phone;
       if (firstPhone) {
         const bonus = new Decimal(10);
-        const updated = await prisma.player.update({
-          where: { id: player.id },
+        // Atomic: only update if phone is still empty (prevents double bonus)
+        const result = await prisma.player.updateMany({
+          where: { id: player.id, phone: "" },
           data: {
             phone,
             username: msg.from.username || player.username || "",
             gift: { increment: parseFloat(bonus.toString()) },
           },
         });
-        await prisma.transaction.create({
-          data: {
-            playerId: player.id,
-            kind: "registration_bonus",
-            amount: bonus.toNumber(),
-            note: "Registration bonus for sharing phone number (Play Wallet)",
-          },
-        });
-        await bot.sendMessage(
-          msg.chat.id,
-          "🎉 Welcome to Weyra Bingo! — እንኳን ወደ ወይራ ቢንጎ መጡ!\n" +
-          "━━━━━━━━━━━━━━━━━━\n" +
-          "✅ Registration Successful!\n" +
-          "🎁 Bonus: You've received 10.00 ETB in your Play Wallet!\n" +
-          `💰 Current Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB\n` +
-          "━━━━━━━━━━━━━━━━━━\n" +
-          "Good luck and have fun! / መልካም እድል!",
-          { reply_markup: { remove_keyboard: true } },
-        );
-
-        // Reward referrer
-        const state = getUserState(tid);
-        const refTid = state.referrerTid;
-        if (refTid && refTid !== tid) {
-          const referrer = await prisma.player.findUnique({
-            where: { telegramId: BigInt(refTid) },
+        // Only create bonus transaction if the update actually matched (phone was empty)
+        if (result.count > 0) {
+          await prisma.transaction.create({
+            data: {
+              playerId: player.id,
+              kind: "registration_bonus",
+              amount: bonus.toNumber(),
+              note: "Registration bonus for sharing phone number (Play Wallet)",
+            },
           });
-          if (referrer) {
-            const refBonus = new Decimal(5);
-            await prisma.player.update({
-              where: { id: referrer.id },
-              data: { gift: { increment: parseFloat(refBonus.toString()) } },
+          const updated = await prisma.player.findUnique({ where: { id: player.id } });
+          await bot.sendMessage(
+            msg.chat.id,
+            "🎉 Welcome to Weyra Bingo! — እንኳን ወደ ወይራ ቢንጎ መጡ!\n" +
+            "━━━━━━━━━━━━━━━━━━\n" +
+            "✅ Registration Successful!\n" +
+            "🎁 Bonus: You've received 10.00 ETB in your Play Wallet!\n" +
+            `💰 Current Wallet: ${new Decimal(updated.wallet.toString()).toFixed(2)} ETB\n` +
+            "━━━━━━━━━━━━━━━━━━\n" +
+            "Good luck and have fun! / መልካም እድል!",
+            { reply_markup: { remove_keyboard: true } },
+          );
+
+          // Reward referrer
+          const state = getUserState(tid);
+          const refTid = state.referrerTid;
+          if (refTid && refTid !== tid) {
+            const referrer = await prisma.player.findUnique({
+              where: { telegramId: BigInt(refTid) },
             });
-            await prisma.transaction.create({
-              data: {
-                playerId: referrer.id,
-                kind: "referral_bonus",
-                amount: refBonus.toNumber(),
-                note: `Referral bonus from ${player.username || "new player"} (#${player.id})`,
-              },
-            });
-            try {
-              await bot.sendMessage(
-                refTid,
-                "🎉 Referral bonus received!\n" +
-                "A new player joined using your link. +5.00 ETB\n" +
-                "Bonus added to Play Wallet.",
-              );
-            } catch (_) { }
+            if (referrer) {
+              const refBonus = new Decimal(5);
+              await prisma.player.update({
+                where: { id: referrer.id },
+                data: { gift: { increment: parseFloat(refBonus.toString()) } },
+              });
+              await prisma.transaction.create({
+                data: {
+                  playerId: referrer.id,
+                  kind: "referral_bonus",
+                  amount: refBonus.toNumber(),
+                  note: `Referral bonus from ${player.username || "new player"} (#${player.id})`,
+                },
+              });
+              try {
+                await bot.sendMessage(
+                  refTid,
+                  "🎉 Referral bonus received!\n" +
+                  "A new player joined using your link. +5.00 ETB\n" +
+                  "Bonus added to Play Wallet.",
+                );
+              } catch (_) { }
+            }
           }
+        } else {
+          // Duplicate contact message — phone was already set by a concurrent request
+          await bot.sendMessage(
+            msg.chat.id,
+            "Registration completed. Thank you.",
+            { reply_markup: { remove_keyboard: true } },
+          );
         }
       } else {
         await prisma.player.update({
