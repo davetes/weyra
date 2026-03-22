@@ -2452,4 +2452,167 @@ router.post(
   },
 );
 
+// ─── Legacy Withdraw Cleanup (Temporary) ──────────────────────────
+// For pending requests created BEFORE the hold pattern was added.
+// These requests never deducted from wallet, so approve/reject is broken.
+// GET: list legacy pending requests (no matching withdraw_hold transaction)
+// POST: fix them — apply hold if balance allows, else auto-reject without refund
+router.get(
+  "/legacy-withdraws",
+  requireAuth(),
+  requirePerm(PERMS.withdraw_decide),
+  async (req, res) => {
+    try {
+      const pending = await prisma.withdrawRequest.findMany({
+        where: { status: "pending" },
+        include: { player: { select: { id: true, username: true, phone: true, wallet: true, telegramId: true } } },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const legacy = [];
+      for (const wr of pending) {
+        // Check if a withdraw_hold transaction exists for this request
+        const holdTx = await prisma.transaction.findFirst({
+          where: {
+            playerId: wr.playerId,
+            kind: "withdraw_hold",
+            createdAt: {
+              gte: new Date(wr.createdAt.getTime() - 5000), // within 5 seconds
+              lte: new Date(wr.createdAt.getTime() + 5000),
+            },
+          },
+        });
+        if (!holdTx) {
+          const wallet = new Decimal(wr.player.wallet.toString());
+          const amount = new Decimal(wr.amount.toString());
+          legacy.push({
+            id: wr.id,
+            playerId: wr.playerId,
+            username: wr.player.username || "-",
+            phone: wr.player.phone || "-",
+            telegramId: String(wr.player.telegramId || ""),
+            amount: amount.toFixed(2),
+            method: wr.method,
+            account: wr.account,
+            currentWallet: wallet.toFixed(2),
+            canApplyHold: wallet.gte(amount),
+            createdAt: wr.createdAt,
+          });
+        }
+      }
+
+      return res.json({ ok: true, count: legacy.length, requests: legacy });
+    } catch (err) {
+      console.error("legacy-withdraws list error:", err);
+      return res.status(500).json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/legacy-withdraws/fix",
+  requireAuth(),
+  requirePerm(PERMS.withdraw_decide),
+  async (req, res) => {
+    try {
+      const pending = await prisma.withdrawRequest.findMany({
+        where: { status: "pending" },
+        include: { player: true },
+        orderBy: { createdAt: "asc" },
+      });
+
+      const results = { applied: 0, rejected: 0, skipped: 0, details: [] };
+
+      for (const wr of pending) {
+        // Check if a withdraw_hold exists for this request
+        const holdTx = await prisma.transaction.findFirst({
+          where: {
+            playerId: wr.playerId,
+            kind: "withdraw_hold",
+            createdAt: {
+              gte: new Date(wr.createdAt.getTime() - 5000),
+              lte: new Date(wr.createdAt.getTime() + 5000),
+            },
+          },
+        });
+
+        if (holdTx) {
+          // Already has hold — new code, skip
+          results.skipped++;
+          continue;
+        }
+
+        const amount = new Decimal(wr.amount.toString());
+
+        // Re-read fresh wallet inside transaction
+        await prisma.$transaction(async (tx) => {
+          const freshPlayer = await tx.player.findUnique({
+            where: { id: wr.playerId },
+          });
+          if (!freshPlayer) return;
+
+          const wallet = new Decimal(freshPlayer.wallet.toString());
+
+          if (wallet.gte(amount)) {
+            // APPLY HOLD: deduct now so approve/reject works correctly
+            await tx.player.update({
+              where: { id: freshPlayer.id },
+              data: { wallet: { decrement: amount.toNumber() } },
+            });
+            await tx.transaction.create({
+              data: {
+                playerId: freshPlayer.id,
+                kind: "withdraw_hold",
+                amount: amount.negated().toNumber(),
+                note: `Legacy fix: retroactive hold for withdraw #${wr.id}`,
+              },
+            });
+            results.applied++;
+            results.details.push({
+              id: wr.id,
+              username: freshPlayer.username || "-",
+              amount: amount.toFixed(2),
+              action: "hold_applied",
+              walletBefore: wallet.toFixed(2),
+              walletAfter: wallet.minus(amount).toFixed(2),
+            });
+          } else {
+            // NOT ENOUGH BALANCE: auto-reject WITHOUT refund
+            await tx.withdrawRequest.update({
+              where: { id: wr.id },
+              data: {
+                status: "rejected",
+                decidedAt: new Date(),
+                decisionNote: "Auto-rejected: legacy request, no hold was applied and insufficient balance",
+              },
+            });
+            await tx.transaction.create({
+              data: {
+                playerId: freshPlayer.id,
+                kind: "withdraw_refund",
+                amount: 0, // NO refund — money was never held
+                note: `Legacy fix: auto-rejected withdraw #${wr.id} (no hold, insufficient balance)`,
+              },
+            });
+            results.rejected++;
+            results.details.push({
+              id: wr.id,
+              username: freshPlayer.username || "-",
+              amount: amount.toFixed(2),
+              action: "auto_rejected",
+              wallet: wallet.toFixed(2),
+              reason: "insufficient_balance",
+            });
+          }
+        });
+      }
+
+      return res.json({ ok: true, ...results });
+    } catch (err) {
+      console.error("legacy-withdraws fix error:", err);
+      return res.status(500).json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
 module.exports = router;

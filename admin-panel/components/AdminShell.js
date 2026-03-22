@@ -83,6 +83,12 @@ const NAV = [
     perm: "game.control",
     icon: IconGamepad,
   },
+  {
+    href: "/legacy-withdraws",
+    label: "Legacy Withdraws",
+    perm: "withdraw.decide",
+    icon: IconWallet,
+  },
 ];
 
 function canShow(item, admin) {
