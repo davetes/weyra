@@ -115,22 +115,21 @@ function WithdrawInner({ token, admin }) {
     }
   }
 
-  async function convertToGift(id) {
-    const amtStr = window.prompt(
-      "Amount to move to gift wallet (ETB):",
-      "",
-    );
-    if (!amtStr) return;
-    const amount = parseFloat(amtStr);
+  async function convertToGift(r) {
+    const amount = Number(r.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      alert("Invalid amount");
+      alert("Invalid withdrawal amount");
       return;
     }
+    const ok = window.confirm(
+      `Convert the entire ${amount} ETB withdrawal to the player's gift wallet?\n\nPlayer: ${r.player?.username || r.player?.phone || r.telegramId || "-"}\nAmount: ${amount} ETB\n\nThis will deposit the amount to their gift wallet and remove the withdrawal request.`,
+    );
+    if (!ok) return;
     const note = window.prompt("Note (optional):", "") || "";
     setLoading(true);
     setError("");
     try {
-      await convertWithdrawToGift(token, id, { amount, note });
+      await convertWithdrawToGift(token, r.id, { amount, note });
       await load();
     } catch (err) {
       setError(err?.message || "Failed");
@@ -252,7 +251,7 @@ function WithdrawInner({ token, admin }) {
                             <Button
                               variant="outline"
                               size="xs"
-                              onClick={() => convertToGift(r.id)}
+                              onClick={() => convertToGift(r)}
                               loading={loading}
                             >
                               Gift Wallet
