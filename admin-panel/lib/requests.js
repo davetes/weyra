@@ -33,3 +33,11 @@ export async function decideWithdrawRequest(
     body: { decision, note: note || "" },
   });
 }
+
+export async function convertWithdrawToGift(token, id, { amount, note } = {}) {
+  return apiFetch(`/api/admin/withdraw_requests/${id}/convert_to_gift`, {
+    token,
+    method: "POST",
+    body: { amount, note: note || "" },
+  });
+}

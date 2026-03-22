@@ -5,7 +5,11 @@ import Badge from "../components/Badge";
 import Button from "../components/Button";
 import { Select } from "../components/FormElements";
 import { saveToken } from "../lib/auth";
-import { decideWithdrawRequest, listWithdrawRequests } from "../lib/requests";
+import {
+  decideWithdrawRequest,
+  listWithdrawRequests,
+  convertWithdrawToGift,
+} from "../lib/requests";
 import { useEffect, useMemo, useState } from "react";
 import {
   IconWithdraw,
@@ -103,6 +107,30 @@ function WithdrawInner({ token, admin }) {
     setError("");
     try {
       await decideWithdrawRequest(token, id, { decision, note });
+      await load();
+    } catch (err) {
+      setError(err?.message || "Failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function convertToGift(id) {
+    const amtStr = window.prompt(
+      "Amount to move to gift wallet (ETB):",
+      "",
+    );
+    if (!amtStr) return;
+    const amount = parseFloat(amtStr);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert("Invalid amount");
+      return;
+    }
+    const note = window.prompt("Note (optional):", "") || "";
+    setLoading(true);
+    setError("");
+    try {
+      await convertWithdrawToGift(token, id, { amount, note });
       await load();
     } catch (err) {
       setError(err?.message || "Failed");
@@ -220,6 +248,14 @@ function WithdrawInner({ token, admin }) {
                               loading={loading}
                             >
                               Approve
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              onClick={() => convertToGift(r.id)}
+                              loading={loading}
+                            >
+                              Gift Wallet
                             </Button>
                             <Button
                               variant="danger"

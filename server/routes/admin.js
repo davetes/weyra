@@ -2623,4 +2623,91 @@ router.post(
   },
 );
 
+// Convert part of a pending withdraw into gift wallet credit
+router.post(
+  "/withdraw_requests/:id/convert_to_gift",
+  requireAuth(),
+  requirePerm(PERMS.withdraw_decide),
+  async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const amountRaw = req.body?.amount;
+      const note = String(req.body?.note || "");
+      const amountDec = new Decimal(amountRaw || 0);
+
+      if (!id)
+        return res.status(400).json({ ok: false, error: "Invalid request id" });
+      if (!amountDec.isFinite() || amountDec.lte(0)) {
+        return res.status(400).json({ ok: false, error: "Invalid amount" });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const reqRow = await tx.withdrawRequest.findUnique({
+          where: { id },
+          include: { player: true },
+        });
+        if (!reqRow) return "not_found";
+        if (reqRow.status !== "pending") return "decided";
+
+        const currentAmount = new Decimal(reqRow.amount.toString());
+        if (amountDec.gt(currentAmount)) return "too_much";
+
+        await tx.player.update({
+          where: { id: reqRow.playerId },
+          data: { gift: { increment: amountDec.toNumber() } },
+        });
+
+        await tx.transaction.create({
+          data: {
+            playerId: reqRow.playerId,
+            kind: "gift_topup",
+            amount: amountDec.toNumber(),
+            note: `Converted from withdraw #${id} by ${req.adminUser.username} (#${req.adminUser.id})`,
+          },
+        });
+
+        const remaining = currentAmount.minus(amountDec);
+        const autoApprove = remaining.lte(0);
+        const updated = await tx.withdrawRequest.update({
+          where: { id },
+          data: {
+            amount: remaining.max(0).toNumber(),
+            ...(autoApprove
+              ? {
+                  status: "approved",
+                  decidedAt: new Date(),
+                  decidedByAdminId: req.adminUser.id,
+                  decisionNote:
+                    note ||
+                    reqRow.decisionNote ||
+                    "Converted fully to gift wallet",
+                }
+              : { decisionNote: note || reqRow.decisionNote }),
+          },
+        });
+
+        return updated;
+      });
+
+      if (result === "not_found")
+        return res.status(404).json({ ok: false, error: "Not found" });
+      if (result === "decided")
+        return res
+          .status(409)
+          .json({ ok: false, error: "Request already decided" });
+      if (result === "too_much")
+        return res
+          .status(400)
+          .json({ ok: false, error: "Amount exceeds withdraw request" });
+
+      return res.json({ ok: true, request: serializeWithdrawRequest(result) });
+    } catch (err) {
+      console.error("withdraw convert_to_gift error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
 module.exports = router;
