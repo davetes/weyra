@@ -200,8 +200,9 @@ function startCallTicker(io) {
           const result = checkBingo(card, calledSet);
           if (!result) continue;
           const p = sel.player;
-          const name =
+          const rawName =
             p.username || p.phone || `Player ${String(p.telegramId)}`;
+          const name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
           winners.push({
             playerId: p.id,
             telegramId: String(p.telegramId),
