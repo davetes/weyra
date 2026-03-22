@@ -2302,29 +2302,37 @@ router.patch(
 
         if (decision === "approved") {
           const amountDec = new Decimal(reqRow.amount.toString());
-          const player = await tx.player.findUnique({
-            where: { id: reqRow.playerId },
-          });
-          if (!player) throw new Error("Player not found");
-          const walletDec = new Decimal(player.wallet.toString());
-          if (walletDec.lt(amountDec)) {
-            throw new Error(
-              "Insufficient wallet balance to approve withdrawal",
-            );
-          }
 
+          // Money was already deducted when the request was created (hold pattern)
+          // Just log the final approval transaction
+          await tx.transaction.create({
+            data: {
+              playerId: reqRow.playerId,
+              kind: "withdraw",
+              amount: 0, // no additional deduction
+              note:
+                `Withdraw approved by ${req.adminUser.username} (#${req.adminUser.id})` +
+                (note ? `: ${note}` : ""),
+            },
+          });
+        }
+
+        if (decision === "rejected") {
+          const amountDec = new Decimal(reqRow.amount.toString());
+
+          // Refund the held amount back to the player's wallet
           await tx.player.update({
             where: { id: reqRow.playerId },
-            data: { wallet: { decrement: amountDec.toNumber() } },
+            data: { wallet: { increment: amountDec.toNumber() } },
           });
 
           await tx.transaction.create({
             data: {
               playerId: reqRow.playerId,
-              kind: "withdraw",
-              amount: amountDec.negated().toNumber(),
+              kind: "withdraw_refund",
+              amount: amountDec.toNumber(),
               note:
-                `Withdraw approved by ${req.adminUser.username} (#${req.adminUser.id})` +
+                `Withdraw rejected — refund by ${req.adminUser.username} (#${req.adminUser.id})` +
                 (note ? `: ${note}` : ""),
             },
           });

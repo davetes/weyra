@@ -153,24 +153,69 @@ async function handleWithdrawRequest(req, res) {
       : "";
     const disputeStatus = needsReview ? "review" : "none";
 
-    const created = await prisma.withdrawRequest.create({
-      data: {
-        playerId: player.id,
-        telegramId: tidBig,
-        method,
-        account,
-        amount: amountDec.toNumber(),
-        status: "pending",
-        adminNote,
-        disputeStatus,
-      },
+    // Immediately deduct from wallet (hold pattern)
+    // Player cannot play with this money while waiting for admin approval
+    // If admin rejects, the amount will be refunded
+    const result = await prisma.$transaction(async (tx) => {
+      const freshPlayer = await tx.player.findUnique({
+        where: { telegramId: tidBig },
+      });
+      if (!freshPlayer) throw new Error("not_found");
+
+      const walletDec = new Decimal(freshPlayer.wallet.toString());
+      if (walletDec.lt(amountDec)) {
+        throw new Error("insufficient");
+      }
+
+      // Deduct immediately
+      await tx.player.update({
+        where: { id: freshPlayer.id },
+        data: { wallet: { decrement: amountDec.toNumber() } },
+      });
+
+      // Log the hold transaction
+      await tx.transaction.create({
+        data: {
+          playerId: freshPlayer.id,
+          kind: "withdraw_hold",
+          amount: amountDec.negated().toNumber(),
+          note: `Withdraw request hold (pending admin approval)`,
+        },
+      });
+
+      // Create the withdraw request
+      const created = await tx.withdrawRequest.create({
+        data: {
+          playerId: freshPlayer.id,
+          telegramId: tidBig,
+          method,
+          account,
+          amount: amountDec.toNumber(),
+          status: "pending",
+          adminNote,
+          disputeStatus,
+        },
+      });
+
+      return created;
+    }).catch((err) => {
+      if (err.message === "not_found") return "not_found";
+      if (err.message === "insufficient") return "insufficient";
+      throw err;
     });
+
+    if (result === "not_found") {
+      return res.status(404).json({ ok: false, error: "Not found" });
+    }
+    if (result === "insufficient") {
+      return res.status(400).json({ ok: false, error: "Insufficient wallet balance" });
+    }
 
     return res.json({
       ok: true,
       request: {
-        id: created.id,
-        status: created.status,
+        id: result.id,
+        status: result.status,
       },
     });
   } catch (err) {

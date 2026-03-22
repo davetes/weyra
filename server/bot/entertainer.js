@@ -334,26 +334,15 @@ function setupEntertainer(bot) {
 
       const player = req.player;
       const amount = new Decimal(req.amount.toString());
-      const balance = new Decimal(player.wallet.toString());
 
-      if (balance.lt(amount)) {
-        return bot.sendMessage(
-          chatId,
-          `❌ Insufficient balance. Player has ${balance.toFixed(2)} ETB, needs ${amount.toFixed(2)} ETB.`,
-        );
-      }
-
-      // Deduct from wallet and mark as approved
+      // Money was already deducted when the request was created (hold pattern)
+      // Just mark as approved and log
       await prisma.$transaction([
-        prisma.player.update({
-          where: { id: player.id },
-          data: { wallet: { decrement: amount.toNumber() } },
-        }),
         prisma.transaction.create({
           data: {
             playerId: player.id,
             kind: "withdraw",
-            amount: amount.negated().toNumber(),
+            amount: 0, // no additional deduction
             note: `Withdraw approved #${reqId} via ${req.method}`,
             actorTid: BigInt(tid),
           },
@@ -404,10 +393,28 @@ function setupEntertainer(bot) {
         return bot.sendMessage(chatId, `Request already ${req.status}.`);
       }
 
-      await prisma.withdrawRequest.update({
-        where: { id: reqId },
-        data: { status: "rejected", decidedAt: new Date() },
-      });
+      const amount = new Decimal(req.amount.toString());
+
+      // Refund the held amount and mark as rejected
+      await prisma.$transaction([
+        prisma.player.update({
+          where: { id: req.player.id },
+          data: { wallet: { increment: amount.toNumber() } },
+        }),
+        prisma.transaction.create({
+          data: {
+            playerId: req.player.id,
+            kind: "withdraw_refund",
+            amount: amount.toNumber(),
+            note: `Withdraw rejected — refund #${reqId}`,
+            actorTid: BigInt(tid),
+          },
+        }),
+        prisma.withdrawRequest.update({
+          where: { id: reqId },
+          data: { status: "rejected", decidedAt: new Date() },
+        }),
+      ]);
 
       // Update the message to show rejected
       try {
@@ -422,7 +429,8 @@ function setupEntertainer(bot) {
       try {
         await bot.sendMessage(
           req.telegramId.toString(),
-          `❌ Your withdrawal request of ${new Decimal(req.amount.toString()).toFixed(2)} ETB has been rejected.\n` +
+          `❌ Your withdrawal request of ${amount.toFixed(2)} ETB has been rejected.\n` +
+            `The amount has been refunded to your wallet.\n` +
             `Please contact support for more information.`,
         );
       } catch (_) {}
