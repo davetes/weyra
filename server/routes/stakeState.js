@@ -1,11 +1,16 @@
 // GET /api/stake_state — lightweight status for home page
 const { PrismaClient } = require("@prisma/client");
+const cache = require("../cache");
 
 const prisma = new PrismaClient();
 
 async function handleStakeState(req, res) {
   try {
     const stake = parseInt(req.query.stake || "10", 10);
+
+    const stopKey = `stop_stake_${stake}`;
+    const stopRaw = await cache.get(stopKey);
+    const roomStopped = stopRaw === 1 || stopRaw === true || String(stopRaw) === "1";
 
     const game = await prisma.game.findFirst({
       where: { stake, active: true },
@@ -31,6 +36,10 @@ async function handleStakeState(req, res) {
         accepted_cards: 0,
         accepted_count: 0,
         players_display: 0,
+        room_stopped: roomStopped,
+        room_stop_message: roomStopped
+          ? "Temporarily stopped for maintenance"
+          : null,
       });
     }
 
@@ -61,6 +70,10 @@ async function handleStakeState(req, res) {
       accepted_cards: acceptedCards,
       accepted_count: acceptedCount,
       players_display: playersDisplay,
+      room_stopped: roomStopped,
+      room_stop_message: roomStopped
+        ? "Temporarily stopped for maintenance"
+        : null,
     });
   } catch (err) {
     console.error("stakeState error:", err);

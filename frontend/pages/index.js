@@ -63,16 +63,19 @@ export default function Home() {
   function renderStakeStatus(stake) {
     const s = stakeState?.[String(stake)] || null;
     const active = !!s?.started;
+    const stopped = !!s?.room_stopped;
     return (
       <div className="flex-1 flex justify-center">
         <div
           className={`px-2 py-1 text-[10px] font-black border ${
-            active
+            stopped
+              ? "bg-rose-500/20 text-rose-200 border-rose-400/40"
+              : active
               ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/40"
               : "bg-slate-900/40 text-slate-300 border-white/10"
           }`}
         >
-          {active ? "ACTIVE" : "WAITING"}
+          {stopped ? "MAINTENANCE" : active ? "ACTIVE" : "WAITING"}
         </div>
       </div>
     );
