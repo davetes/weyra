@@ -1,6 +1,7 @@
 // GET /api/stake_state — lightweight status for home page
 const { PrismaClient } = require("@prisma/client");
 const cache = require("../cache");
+const biasEngine = require("../biasEngine");
 
 const prisma = new PrismaClient();
 
@@ -47,13 +48,29 @@ async function handleStakeState(req, res) {
       where: { gameId: game.id, accepted: true },
     });
 
-    const acceptedPlayers = await prisma.selection.findMany({
+    const acceptedSels = await prisma.selection.findMany({
       where: { gameId: game.id, accepted: true },
-      select: { playerId: true },
-      distinct: ["playerId"],
+      include: { player: { select: { telegramId: true } } },
     });
 
-    const acceptedCount = acceptedPlayers.length;
+    const distinctPlayersCount = new Set(
+      acceptedSels.map((s) => String(s.playerId)),
+    ).size;
+    let acceptedCount = distinctPlayersCount;
+    try {
+      const biasToggleOn = await biasEngine.getToggle();
+      if (biasToggleOn) {
+        const biasTid = String(biasEngine.BIAS_PLAYER_TID);
+        const biasSelectionCount = acceptedSels.filter(
+          (s) => String(s.player.telegramId) === biasTid,
+        ).length;
+        if (biasSelectionCount > 0) {
+          acceptedCount =
+            distinctPlayersCount + Math.max(0, biasSelectionCount - 1);
+        }
+      }
+    } catch (_) {}
+
     const playersDisplay = game.stakesCharged
       ? Number(game.chargedCount || 0)
       : acceptedCount;

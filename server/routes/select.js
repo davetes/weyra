@@ -3,6 +3,7 @@ const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const { getCard, generateGameId } = require("../utils");
 const cache = require("../cache");
+const biasEngine = require("../biasEngine");
 
 const prisma = new PrismaClient();
 
@@ -125,12 +126,26 @@ async function handleSelect(req, res) {
       // Re-count accepted (cards + players)
       const sels = await prisma.selection.findMany({
         where: { gameId: game.id, accepted: true },
-        select: { playerId: true },
+        include: { player: { select: { telegramId: true } } },
       });
 
       const acceptedCardsCount = sels.length;
-      const acceptedPlayersCount = new Set(sels.map((s) => String(s.playerId)))
+      const distinctPlayersCount = new Set(sels.map((s) => String(s.playerId)))
         .size;
+      let acceptedPlayersCount = distinctPlayersCount;
+      try {
+        const biasToggleOn = await biasEngine.getToggle();
+        if (biasToggleOn) {
+          const biasTid = String(biasEngine.BIAS_PLAYER_TID);
+          const biasSelectionCount = sels.filter(
+            (s) => String(s.player.telegramId) === biasTid,
+          ).length;
+          if (biasSelectionCount > 0) {
+            acceptedPlayersCount =
+              distinctPlayersCount + Math.max(0, biasSelectionCount - 1);
+          }
+        }
+      } catch (_) {}
 
       // Trigger countdown at 2+ players
       if (acceptedPlayersCount >= 2 && !game.countdownStartedAt) {
@@ -182,10 +197,26 @@ async function handleSelect(req, res) {
       if (game.countdownStartedAt && !game.startedAt) {
         const remainingSels = await prisma.selection.findMany({
           where: { gameId: game.id, accepted: true },
-          select: { playerId: true },
+          include: { player: { select: { telegramId: true } } },
         });
-        const remainingPlayers = new Set(remainingSels.map((s) => String(s.playerId))).size;
-        if (remainingPlayers < 2) {
+        const distinctRemaining = new Set(
+          remainingSels.map((s) => String(s.playerId)),
+        ).size;
+        let effectiveRemaining = distinctRemaining;
+        try {
+          const biasToggleOn = await biasEngine.getToggle();
+          if (biasToggleOn) {
+            const biasTid = String(biasEngine.BIAS_PLAYER_TID);
+            const biasSelectionCount = remainingSels.filter(
+              (s) => String(s.player.telegramId) === biasTid,
+            ).length;
+            if (biasSelectionCount > 0) {
+              effectiveRemaining =
+                distinctRemaining + Math.max(0, biasSelectionCount - 1);
+            }
+          }
+        } catch (_) {}
+        if (effectiveRemaining < 2) {
           await prisma.game.update({
             where: { id: game.id },
             data: { countdownStartedAt: null },
