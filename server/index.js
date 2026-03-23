@@ -36,8 +36,8 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "tiny" : "dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files (audio, images) from root public/
-app.use("/static", express.static(path.join(__dirname, "..", "public")));
+// Serve static files (audio, images) from server/public/
+app.use("/static", express.static(path.join(__dirname, "public")));
 
 // initData middleware for player-facing routes
 const authRequired = requireInitData();
