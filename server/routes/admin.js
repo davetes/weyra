@@ -1518,6 +1518,26 @@ router.get(
           : null,
       }));
 
+      const playerIds = Array.from(
+        new Set(mappedSelections.map((s) => s.playerId).filter(Boolean)),
+      );
+      const playerKeys = playerIds.map((pid) => getForceWinPlayerKey(pid));
+      const forceRows = playerKeys.length
+        ? await prisma.appSetting.findMany({
+          where: { key: { in: playerKeys } },
+          select: { key: true, value: true },
+        })
+        : [];
+      const enabledKeys = new Set(
+        forceRows
+          .filter((row) => isTrueSetting(row.value))
+          .map((row) => row.key),
+      );
+      const selectionsWithForce = mappedSelections.map((s) => ({
+        ...s,
+        forceWinEnabled: enabledKeys.has(getForceWinPlayerKey(s.playerId)),
+      }));
+
       const winnerTx = await prisma.transaction.findMany({
         where: {
           kind: "win",
@@ -1543,7 +1563,7 @@ router.get(
       return res.json({
         ok: true,
         game,
-        selections: mappedSelections,
+        selections: selectionsWithForce,
         winners: winnerTx.map((t) => ({
           id: t.id,
           playerId: t.playerId,
@@ -1671,29 +1691,12 @@ router.get(
       const start = (page - 1) * pageSize;
       const pageRows = out.slice(start, start + pageSize);
 
-      const playerKeys = pageRows.map((p) => getForceWinPlayerKey(p.id));
-      const forceRows = playerKeys.length
-        ? await prisma.appSetting.findMany({
-          where: { key: { in: playerKeys } },
-          select: { key: true, value: true },
-        })
-        : [];
-      const enabledKeys = new Set(
-        forceRows
-          .filter((row) => isTrueSetting(row.value))
-          .map((row) => row.key),
-      );
-      const mappedRows = pageRows.map((p) => ({
-        ...p,
-        forceWinEnabled: enabledKeys.has(getForceWinPlayerKey(p.id)),
-      }));
-
       return res.json({
         ok: true,
         page,
         pageSize,
         total,
-        players: mappedRows,
+        players: pageRows,
       });
     } catch (err) {
       console.error("players error:", err);

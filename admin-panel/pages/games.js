@@ -6,6 +6,7 @@ import Badge from "../components/Badge";
 import Button from "../components/Button";
 import { apiFetch } from "../lib/api";
 import { saveToken } from "../lib/auth";
+import { togglePlayerForceWin } from "../lib/requests";
 import { IconRefresh } from "../components/Icons";
 
 function hasPerm(admin, perm) {
@@ -58,6 +59,7 @@ function GamesInner({ token, admin }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const [detail, setDetail] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
 
   async function loadGames(nextStake = stake) {
     if (!canRead) return;
@@ -112,6 +114,27 @@ function GamesInner({ token, admin }) {
     }
   }
 
+  async function toggleForceWin(selection) {
+    if (!selection?.playerId) return;
+    setDetailError("");
+    setTogglingId(selection.playerId);
+    try {
+      await togglePlayerForceWin(token, selection.playerId, {
+        enabled: !selection.forceWinEnabled,
+      });
+      await loadDetail(selectedGameId);
+    } catch (err) {
+      if (err?.status === 401) {
+        saveToken(null);
+        window.location.href = "/login";
+        return;
+      }
+      setDetailError(err?.message || "Failed to update force win");
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
   useEffect(() => {
     loadGames(stake);
   }, [canRead]);
@@ -148,6 +171,7 @@ function GamesInner({ token, admin }) {
   const winners = Array.isArray(detail?.winners) ? detail.winners : [];
   const accepted = selections.filter((s) => !!s.accepted);
   const acceptedPlayers = new Set(accepted.map((s) => String(s.playerId))).size;
+  const canForceWin = !!detail?.game?.active && !detail?.game?.startedAt;
 
   return (
     <AdminShell
@@ -365,6 +389,7 @@ function GamesInner({ token, admin }) {
                             <th className="pr-3 py-3">Slot</th>
                             <th className="pr-3 py-3">Card Index</th>
                             <th className="pr-3 py-3">Accepted</th>
+                            <th className="pr-3 py-3">Force Win</th>
                             <th className="pr-4 py-3">Auto</th>
                           </tr>
                         </thead>
@@ -393,6 +418,34 @@ function GamesInner({ token, admin }) {
                                   <Badge variant="default">No</Badge>
                                 )}
                               </td>
+                              <td className="pr-3 py-3">
+                                {canForceWin && s.accepted ? (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      disabled={togglingId === s.playerId}
+                                      onClick={() => toggleForceWin(s)}
+                                      className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+                                        s.forceWinEnabled
+                                          ? "bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                                          : "bg-slate-700"
+                                      }`}
+                                    >
+                                      <span
+                                        className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-300 ease-in-out ${
+                                          s.forceWinEnabled
+                                            ? "translate-x-5"
+                                            : "translate-x-0"
+                                        }`}
+                                      />
+                                    </button>
+                                    <span className="text-xs text-muted">
+                                      {s.forceWinEnabled ? "ON" : "OFF"}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted">-</span>
+                                )}
+                              </td>
                               <td className="pr-4 py-3">
                                 {s.autoEnabled ? (
                                   <Badge variant="accent">On</Badge>
@@ -405,7 +458,7 @@ function GamesInner({ token, admin }) {
                           {selections.length === 0 && (
                             <tr>
                               <td
-                                colSpan={6}
+                                colSpan={7}
                                 className="text-center py-10 text-muted text-sm"
                               >
                                 No selections
