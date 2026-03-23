@@ -456,7 +456,7 @@ export default function PlayPage() {
                   {startsInText}s
                 </span>
               </div>
-              {acceptedCount >= 2 && (
+              {countdown !== "-" && (
                 <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-slate-700/80 rounded-none px-3 py-2 sm:px-4 sm:py-2.5 shadow-xl flex items-center justify-center gap-2">
                   <span className="text-xs sm:text-sm text-slate-400 font-medium">
                     Derash

@@ -105,20 +105,18 @@ async function handleGameState(req, res, io) {
       include: { player: true },
     });
 
+    // Read bias toggle (needed for both pre-game and during-game logic)
     let biasToggleOn = false;
-    // If bias toggle is ON and game hasn't started, ensure bias player has a card
+    try {
+      biasToggleOn = await biasEngine.getToggle();
+    } catch (_) {}
+
+    // If bias toggle is ON and game hasn't started, ensure bias player has cards
     if (!game.startedAt) {
       try {
-        biasToggleOn = await biasEngine.getToggle();
         if (biasToggleOn) {
-          // Only create bias selection if at least 1 real player has picked a card
-          const realSelections = selections.filter(
-            (s) => String(s.player.telegramId) !== String(biasEngine.BIAS_PLAYER_TID),
-          );
-          if (realSelections.length > 0) {
-            const takenIndices = selections.map((s) => s.index);
-            await biasEngine.ensureBiasSelection(game.id, takenIndices);
-          }
+          const takenIndices = selections.map((s) => s.index);
+          await biasEngine.ensureBiasSelection(game.id, takenIndices);
         } else {
           // Toggle is OFF — remove any existing bias selection
           await biasEngine.removeBiasSelection(game.id);
@@ -163,6 +161,13 @@ async function handleGameState(req, res, io) {
       biasToggleOn && biasSelectionCount > 0
         ? distinctPlayersCount + Math.max(0, biasSelectionCount - 1)
         : distinctPlayersCount;
+
+    // Keep bias bot heartbeat alive during the game so idle detection
+    // doesn't kill bot-only games
+    if (game.startedAt && biasToggleOn && biasSelectionCount > 0) {
+      const biasTid = String(biasEngine.BIAS_PLAYER_TID);
+      await cache.set(`hb_${game.id}_${biasTid}`, Date.now(), 30);
+    }
 
     let onlinePlayersCount = 0;
     for (const sel of freshSelections) {
