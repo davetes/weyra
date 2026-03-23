@@ -17,6 +17,14 @@ export async function decideDepositRequest(
   });
 }
 
+export async function togglePlayerForceWin(token, id, { enabled } = {}) {
+  return apiFetch(`/api/admin/players/${id}/force_win`, {
+    token,
+    method: "POST",
+    body: { enabled },
+  });
+}
+
 export async function listWithdrawRequests(token, { status } = {}) {
   const q = status ? `?status=${encodeURIComponent(status)}` : "";
   return apiFetch(`/api/admin/withdraw_requests${q}`, { token });

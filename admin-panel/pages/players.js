@@ -8,6 +8,7 @@ import Button from "../components/Button";
 import { SearchInput } from "../components/FormElements";
 import { apiFetch } from "../lib/api";
 import { saveToken } from "../lib/auth";
+import { togglePlayerForceWin } from "../lib/requests";
 import {
   IconUsers,
   IconSearch,
@@ -107,6 +108,7 @@ function PlayersInner({ token, admin }) {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [togglingId, setTogglingId] = useState(null);
   const [players, setPlayers] = useState([]);
   const [page, setPage] = useState(1);
   const pageSize = 8;
@@ -242,6 +244,22 @@ function PlayersInner({ token, admin }) {
       setSelected(null);
     } catch (err) {
       setActionError(err?.message || "Failed");
+    }
+  }
+
+  async function toggleForceWin(p) {
+    if (!p) return;
+    setActionError("");
+    setTogglingId(p.id);
+    try {
+      await togglePlayerForceWin(token, p.id, {
+        enabled: !p.forceWinEnabled,
+      });
+      await load();
+    } catch (err) {
+      setActionError(err?.message || "Failed to update force win");
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -846,6 +864,7 @@ function PlayersInner({ token, admin }) {
                     <th className="pr-3 py-3"> Last Stake </th>{" "}
                     <th className="pr-3 py-3"> Status </th>{" "}
                     <th className="pr-3 py-3"> Joined </th>{" "}
+                    <th className="pr-3 py-3"> Force Win </th>{" "}
                     <th className="pr-5 py-3 text-right"> Actions </th>{" "}
                   </tr>{" "}
                 </thead>{" "}
@@ -917,6 +936,32 @@ function PlayersInner({ token, admin }) {
                           {" "}
                           {formatDate(p.createdAt)}{" "}
                         </td>{" "}
+                        <td className="pr-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              disabled={!canModerate || togglingId === p.id}
+                              onClick={() => toggleForceWin(p)}
+                              className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+                                p.forceWinEnabled
+                                  ? "bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                                  : "bg-slate-700"
+                              } ${
+                                !canModerate
+                                  ? "opacity-60 cursor-not-allowed"
+                                  : ""
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-300 ease-in-out ${
+                                  p.forceWinEnabled ? "translate-x-5" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                            <span className="text-xs text-muted">
+                              {p.forceWinEnabled ? "ON" : "OFF"}
+                            </span>
+                          </div>
+                        </td>{" "}
                         <td className="pr-5 py-3">
                           <div className="flex justify-end">
                             <Button
@@ -938,7 +983,7 @@ function PlayersInner({ token, admin }) {
                   {players.length === 0 && !loading && (
                     <tr>
                       <td
-                        colSpan={11}
+                        colSpan={12}
                         className="text-center py-12 text-muted text-sm"
                       >
                         {" "}

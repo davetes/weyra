@@ -5,7 +5,10 @@ import Badge from "../components/Badge";
 import Button from "../components/Button";
 import { Select } from "../components/FormElements";
 import { saveToken } from "../lib/auth";
-import { decideDepositRequest, listDepositRequests } from "../lib/requests";
+import {
+  decideDepositRequest,
+  listDepositRequests,
+} from "../lib/requests";
 import { useEffect, useMemo, useState } from "react";
 import {
   IconDeposit,
@@ -126,6 +129,7 @@ function DepositInner({ token, admin }) {
       setLoading(false);
     }
   }
+
 
   if (!canRead) {
     return (

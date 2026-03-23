@@ -134,7 +134,6 @@ const ALL_PATTERNS = [
     ],
   },
 
-
   {
     name: "Four Corners",
     positions: [
@@ -166,7 +165,6 @@ const ALL_PATTERNS = [
     ],
   },
 
-
   {
     name: "Anti Diagonal",
     positions: [
@@ -178,7 +176,6 @@ const ALL_PATTERNS = [
     ],
   },
 
-
   {
     name: "Row 3",
     positions: [
@@ -189,7 +186,6 @@ const ALL_PATTERNS = [
       [3, 4],
     ],
   },
-
 
   {
     name: "Main Diagonal",
@@ -211,8 +207,6 @@ const ALL_PATTERNS = [
       [2, 4],
     ],
   },
-
-
 ];
 
 // ─── Redis Keys ────────────────────────────────────────────────────
@@ -233,8 +227,12 @@ const K = {
 };
 
 function normalizeBiasCardRange(rawMin, rawMax) {
-  let min = Number.isFinite(rawMin) ? Math.floor(rawMin) : DEFAULT_BIAS_CARD_MIN;
-  let max = Number.isFinite(rawMax) ? Math.floor(rawMax) : DEFAULT_BIAS_CARD_MAX;
+  let min = Number.isFinite(rawMin)
+    ? Math.floor(rawMin)
+    : DEFAULT_BIAS_CARD_MIN;
+  let max = Number.isFinite(rawMax)
+    ? Math.floor(rawMax)
+    : DEFAULT_BIAS_CARD_MAX;
 
   min = Math.min(DEFAULT_BIAS_CARD_MAX, Math.max(DEFAULT_BIAS_CARD_MIN, min));
   max = Math.min(DEFAULT_BIAS_CARD_MAX, Math.max(DEFAULT_BIAS_CARD_MIN, max));
@@ -408,7 +406,11 @@ function getColumn(n) {
 // otherCards = array of 5×5 card grids (all non-bias players)
 // lastWinCall = previous game's win call count (to avoid repeats)
 // Returns { sequence, targetCall }
-function buildBiasedSequence(adminNumbers, otherCards = [], lastWinCall = null) {
+function buildBiasedSequence(
+  adminNumbers,
+  otherCards = [],
+  lastWinCall = null,
+) {
   const adminSet = new Set(adminNumbers);
   const allNums = [];
   for (let i = 1; i <= 75; i++) allNums.push(i);
@@ -444,7 +446,10 @@ function buildBiasedSequence(adminNumbers, otherCards = [], lastWinCall = null) 
       for (const pat of patterns) {
         let allMatch = true;
         for (const n of pat.required) {
-          if (!testSet.has(n)) { allMatch = false; break; }
+          if (!testSet.has(n)) {
+            allMatch = false;
+            break;
+          }
         }
         if (allMatch) return true;
       }
@@ -466,19 +471,26 @@ function buildBiasedSequence(adminNumbers, otherCards = [], lastWinCall = null) 
 
   let minCall, maxCall;
   if (playerCount <= 5) {
-    minCall = 20; maxCall = 25;
+    minCall = 20;
+    maxCall = 25;
   } else if (playerCount <= 9) {
-    minCall = 18; maxCall = 23;
+    minCall = 18;
+    maxCall = 23;
   } else if (playerCount <= 20) {
-    minCall = 17; maxCall = 22;
+    minCall = 17;
+    maxCall = 22;
   } else if (playerCount <= 29) {
-    minCall = 14; maxCall = 19;
+    minCall = 14;
+    maxCall = 19;
   } else if (playerCount <= 50) {
-    minCall = 12; maxCall = 17;
+    minCall = 12;
+    maxCall = 17;
   } else if (playerCount <= 100) {
-    minCall = 10; maxCall = 15;
+    minCall = 10;
+    maxCall = 15;
   } else {
-    minCall = 7; maxCall = 10;
+    minCall = 7;
+    maxCall = 10;
   }
 
   // Pick a random target in [minCall, maxCall], avoiding last win call
@@ -697,7 +709,7 @@ async function removeBiasSelection(gameId) {
       });
     }
     await cache.del(K.gameCardTarget(gameId));
-  } catch (_) { }
+  } catch (_) {}
 }
 
 // ─── Init Bias Round ───────────────────────────────────────────────
@@ -721,7 +733,8 @@ async function initBiasRound(gameId, takenIndices = [], allSelections = []) {
 
   if (!biasSelections.length) return null;
 
-  const biasSel = biasSelections[Math.floor(Math.random() * biasSelections.length)];
+  const biasSel =
+    biasSelections[Math.floor(Math.random() * biasSelections.length)];
 
   const cardIndex = biasSel.index;
   const card = getCard(cardIndex);
@@ -779,7 +792,8 @@ async function checkAdminWin(gameId, calledSet) {
 
   // Read the required numbers stored at game init time
   const requiredNumbers = await cache.get(K.gameRequiredNums(gameId));
-  if (!Array.isArray(requiredNumbers) || requiredNumbers.length === 0) return null;
+  if (!Array.isArray(requiredNumbers) || requiredNumbers.length === 0)
+    return null;
 
   // Check if all required numbers have been called
   const allCalled = requiredNumbers.every((n) => calledSet.has(n));
@@ -869,13 +883,18 @@ async function pickMultipleFakeNames(count) {
 // to inject so each share drops below 100.
 // Returns { dilute, fakesToAdd, sharePerWinner, adminTotal, totalWinners }
 function computeDilution(pot, realWinnerCount) {
-  const potNum = typeof pot === "object" && pot.toNumber
-    ? pot.toNumber()
-    : Number(pot);
+  const potNum =
+    typeof pot === "object" && pot.toNumber ? pot.toNumber() : Number(pot);
   const currentShare = potNum / Math.max(1, realWinnerCount);
 
   if (currentShare < 100) {
-    return { dilute: false, fakesToAdd: 0, sharePerWinner: currentShare, adminTotal: 0, totalWinners: realWinnerCount };
+    return {
+      dilute: false,
+      fakesToAdd: 0,
+      sharePerWinner: currentShare,
+      adminTotal: 0,
+      totalWinners: realWinnerCount,
+    };
   }
 
   // We need totalWinners such that potNum / totalWinners < 100

@@ -343,9 +343,7 @@ function BiasInner({ token, admin }) {
                       </span>
                       <span
                         className={
-                          p.index === patternIndex
-                            ? "font-semibold"
-                            : ""
+                          p.index === patternIndex ? "font-semibold" : ""
                         }
                       >
                         {p.name}
