@@ -293,7 +293,7 @@ export default function WalletPage() {
             <div className="mt-8 space-y-4">
               <div className="rounded-none border border-white/10 bg-white/5 p-2">
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => {
                       setNotice("");
@@ -307,8 +307,8 @@ export default function WalletPage() {
                     className="h-11 font-black bg-emerald-500/15 border border-emerald-400/25 text-emerald-200 disabled:opacity-50"
                   >
                     Deposit
-                  </button>
-                  <button
+                  </button> */}
+                  {/* <button
                     type="button"
                     onClick={() => {
                       setNotice("");
@@ -322,7 +322,7 @@ export default function WalletPage() {
                     className="h-11 font-black bg-rose-500/15 border border-rose-400/25 text-rose-200 disabled:opacity-50"
                   >
                     Withdraw
-                  </button>
+                  </button> */}
                 </div>
 
                 {action === "deposit" && (

@@ -228,7 +228,7 @@ async function handleGameState(req, res, io) {
     if (game.countdownStartedAt && !started) {
       const elapsed =
         (Date.now() - new Date(game.countdownStartedAt).getTime()) / 1000;
-      countdownRemaining = Math.max(0, 30 - Math.floor(elapsed));
+      countdownRemaining = Math.max(0, 45 - Math.floor(elapsed));
 
       // If players dropped below 2 during countdown, reset countdown
       if (acceptedPlayersCount < 2) {
