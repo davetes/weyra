@@ -4,6 +4,7 @@ import AdminShell from "../components/AdminShell";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
+import { Input } from "../components/FormElements";
 import { apiFetch } from "../lib/api";
 import { saveToken } from "../lib/auth";
 import { IconRefresh } from "../components/Icons";
@@ -28,7 +29,10 @@ function BiasInner({ token, admin }) {
   const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [savingRange, setSavingRange] = useState(false);
   const [error, setError] = useState("");
+  const [rangeMin, setRangeMin] = useState("");
+  const [rangeMax, setRangeMax] = useState("");
 
   const loadStatus = useCallback(async () => {
     if (!canControl) return;
@@ -37,6 +41,12 @@ function BiasInner({ token, admin }) {
     try {
       const res = await apiFetch("/api/admin/bias/status", { token });
       setStatus(res);
+      if (res?.cardRangeMin != null) {
+        setRangeMin(String(res.cardRangeMin));
+      }
+      if (res?.cardRangeMax != null) {
+        setRangeMax(String(res.cardRangeMax));
+      }
     } catch (err) {
       if (err?.status === 401) {
         saveToken(null);
@@ -73,6 +83,40 @@ function BiasInner({ token, admin }) {
       setError(err?.message || "Failed to toggle");
     } finally {
       setToggling(false);
+    }
+  }
+
+  async function handleSaveRange() {
+    const minVal = parseInt(rangeMin, 10);
+    const maxVal = parseInt(rangeMax, 10);
+    if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) {
+      setError("Please enter valid min and max values");
+      return;
+    }
+
+    setSavingRange(true);
+    setError("");
+    try {
+      const res = await apiFetch("/api/admin/bias/card-range", {
+        token,
+        body: { min: minVal, max: maxVal },
+      });
+      setStatus(res);
+      if (res?.cardRangeMin != null) {
+        setRangeMin(String(res.cardRangeMin));
+      }
+      if (res?.cardRangeMax != null) {
+        setRangeMax(String(res.cardRangeMax));
+      }
+    } catch (err) {
+      if (err?.status === 401) {
+        saveToken(null);
+        window.location.href = "/login";
+        return;
+      }
+      setError(err?.message || "Failed to update card range");
+    } finally {
+      setSavingRange(false);
     }
   }
 
@@ -168,6 +212,48 @@ function BiasInner({ token, admin }) {
                   {enabled
                     ? "Admin will win next round"
                     : "Fair gameplay active"}
+                </span>
+              </div>
+            </Card>
+
+            <Card title="Bias Card Range">
+              <div className="text-xs text-muted">
+                Bias Bot will select a random number of cards between 2 and 10
+                for each round.
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-muted mb-1">Minimum cards</div>
+                  <Input
+                    type="number"
+                    min="2"
+                    max="10"
+                    value={rangeMin}
+                    onChange={(e) => setRangeMin(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-muted mb-1">Maximum cards</div>
+                  <Input
+                    type="number"
+                    min="2"
+                    max="10"
+                    value={rangeMax}
+                    onChange={(e) => setRangeMax(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSaveRange}
+                  loading={savingRange}
+                >
+                  Save Range
+                </Button>
+                <span className="text-xs text-muted">
+                  Current: {rangeMin || "–"} to {rangeMax || "–"}
                 </span>
               </div>
             </Card>

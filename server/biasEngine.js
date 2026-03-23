@@ -10,6 +10,13 @@ const prisma = new PrismaClient();
 // Reserved Telegram ID for the bias fake player
 const BIAS_PLAYER_TID = BigInt("9999999999");
 
+const DEFAULT_BIAS_CARD_MIN = 2;
+const DEFAULT_BIAS_CARD_MAX = 10;
+const BIAS_SETTINGS = {
+  cardMin: "bias.card_min",
+  cardMax: "bias.card_max",
+};
+
 // ─── 100 Ethiopian Names ───────────────────────────────────────────
 const FAKE_NAMES = [
   "Abebe",
@@ -215,11 +222,57 @@ const K = {
   recentWinners: "bias_recent_winners",
   adminWins: "bias_admin_wins",
   totalRounds: "bias_total_rounds",
+  cardMin: "bias_card_min",
+  cardMax: "bias_card_max",
+  gameCardTarget: (id) => `bias_card_target_${id}`,
+  gameCardLastCreate: (id) => `bias_card_last_create_${id}`,
   gameCard: (id) => `bias_card_${id}`,
   gameFakeName: (id) => `bias_fake_name_${id}`,
   gamePatternName: (id) => `bias_pattern_name_${id}`,
   gameRequiredNums: (id) => `bias_required_${id}`,
 };
+
+function normalizeBiasCardRange(rawMin, rawMax) {
+  let min = Number.isFinite(rawMin) ? Math.floor(rawMin) : DEFAULT_BIAS_CARD_MIN;
+  let max = Number.isFinite(rawMax) ? Math.floor(rawMax) : DEFAULT_BIAS_CARD_MAX;
+
+  min = Math.min(DEFAULT_BIAS_CARD_MAX, Math.max(DEFAULT_BIAS_CARD_MIN, min));
+  max = Math.min(DEFAULT_BIAS_CARD_MAX, Math.max(DEFAULT_BIAS_CARD_MIN, max));
+
+  if (min > max) {
+    const swap = min;
+    min = max;
+    max = swap;
+  }
+
+  return { min, max };
+}
+
+function parseBiasCardRangeInput(rawMin, rawMax) {
+  const min = Number(rawMin);
+  const max = Number(rawMax);
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    const err = new Error("Invalid bias card range");
+    err.code = "INVALID_BIAS_CARD_RANGE";
+    throw err;
+  }
+
+  const minInt = Math.floor(min);
+  const maxInt = Math.floor(max);
+
+  if (
+    minInt < DEFAULT_BIAS_CARD_MIN ||
+    maxInt > DEFAULT_BIAS_CARD_MAX ||
+    minInt > maxInt
+  ) {
+    const err = new Error("Bias card range must be between 2 and 10");
+    err.code = "INVALID_BIAS_CARD_RANGE";
+    throw err;
+  }
+
+  return { min: minInt, max: maxInt };
+}
 
 // ─── Toggle ────────────────────────────────────────────────────────
 async function getToggle() {
@@ -230,6 +283,53 @@ async function getToggle() {
 async function setToggle(on) {
   await cache.set(K.toggle, on ? 1 : 0);
   return on;
+}
+
+// ─── Bias Card Range (min/max selections) ─────────────────────────
+async function getBiasCardRange() {
+  const cached = await cache.mget([K.cardMin, K.cardMax]);
+  const cachedMin = Number(cached[K.cardMin]);
+  const cachedMax = Number(cached[K.cardMax]);
+
+  if (Number.isFinite(cachedMin) && Number.isFinite(cachedMax)) {
+    return normalizeBiasCardRange(cachedMin, cachedMax);
+  }
+
+  const settings = await prisma.appSetting.findMany({
+    where: { key: { in: [BIAS_SETTINGS.cardMin, BIAS_SETTINGS.cardMax] } },
+    select: { key: true, value: true },
+  });
+
+  const map = new Map(settings.map((row) => [row.key, row.value]));
+  const settingMin = Number(map.get(BIAS_SETTINGS.cardMin));
+  const settingMax = Number(map.get(BIAS_SETTINGS.cardMax));
+  const range = normalizeBiasCardRange(settingMin, settingMax);
+
+  await cache.set(K.cardMin, range.min);
+  await cache.set(K.cardMax, range.max);
+
+  return range;
+}
+
+async function setBiasCardRange(rawMin, rawMax) {
+  const range = parseBiasCardRangeInput(rawMin, rawMax);
+
+  await prisma.appSetting.upsert({
+    where: { key: BIAS_SETTINGS.cardMin },
+    create: { key: BIAS_SETTINGS.cardMin, value: String(range.min) },
+    update: { value: String(range.min) },
+  });
+
+  await prisma.appSetting.upsert({
+    where: { key: BIAS_SETTINGS.cardMax },
+    create: { key: BIAS_SETTINGS.cardMax, value: String(range.max) },
+    update: { value: String(range.max) },
+  });
+
+  await cache.set(K.cardMin, range.min);
+  await cache.set(K.cardMax, range.max);
+
+  return range;
 }
 
 // ─── Pattern Cycle ─────────────────────────────────────────────────
@@ -501,41 +601,88 @@ async function ensureBiasSelection(gameId, takenIndices = []) {
 
   const biasPlayer = await ensureBiasPlayer();
 
+  const { min, max } = await getBiasCardRange();
+  const targetKey = K.gameCardTarget(gameId);
+  let targetCount = await cache.get(targetKey);
+  if (!Number.isFinite(targetCount)) {
+    targetCount = min + Math.floor(Math.random() * (max - min + 1));
+    await cache.set(targetKey, targetCount, 1800);
+  }
+  targetCount = Math.min(
+    DEFAULT_BIAS_CARD_MAX,
+    Math.max(1, Math.floor(targetCount)),
+  );
+
   // Keep heartbeat alive
   await cache.set(`hb_${gameId}_${BIAS_PLAYER_TID}`, Date.now(), 30);
   await cache.set(`seen_${BIAS_PLAYER_TID}`, Date.now(), 120);
 
-  // Check if selection already exists
-  const existing = await prisma.selection.findFirst({
+  let existing = await prisma.selection.findMany({
     where: { gameId, playerId: biasPlayer.id, accepted: true },
+    orderBy: { slot: "asc" },
   });
-  if (existing) return existing;
 
-  // Pick a random card not already taken
-  const takenSet = new Set(takenIndices);
-  let cardIndex;
-  let attempts = 0;
-  do {
-    cardIndex = Math.floor(Math.random() * 200) + 1;
-    attempts++;
-  } while (takenSet.has(cardIndex) && attempts < 300);
-
-  try {
-    const sel = await prisma.selection.create({
-      data: {
-        gameId,
-        playerId: biasPlayer.id,
-        slot: 0,
-        index: cardIndex,
-        accepted: true,
-        autoEnabled: false, // bias engine handles win, not normal auto-claim
-      },
-    });
-    return sel;
-  } catch (err) {
-    console.error("biasEngine: failed to create bias selection:", err);
-    return null;
+  if (existing.length > targetCount) {
+    const keep = existing.slice(0, targetCount);
+    const remove = existing.slice(targetCount);
+    if (remove.length) {
+      await prisma.selection.deleteMany({
+        where: { id: { in: remove.map((sel) => sel.id) } },
+      });
+    }
+    existing = keep;
   }
+
+  const takenSet = new Set([
+    ...takenIndices,
+    ...existing.map((sel) => sel.index),
+  ]);
+  const usedSlots = new Set(existing.map((sel) => sel.slot));
+
+  const created = [];
+  const missing = Math.max(0, targetCount - existing.length);
+  const lastCreateKey = K.gameCardLastCreate(gameId);
+  const lastCreate = await cache.get(lastCreateKey);
+  const canCreateNow = !lastCreate || Date.now() - Number(lastCreate) >= 1000;
+
+  for (let i = 0; i < missing; i += 1) {
+    if (!canCreateNow) break;
+    let slot = 0;
+    while (usedSlots.has(slot)) slot += 1;
+    usedSlots.add(slot);
+
+    let cardIndex;
+    let attempts = 0;
+    do {
+      cardIndex = Math.floor(Math.random() * 200) + 1;
+      attempts++;
+    } while (takenSet.has(cardIndex) && attempts < 300);
+
+    if (takenSet.has(cardIndex)) break;
+    takenSet.add(cardIndex);
+
+    try {
+      const sel = await prisma.selection.create({
+        data: {
+          gameId,
+          playerId: biasPlayer.id,
+          slot,
+          index: cardIndex,
+          accepted: true,
+          autoEnabled: false, // bias engine handles win, not normal auto-claim
+        },
+      });
+      created.push(sel);
+      await cache.set(lastCreateKey, Date.now(), 1800);
+      break;
+    } catch (err) {
+      if (err?.code !== "P2002") {
+        console.error("biasEngine: failed to create bias selection:", err);
+      }
+    }
+  }
+
+  return existing[0] || created[0] || null;
 }
 
 // ─── Remove Bias Selection ─────────────────────────────────────────
@@ -549,6 +696,7 @@ async function removeBiasSelection(gameId) {
         where: { gameId, playerId: biasPlayer.id },
       });
     }
+    await cache.del(K.gameCardTarget(gameId));
   } catch (_) { }
 }
 
@@ -564,17 +712,16 @@ async function initBiasRound(gameId, takenIndices = [], allSelections = []) {
   const fakeName = await pickFakeName();
   const { pattern } = await getCurrentPattern();
 
-  // Find existing bias selection
+  // Find existing bias selections
   const biasPlayer = await ensureBiasPlayer();
-  let biasSel = await prisma.selection.findFirst({
+  await ensureBiasSelection(gameId, takenIndices);
+  const biasSelections = await prisma.selection.findMany({
     where: { gameId, playerId: biasPlayer.id, accepted: true },
   });
 
-  if (!biasSel) {
-    biasSel = await ensureBiasSelection(gameId, takenIndices);
-  }
+  if (!biasSelections.length) return null;
 
-  if (!biasSel) return null;
+  const biasSel = biasSelections[Math.floor(Math.random() * biasSelections.length)];
 
   const cardIndex = biasSel.index;
   const card = getCard(cardIndex);
@@ -673,6 +820,7 @@ async function getBiasStatus() {
   const rounds = (await cache.get(K.totalRounds)) || 0;
   const { index, pattern } = await getCurrentPattern();
   const recent = (await cache.get(K.recentWinners)) || [];
+  const cardRange = await getBiasCardRange();
 
   return {
     enabled: toggleOn,
@@ -682,6 +830,8 @@ async function getBiasStatus() {
     currentPatternName: pattern.name,
     recentWinners: Array.isArray(recent) ? recent : [],
     allPatterns: ALL_PATTERNS.map((p, i) => ({ index: i, name: p.name })),
+    cardRangeMin: cardRange.min,
+    cardRangeMax: cardRange.max,
   };
 }
 
@@ -772,6 +922,8 @@ async function cleanupGame(gameId) {
   await cache.del(K.gameFakeName(gameId));
   await cache.del(K.gamePatternName(gameId));
   await cache.del(K.gameRequiredNums(gameId));
+  await cache.del(K.gameCardTarget(gameId));
+  await cache.del(K.gameCardLastCreate(gameId));
 }
 
 module.exports = {
@@ -780,6 +932,8 @@ module.exports = {
   BIAS_PLAYER_TID,
   getToggle,
   setToggle,
+  getBiasCardRange,
+  setBiasCardRange,
   getCurrentPattern,
   getCurrentPatternIndex,
   advancePatternIndex,

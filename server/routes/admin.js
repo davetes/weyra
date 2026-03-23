@@ -2520,6 +2520,38 @@ router.post(
 );
 
 router.post(
+  "/bias/card-range",
+  requireAuth(),
+  requirePerm(PERMS.game_control),
+  async (req, res) => {
+    try {
+      const before = await biasEngine.getBiasCardRange();
+      const { min, max } = req.body || {};
+      const range = await biasEngine.setBiasCardRange(min, max);
+
+      await audit(req, {
+        action: "bias.card_range",
+        entityType: "bias",
+        entityId: "card_range",
+        before,
+        after: range,
+      });
+
+      const status = await biasEngine.getBiasStatus();
+      return res.json({ ok: true, ...status });
+    } catch (err) {
+      if (err?.code === "INVALID_BIAS_CARD_RANGE") {
+        return res.status(400).json({ ok: false, error: err.message });
+      }
+      console.error("bias card range error:", err);
+      return res
+        .status(500)
+        .json({ ok: false, error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
   "/bias/reset",
   requireAuth(),
   requirePerm(PERMS.game_control),
