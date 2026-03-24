@@ -398,18 +398,20 @@ function getColumn(n) {
 }
 
 // ─── Build Biased Sequence ─────────────────────────────────────────
-// Spreads admin's winning numbers proportionally to player count.
+// Spreads admin's winning numbers proportionally to cartela count.
 // Checks each filler number: if it would complete ANY pattern on any
-// other player's card (given what's been called so far), it's held back
+// other cartela (given what's been called so far), it's held back
 // until after the admin wins. Guarantees admin wins first.
 //
-// otherCards = array of 5×5 card grids (all non-bias players)
+// otherCards = array of 5×5 card grids (all non-bias cartelas)
 // lastWinCall = previous game's win call count (to avoid repeats)
+// totalCartelaCount = total number of accepted cartelas in the game
 // Returns { sequence, targetCall }
 function buildBiasedSequence(
   adminNumbers,
   otherCards = [],
   lastWinCall = null,
+  totalCartelaCount = 0,
 ) {
   const adminSet = new Set(adminNumbers);
   const allNums = [];
@@ -457,35 +459,35 @@ function buildBiasedSequence(
     return false;
   }
 
-  // Win call range scales with player count:
-  // 2-5 players   → 20-25 calls (longer, looks natural)
-  // 6-9 players   → 18-23 calls (transition)
-  // 10-20 players → 17-22 calls (medium game)
-  // 21-29 players → 14-19 calls (transition)
-  // 30-50 players → 12-17 calls (shorter game)
-  // 51-100 players→ 10-15 calls (faster)
-  // 100+ players  → 7-10 calls  (quick finish)
+  // Win call range scales with total cartela count (not player count):
+  // 2-5 cartelas   → 20-25 calls (longer, looks natural)
+  // 6-9 cartelas   → 18-23 calls (transition)
+  // 10-20 cartelas → 17-22 calls (medium game)
+  // 21-29 cartelas → 14-19 calls (transition)
+  // 30-50 cartelas → 12-17 calls (shorter game)
+  // 51-100 cartelas→ 10-15 calls (faster)
+  // 100+ cartelas  → 7-10 calls  (quick finish)
   const shuffledAdmin = shuffleArray(adminNumbers);
   const adminCount = shuffledAdmin.length;
-  const playerCount = otherCards.length;
+  const cartelaCount = totalCartelaCount || otherCards.length;
 
   let minCall, maxCall;
-  if (playerCount <= 5) {
+  if (cartelaCount <= 5) {
     minCall = 20;
     maxCall = 25;
-  } else if (playerCount <= 9) {
+  } else if (cartelaCount <= 9) {
     minCall = 18;
     maxCall = 23;
-  } else if (playerCount <= 20) {
+  } else if (cartelaCount <= 20) {
     minCall = 17;
     maxCall = 22;
-  } else if (playerCount <= 29) {
+  } else if (cartelaCount <= 29) {
     minCall = 14;
     maxCall = 19;
-  } else if (playerCount <= 50) {
+  } else if (cartelaCount <= 50) {
     minCall = 12;
     maxCall = 17;
-  } else if (playerCount <= 100) {
+  } else if (cartelaCount <= 100) {
     minCall = 10;
     maxCall = 15;
   } else {
@@ -740,23 +742,27 @@ async function initBiasRound(gameId, takenIndices = [], allSelections = []) {
   const card = getCard(cardIndex);
   const requiredNumbers = getRequiredNumbers(card, pattern);
 
-  // Get other players' cards (all selections except the bias player's)
+  // Get other cartelas (all selections except the bias player's)
   const otherCards = [];
   for (const sel of allSelections) {
-    if (sel.playerId === biasPlayer.id) continue; // skip bias player's own card
+    if (sel.playerId === biasPlayer.id) continue; // skip bias player's own cartela
     try {
       otherCards.push(getCard(sel.index));
     } catch (_) {}
   }
 
+  // Total cartela count = all accepted selections in the game
+  const totalCartelaCount = allSelections.length;
+
   // Get last win call for repeat avoidance
   const lastWinCall = await cache.get("bias_last_win_call");
 
-  // Build biased sequence with competitor blocking
+  // Build biased sequence with competitor blocking (uses cartela count for timing)
   const { sequence: biasedSequence, targetCall } = buildBiasedSequence(
     requiredNumbers,
     otherCards,
     lastWinCall,
+    totalCartelaCount,
   );
 
   // Store targetCall for next round's repeat avoidance
