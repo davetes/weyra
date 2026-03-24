@@ -1583,11 +1583,7 @@ router.get(
         const isBiasBot = tid === BIAS_TID;
         const wins = p ? p.wins || 0 : 0;
         const walletBal = p
-          ? parseFloat(
-              new Decimal((p.wallet || 0).toString())
-                .plus(new Decimal((p.gift || 0).toString()))
-                .toFixed(2),
-            )
+          ? parseFloat(new Decimal((p.wallet || 0).toString()).toFixed(2))
           : 0;
         const gamesPlayed = gamesPlayedMap.get(s.playerId) || 0;
         const totalDeposited = depositsMap.get(s.playerId) || 0;
@@ -1633,7 +1629,7 @@ router.get(
             gamesPlayed,
             winRate,
             totalDeposited,
-            balance: walletBal,
+            wallet: walletBal,
             lastWinAt,
             priority,
             isBiasBot,

@@ -190,7 +190,7 @@ function GamesInner({ token, admin }) {
           case "gamesPlayed": av = a.stats?.gamesPlayed ?? 0; bv = b.stats?.gamesPlayed ?? 0; break;
           case "winRate": av = a.stats?.winRate ?? 0; bv = b.stats?.winRate ?? 0; break;
           case "totalDeposited": av = a.stats?.totalDeposited ?? 0; bv = b.stats?.totalDeposited ?? 0; break;
-          case "balance": av = a.stats?.balance ?? 0; bv = b.stats?.balance ?? 0; break;
+          case "wallet": av = a.stats?.wallet ?? 0; bv = b.stats?.wallet ?? 0; break;
           case "priority": av = a.stats?.priority ?? 0; bv = b.stats?.priority ?? 0; break;
           default: av = 0; bv = 0;
         }
@@ -477,7 +477,7 @@ function GamesInner({ token, admin }) {
                             <SortHeader label="Games" field="gamesPlayed" />
                             <SortHeader label="Win%" field="winRate" />
                             <SortHeader label="Deposited" field="totalDeposited" />
-                            <SortHeader label="Balance" field="balance" />
+                            <SortHeader label="Wallet" field="wallet" />
                             <SortHeader label="Priority" field="priority" />
                             <th className="pr-3 py-3">Force Win</th>
                             <th className="pr-4 py-3">Auto</th>
@@ -521,7 +521,7 @@ function GamesInner({ token, admin }) {
                                 {s.stats?.totalDeposited != null ? `${s.stats.totalDeposited}` : "-"}
                               </td>
                               <td className="pr-3 py-3 text-muted">
-                                {s.stats?.balance != null ? `${s.stats.balance}` : "-"}
+                                {s.stats?.wallet != null ? `${s.stats.wallet}` : "-"}
                               </td>
                               <td className="pr-3 py-3">
                                 {s.stats?.isBiasBot ? (
