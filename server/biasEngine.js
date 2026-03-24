@@ -474,7 +474,7 @@ function buildBiasedSequence(
   let minCall, maxCall;
   if (cartelaCount <= 5) {
     minCall = 20;
-    maxCall = 25;
+    maxCall = 27;
   } else if (cartelaCount <= 9) {
     minCall = 18;
     maxCall = 23;
