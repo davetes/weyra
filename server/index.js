@@ -27,7 +27,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
-  path: "/ws/",
+  path: "/ws",
 });
 
 // Middleware
@@ -80,5 +80,5 @@ try {
 const PORT = parseInt(process.env.PORT || "4000", 10);
 server.listen(PORT, () => {
   console.log(`🚀 Express server running on http://localhost:${PORT}`);
-  console.log(`🔌 Socket.IO listening on ws://localhost:${PORT}/ws/`);
+  console.log(`🔌 Socket.IO listening on ws://localhost:${PORT}/ws`);
 });

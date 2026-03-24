@@ -22,6 +22,10 @@ const nextConfig = {
         destination: `${backend}/static/:path*`,
       },
       {
+        source: "/ws",
+        destination: `${backend}/ws`,
+      },
+      {
         source: "/ws/:path*",
         destination: `${backend}/ws/:path*`,
       },

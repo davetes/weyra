@@ -317,13 +317,23 @@ function setupCommands(bot) {
         where: { telegramId: BigInt(tid) },
       });
       if (!player) {
-        player = await prisma.player.create({
-          data: {
-            telegramId: BigInt(tid),
-            username: msg.from.username || "",
-            phone,
-          },
-        });
+        try {
+          player = await prisma.player.create({
+            data: {
+              telegramId: BigInt(tid),
+              username: msg.from.username || "",
+              phone,
+            },
+          });
+        } catch (err) {
+          if (err && err.code === "P2002") {
+            player = await prisma.player.findUnique({
+              where: { telegramId: BigInt(tid) },
+            });
+          } else {
+            throw err;
+          }
+        }
       }
 
       const firstPhone = !player.phone && phone;

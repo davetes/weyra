@@ -591,7 +591,7 @@ export default function GamePage() {
     const socket = io(
       typeof window !== "undefined" ? window.location.origin : "",
       {
-        path: "/ws/",
+        path: "/ws",
         query: { stake: STAKE },
       },
     );
