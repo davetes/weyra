@@ -29,6 +29,7 @@ function AnnounceInner({ token, admin }) {
   const [photo, setPhoto] = useState("");
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [playNow, setPlayNow] = useState(true);
   const [max, setMax] = useState("500");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -63,6 +64,7 @@ function AnnounceInner({ token, admin }) {
         fd.set("caption", caption);
         fd.set("photo", photo);
         fd.set("max", String(nMax));
+        fd.set("play_now", playNow ? "1" : "0");
         fd.set("image", imageFile);
 
         const r = await fetch("/api/admin/announce", {
@@ -89,6 +91,7 @@ function AnnounceInner({ token, admin }) {
             caption,
             photo,
             max: nMax,
+            play_now: playNow,
           },
         });
       }
@@ -194,6 +197,16 @@ function AnnounceInner({ token, admin }) {
                 value={max}
                 onChange={(e) => setMax(e.target.value)}
               />
+
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={playNow}
+                  onChange={(e) => setPlayNow(e.target.checked)}
+                />
+                Add Play Now button
+              </label>
 
               <div className="pt-2">
                 <Button variant="primary" onClick={send} loading={loading}>

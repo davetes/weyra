@@ -596,6 +596,7 @@ router.post(
       const message = String(req.body?.message || "").trim();
       const caption = String(req.body?.caption || "").trim();
       const photo = String(req.body?.photo || "").trim();
+      const playNow = isTrueSetting(req.body?.play_now);
       const max = Math.min(
         parseInt(String(req.body?.max || "500"), 10) || 500,
         5000,
@@ -651,6 +652,22 @@ router.post(
           .json({ ok: false, error: "Bot is not running on this server" });
       }
 
+      const webAppBase = (
+        process.env.WEBAPP_URL || "http://127.0.0.1:3000"
+      ).replace(/\/$/, "");
+      const replyMarkup = playNow
+        ? {
+            inline_keyboard: [
+              [
+                {
+                  text: "Play Now",
+                  web_app: { url: `${webAppBase}/` },
+                },
+              ],
+            ],
+          }
+        : undefined;
+
       for (const tid of tids) {
         try {
           if (uploadedPath) {
@@ -658,6 +675,7 @@ router.post(
             await liveBot.sendPhoto(tid, uploadedPath, {
               caption: useCaption || undefined,
               parse_mode: "HTML",
+              reply_markup: replyMarkup,
             });
             if (message || (legacyText && !caption)) {
               const followUp = message || legacyText;
@@ -665,6 +683,7 @@ router.post(
                 await liveBot.sendMessage(tid, followUp, {
                   parse_mode: "HTML",
                   disable_web_page_preview: false,
+                  reply_markup: replyMarkup,
                 });
               }
             }
@@ -673,6 +692,7 @@ router.post(
             await liveBot.sendPhoto(tid, photo, {
               caption: useCaption || undefined,
               parse_mode: "HTML",
+              reply_markup: replyMarkup,
             });
             if (message || (legacyText && !caption)) {
               const followUp = message || legacyText;
@@ -680,6 +700,7 @@ router.post(
                 await liveBot.sendMessage(tid, followUp, {
                   parse_mode: "HTML",
                   disable_web_page_preview: false,
+                  reply_markup: replyMarkup,
                 });
               }
             }
@@ -688,6 +709,7 @@ router.post(
             await liveBot.sendMessage(tid, useMessage, {
               parse_mode: "HTML",
               disable_web_page_preview: false,
+              reply_markup: replyMarkup,
             });
           }
           sent += 1;
