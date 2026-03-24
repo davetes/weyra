@@ -1500,43 +1500,147 @@ router.get(
               telegramId: true,
               username: true,
               phone: true,
+              wins: true,
+              wallet: true,
+              gift: true,
+              createdAt: true,
             },
           },
         },
       });
 
-      const mappedSelections = selections.map((s) => ({
-        ...s,
-        player: s.player
-          ? {
-              ...s.player,
-              telegramId:
-                s.player.telegramId != null
-                  ? String(s.player.telegramId)
-                  : null,
-            }
-          : null,
-      }));
-
       const playerIds = Array.from(
-        new Set(mappedSelections.map((s) => s.playerId).filter(Boolean)),
+        new Set(selections.map((s) => s.playerId).filter(Boolean)),
       );
-      const playerKeys = playerIds.map((pid) => getForceWinPlayerKey(pid));
-      const forceRows = playerKeys.length
-        ? await prisma.appSetting.findMany({
-          where: { key: { in: playerKeys } },
-          select: { key: true, value: true },
-        })
-        : [];
+
+      // Fetch aggregated stats for all players in parallel
+      const [gamesPlayedRows, depositsRows, lastWinRows, forceRows] =
+        await Promise.all([
+          // Games played: count distinct gameIds per player
+          prisma.selection.groupBy({
+            by: ["playerId"],
+            where: { playerId: { in: playerIds }, accepted: true },
+            _count: { gameId: true },
+          }),
+          // Total deposited: sum approved deposits per player
+          prisma.depositRequest.groupBy({
+            by: ["playerId"],
+            where: {
+              playerId: { in: playerIds },
+              status: "approved",
+              amount: { not: null },
+            },
+            _sum: { amount: true },
+          }),
+          // Last win: most recent win transaction per player
+          prisma.$queryRawUnsafe(
+            `SELECT player_id AS "playerId", MAX(created_at) AS "lastWinAt"
+             FROM bingo_transaction
+             WHERE kind = 'win' AND player_id = ANY($1::int[])
+             GROUP BY player_id`,
+            playerIds,
+          ),
+          // Force win settings
+          playerIds.length
+            ? prisma.appSetting.findMany({
+                where: {
+                  key: {
+                    in: playerIds.map((pid) => getForceWinPlayerKey(pid)),
+                  },
+                },
+                select: { key: true, value: true },
+              })
+            : [],
+        ]);
+
+      const gamesPlayedMap = new Map(
+        gamesPlayedRows.map((r) => [r.playerId, r._count.gameId || 0]),
+      );
+      const depositsMap = new Map(
+        depositsRows.map((r) => [
+          r.playerId,
+          r._sum.amount
+            ? parseFloat(new Decimal(r._sum.amount.toString()).toFixed(2))
+            : 0,
+        ]),
+      );
+      const lastWinMap = new Map(
+        (lastWinRows || []).map((r) => [r.playerId, r.lastWinAt]),
+      );
       const enabledKeys = new Set(
         forceRows
           .filter((row) => isTrueSetting(row.value))
           .map((row) => row.key),
       );
-      const selectionsWithForce = mappedSelections.map((s) => ({
-        ...s,
-        forceWinEnabled: enabledKeys.has(getForceWinPlayerKey(s.playerId)),
-      }));
+
+      const BIAS_TID = "9999999999";
+      const now = Date.now();
+
+      const selectionsWithForce = selections.map((s) => {
+        const p = s.player;
+        const tid =
+          p && p.telegramId != null ? String(p.telegramId) : null;
+        const isBiasBot = tid === BIAS_TID;
+        const wins = p ? p.wins || 0 : 0;
+        const walletBal = p
+          ? parseFloat(
+              new Decimal((p.wallet || 0).toString())
+                .plus(new Decimal((p.gift || 0).toString()))
+                .toFixed(2),
+            )
+          : 0;
+        const gamesPlayed = gamesPlayedMap.get(s.playerId) || 0;
+        const totalDeposited = depositsMap.get(s.playerId) || 0;
+        const lastWinAt = lastWinMap.get(s.playerId) || null;
+        const winRate =
+          gamesPlayed > 0
+            ? parseFloat(((wins / gamesPlayed) * 100).toFixed(1))
+            : 0;
+
+        // Priority score: higher = more deserving of a win
+        // gamesPlayed contributes positively, wins reduce priority,
+        // deposits increase it, long time since last win boosts it
+        let priority = 0;
+        if (!isBiasBot) {
+          const daysSinceLastWin = lastWinAt
+            ? Math.floor(
+                (now - new Date(lastWinAt).getTime()) / (1000 * 60 * 60 * 24),
+              )
+            : 999;
+          priority =
+            gamesPlayed * 2 -
+            wins * 10 +
+            Math.floor(totalDeposited / 10) +
+            (daysSinceLastWin > 3 ? 5 : 0);
+          priority = Math.max(0, priority);
+        }
+
+        return {
+          ...s,
+          player: p
+            ? {
+                ...p,
+                telegramId: tid,
+                wallet: undefined,
+                gift: undefined,
+              }
+            : null,
+          forceWinEnabled: enabledKeys.has(
+            getForceWinPlayerKey(s.playerId),
+          ),
+          stats: {
+            wins,
+            gamesPlayed,
+            winRate,
+            totalDeposited,
+            balance: walletBal,
+            lastWinAt,
+            priority,
+            isBiasBot,
+            accountAge: p ? p.createdAt : null,
+          },
+        };
+      });
 
       const winnerTx = await prisma.transaction.findMany({
         where: {

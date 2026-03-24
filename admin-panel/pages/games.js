@@ -60,6 +60,9 @@ function GamesInner({ token, admin }) {
   const [detailError, setDetailError] = useState("");
   const [detail, setDetail] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [hideBots, setHideBots] = useState(true);
+  const [sortKey, setSortKey] = useState("priority");
+  const [sortDir, setSortDir] = useState("desc");
 
   async function loadGames(nextStake = stake) {
     if (!canRead) return;
@@ -167,11 +170,74 @@ function GamesInner({ token, admin }) {
     loadDetail(selectedGameId);
   }, [selectedGameId]);
 
-  const selections = Array.isArray(detail?.selections) ? detail.selections : [];
+  const selectionsRaw = Array.isArray(detail?.selections) ? detail.selections : [];
   const winners = Array.isArray(detail?.winners) ? detail.winners : [];
-  const accepted = selections.filter((s) => !!s.accepted);
+  const accepted = selectionsRaw.filter((s) => !!s.accepted);
   const acceptedPlayers = new Set(accepted.map((s) => String(s.playerId))).size;
   const canForceWin = !!detail?.game?.active && !detail?.game?.startedAt;
+
+  // Filter and sort selections
+  const selections = useMemo(() => {
+    let list = selectionsRaw;
+    if (hideBots) {
+      list = list.filter((s) => !s.stats?.isBiasBot);
+    }
+    if (sortKey) {
+      list = [...list].sort((a, b) => {
+        let av, bv;
+        switch (sortKey) {
+          case "wins": av = a.stats?.wins ?? 0; bv = b.stats?.wins ?? 0; break;
+          case "gamesPlayed": av = a.stats?.gamesPlayed ?? 0; bv = b.stats?.gamesPlayed ?? 0; break;
+          case "winRate": av = a.stats?.winRate ?? 0; bv = b.stats?.winRate ?? 0; break;
+          case "totalDeposited": av = a.stats?.totalDeposited ?? 0; bv = b.stats?.totalDeposited ?? 0; break;
+          case "balance": av = a.stats?.balance ?? 0; bv = b.stats?.balance ?? 0; break;
+          case "priority": av = a.stats?.priority ?? 0; bv = b.stats?.priority ?? 0; break;
+          default: av = 0; bv = 0;
+        }
+        return sortDir === "asc" ? av - bv : bv - av;
+      });
+    }
+    return list;
+  }, [selectionsRaw, hideBots, sortKey, sortDir]);
+
+  function handleSort(key) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
+  function SortHeader({ label, field, className = "" }) {
+    const active = sortKey === field;
+    return (
+      <th
+        className={`pr-3 py-3 cursor-pointer select-none hover:text-slate-300 transition-colors ${className}`}
+        onClick={() => handleSort(field)}
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {active && (
+            <span className="text-accent text-[10px]">
+              {sortDir === "asc" ? "▲" : "▼"}
+            </span>
+          )}
+        </span>
+      </th>
+    );
+  }
+
+  function PriorityBadge({ value }) {
+    let color = "bg-emerald-500/20 text-emerald-400";
+    if (value >= 20) color = "bg-red-500/20 text-red-400";
+    else if (value >= 10) color = "bg-amber-500/20 text-amber-400";
+    return (
+      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${color}`}>
+        {value}
+      </span>
+    );
+  }
 
   return (
     <AdminShell
@@ -377,8 +443,27 @@ function GamesInner({ token, admin }) {
                   </div>
 
                   <div>
-                    <div className="text-xs font-medium text-muted mb-2 uppercase tracking-wider">
-                      Players / Cards ({selections.length})
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium text-muted uppercase tracking-wider">
+                        Players / Cards ({selections.length})
+                      </div>
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <span className="text-xs text-muted">Hide Bots</span>
+                        <button
+                          onClick={() => setHideBots((v) => !v)}
+                          className={`relative inline-flex h-6 w-10 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+                            hideBots
+                              ? "bg-gradient-to-r from-accent to-accent/80"
+                              : "bg-slate-700"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform duration-300 ease-in-out ${
+                              hideBots ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </label>
                     </div>
                     <div className="overflow-auto">
                       <table className="w-full text-sm">
@@ -387,8 +472,13 @@ function GamesInner({ token, admin }) {
                             <th className="px-4 py-3">Player</th>
                             <th className="pr-3 py-3">Telegram ID</th>
                             <th className="pr-3 py-3">Slot</th>
-                            <th className="pr-3 py-3">Card Index</th>
-                            <th className="pr-3 py-3">Accepted</th>
+                            <th className="pr-3 py-3">Card</th>
+                            <SortHeader label="Wins" field="wins" />
+                            <SortHeader label="Games" field="gamesPlayed" />
+                            <SortHeader label="Win%" field="winRate" />
+                            <SortHeader label="Deposited" field="totalDeposited" />
+                            <SortHeader label="Balance" field="balance" />
+                            <SortHeader label="Priority" field="priority" />
                             <th className="pr-3 py-3">Force Win</th>
                             <th className="pr-4 py-3">Auto</th>
                           </tr>
@@ -397,10 +487,17 @@ function GamesInner({ token, admin }) {
                           {selections.map((s) => (
                             <tr
                               key={s.id}
-                              className="border-b border-border/40"
+                              className={`border-b border-border/40 ${
+                                s.stats?.isBiasBot ? "opacity-50" : ""
+                              }`}
                             >
                               <td className="px-4 py-3 text-slate-200">
-                                {normalizeName(s.player)}
+                                <div className="flex items-center gap-2">
+                                  {normalizeName(s.player)}
+                                  {s.stats?.isBiasBot && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">BOT</span>
+                                  )}
+                                </div>
                               </td>
                               <td className="pr-3 py-3 text-muted text-xs font-mono">
                                 {s.player?.telegramId != null
@@ -411,11 +508,26 @@ function GamesInner({ token, admin }) {
                               <td className="pr-3 py-3 text-muted">
                                 {s.index}
                               </td>
+                              <td className="pr-3 py-3 text-slate-300 font-medium">
+                                {s.stats?.wins ?? "-"}
+                              </td>
+                              <td className="pr-3 py-3 text-muted">
+                                {s.stats?.gamesPlayed ?? "-"}
+                              </td>
+                              <td className="pr-3 py-3 text-muted">
+                                {s.stats?.winRate != null ? `${s.stats.winRate}%` : "-"}
+                              </td>
+                              <td className="pr-3 py-3 text-muted">
+                                {s.stats?.totalDeposited != null ? `${s.stats.totalDeposited}` : "-"}
+                              </td>
+                              <td className="pr-3 py-3 text-muted">
+                                {s.stats?.balance != null ? `${s.stats.balance}` : "-"}
+                              </td>
                               <td className="pr-3 py-3">
-                                {s.accepted ? (
-                                  <Badge variant="success">Yes</Badge>
+                                {s.stats?.isBiasBot ? (
+                                  <span className="text-xs text-muted">-</span>
                                 ) : (
-                                  <Badge variant="default">No</Badge>
+                                  <PriorityBadge value={s.stats?.priority ?? 0} />
                                 )}
                               </td>
                               <td className="pr-3 py-3">
@@ -458,7 +570,7 @@ function GamesInner({ token, admin }) {
                           {selections.length === 0 && (
                             <tr>
                               <td
-                                colSpan={7}
+                                colSpan={12}
                                 className="text-center py-10 text-muted text-sm"
                               >
                                 No selections
