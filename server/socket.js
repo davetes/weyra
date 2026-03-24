@@ -242,7 +242,16 @@ function setupSocket(io) {
           return;
         }
 
-        // Valid bingo
+        // Valid bingo — atomically end the game FIRST to prevent double payouts
+        const updated = await prisma.game.updateMany({
+          where: { id: game.id, active: true },
+          data: { active: false, finished: true },
+        });
+        if (!updated?.count) {
+          // Game was already ended by another path (callTicker or HTTP claim)
+          return;
+        }
+
         const { Decimal } = require("decimal.js");
         let eligibleCount = game.stakesCharged
           ? Number(game.chargedCount || 0)
@@ -293,14 +302,8 @@ function setupSocket(io) {
           },
         });
 
-        await prisma.game.update({
-          where: { id: game.id },
-          data: { active: false, finished: true },
-        });
-
         // Cleanup bias engine cached keys for this game
         try {
-          const biasEngine = require("./biasEngine");
           await biasEngine.cleanupGame(game.id);
         } catch (_) {}
 

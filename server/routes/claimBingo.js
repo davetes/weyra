@@ -182,7 +182,19 @@ async function handleClaimBingo(req, res, io) {
       });
     }
 
-    // Valid bingo! Calculate payout
+    // Valid bingo! Atomically end the game FIRST to prevent double payouts.
+    // If another path (callTicker auto-claim or WebSocket claim) already ended
+    // the game, count will be 0 and we skip the payout entirely.
+    const updated = await prisma.game.updateMany({
+      where: { id: game.id, active: true },
+      data: { active: false, finished: true },
+    });
+    if (!updated?.count) {
+      // Game was already ended by another path (e.g., callTicker auto-claim)
+      return res.status(400).json({ ok: false, error: "No active game" });
+    }
+
+    // Calculate payout
     let eligibleCount = game.stakesCharged
       ? Number(game.chargedCount || 0)
       : null;
@@ -234,11 +246,10 @@ async function handleClaimBingo(req, res, io) {
       },
     });
 
-    // End game
-    await prisma.game.update({
-      where: { id: game.id },
-      data: { active: false, finished: true },
-    });
+    // Cleanup bias engine cached keys
+    try {
+      await biasEngine.cleanupGame(game.id);
+    } catch (_) {}
 
     // Broadcast winner (real + fake co-winners)
     const winnerName =

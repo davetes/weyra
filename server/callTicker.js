@@ -241,10 +241,14 @@ function startCallTicker(io) {
         });
 
         const winners = [];
+        const seenPlayerIds = new Set();
         for (const sel of selections) {
           const card = getCard(sel.index);
           const result = checkBingo(card, calledSet);
           if (!result) continue;
+          // Deduplicate: only count first winning card per player
+          if (seenPlayerIds.has(sel.player.id)) continue;
+          seenPlayerIds.add(sel.player.id);
           const p = sel.player;
           const rawName =
             p.username || p.phone || `Player ${String(p.telegramId)}`;
