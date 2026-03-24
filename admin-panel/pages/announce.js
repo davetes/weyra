@@ -198,15 +198,29 @@ function AnnounceInner({ token, admin }) {
                 onChange={(e) => setMax(e.target.value)}
               />
 
-              <label className="flex items-center gap-2 text-xs text-muted">
+              <div
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${
+                  playNow
+                    ? "bg-accent/10 border-accent/40"
+                    : "bg-bg-secondary border-border"
+                }`}
+                onClick={() => setPlayNow((p) => !p)}
+              >
                 <input
                   type="checkbox"
-                  className="h-4 w-4"
+                  className="h-5 w-5 accent-blue-500 cursor-pointer"
                   checked={playNow}
                   onChange={(e) => setPlayNow(e.target.checked)}
                 />
-                Add Play Now button
-              </label>
+                <div>
+                  <div className="text-sm font-medium text-slate-200">
+                    🎮 Add &quot;Play Now&quot; button
+                  </div>
+                  <div className="text-xs text-muted mt-0.5">
+                    Attaches an inline button that opens the MiniApp
+                  </div>
+                </div>
+              </div>
 
               <div className="pt-2">
                 <Button variant="primary" onClick={send} loading={loading}>
