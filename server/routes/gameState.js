@@ -439,15 +439,19 @@ async function handleGameState(req, res, io) {
           ? calledNumbers[calledNumbers.length - 1]
           : null;
 
-      // Auto-restart when all 75 called
+      // Auto-restart when all 75 called, but skip if a winner was just recorded
+      // (the callTicker or claim path already ended the game)
       if (callCount >= 75) {
-        await prisma.game.update({
-          where: { id: game.id },
-          data: { active: false, finished: true },
-        });
-        // Create new game
-        await prisma.game.create({ data: { id: generateGameId(), stake } });
-        io.to(`game_${stake}`).emit("message", { type: "restarted" });
+        const recentWin = await cache.get(`winner_${stake}`);
+        if (!recentWin) {
+          await prisma.game.update({
+            where: { id: game.id },
+            data: { active: false, finished: true },
+          });
+          // Create new game
+          await prisma.game.create({ data: { id: generateGameId(), stake } });
+          io.to(`game_${stake}`).emit("message", { type: "restarted" });
+        }
       }
     }
 

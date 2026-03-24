@@ -19,9 +19,47 @@ async function getPausedMsForGame(gameId) {
 }
 
 function checkBingo(card, calledSet) {
-  const result = checkAllPatterns(card, calledSet);
-  if (result) return { pattern: result.pattern };
+  // Check rows
+  for (let r = 0; r < 5; r++) {
+    if ([0,1,2,3,4].every(c => card[r][c] === "FREE" || calledSet.has(card[r][c]))) {
+      return { pattern: "row", row: r };
+    }
+  }
+  // Check cols
+  for (let c = 0; c < 5; c++) {
+    if ([0,1,2,3,4].every(r => card[r][c] === "FREE" || calledSet.has(card[r][c]))) {
+      return { pattern: "col", col: c };
+    }
+  }
+  // Diag main
+  if ([0,1,2,3,4].every(i => card[i][i] === "FREE" || calledSet.has(card[i][i]))) {
+    return { pattern: "diag_main" };
+  }
+  // Diag anti
+  if ([0,1,2,3,4].every(i => card[i][4-i] === "FREE" || calledSet.has(card[i][4-i]))) {
+    return { pattern: "diag_anti" };
+  }
+  // Four corners
+  const corners = [card[0][0], card[0][4], card[4][0], card[4][4]];
+  if (corners.every(v => v === "FREE" || calledSet.has(v))) {
+    return { pattern: "four_corners" };
+  }
   return null;
+}
+
+// Convert bias engine pattern names ("Row 0 (Top)") to frontend-compatible codes
+function biasPatternToCode(patternName) {
+  if (!patternName) return {};
+  const lower = patternName.toLowerCase();
+  if (lower.startsWith("row")) {
+    const match = patternName.match(/(\d)/);
+    return { pattern: "row", row: match ? Number(match[1]) : 0 };
+  }
+  if (lower.includes("four corners")) return { pattern: "four_corners" };
+  if (lower.includes("main diagonal")) return { pattern: "diag_main" };
+  if (lower.includes("anti diagonal")) return { pattern: "diag_anti" };
+  // Fallback: return the name as-is
+  return { pattern: patternName };
 }
 
 async function getCalledNumbersWithPause(game) {
@@ -134,6 +172,8 @@ function startCallTicker(io) {
                 },
               });
 
+              const biasCode = biasPatternToCode(biasWin.patternName);
+
               io.to(`game_${game.stake}`).emit("message", {
                 type: "winner",
                 winner: biasWin.fakeName,
@@ -142,11 +182,15 @@ function startCallTicker(io) {
                   telegramId: "0",
                   index: biasWin.cardIndex,
                   slot: 0,
-                  pattern: biasWin.patternName,
+                  pattern: biasCode.pattern,
+                  row: biasCode.row,
+                  col: biasCode.col,
                 }],
                 index: biasWin.cardIndex,
                 slot: 0,
-                pattern: biasWin.patternName,
+                pattern: biasCode.pattern,
+                row: biasCode.row,
+                col: biasCode.col,
                 picks: [],
               });
 
@@ -155,7 +199,9 @@ function startCallTicker(io) {
                 {
                   winner: biasWin.fakeName,
                   index: biasWin.cardIndex,
-                  pattern: biasWin.patternName,
+                  pattern: biasCode.pattern,
+                  row: biasCode.row,
+                  col: biasCode.col,
                   picks: [],
                   at: Date.now(),
                 },
@@ -315,6 +361,8 @@ function startCallTicker(io) {
           index: primary.index,
           slot: primary.slot,
           pattern: primary.pattern,
+          row: primary.row,
+          col: primary.col,
           picks: [],
         });
 
@@ -326,6 +374,8 @@ function startCallTicker(io) {
             index: primary.index,
             slot: primary.slot,
             pattern: primary.pattern,
+            row: primary.row,
+            col: primary.col,
             picks: [],
             at: Date.now(),
           },

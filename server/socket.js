@@ -298,6 +298,12 @@ function setupSocket(io) {
           data: { active: false, finished: true },
         });
 
+        // Cleanup bias engine cached keys for this game
+        try {
+          const biasEngine = require("./biasEngine");
+          await biasEngine.cleanupGame(game.id);
+        } catch (_) {}
+
         const winnerName =
           player.username || player.phone || `Player ${player.telegramId}`;
 
@@ -308,6 +314,8 @@ function setupSocket(io) {
             index: sel.index,
             slot: 0,
             pattern: result.pattern,
+            row: result.row,
+            col: result.col,
           },
           ...fakeWinners,
         ];

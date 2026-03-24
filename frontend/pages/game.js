@@ -113,6 +113,7 @@ export default function GamePage() {
   const endRedirectTimeoutRef = useRef(null);
   const winnerSyncTimeoutRef = useRef(null);
   const endedNoWinnerRedirectedRef = useRef(false);
+  const endGraceRef = useRef(null);
 
   const lastPlayersRef = useRef(null);
   const lastAcceptedCardsRef = useRef(null);
@@ -418,6 +419,10 @@ export default function GamePage() {
       if (roomStopped) setRoomStopped(false);
 
       if (data?.winner && !winnerRef.current) {
+        if (endGraceRef.current) {
+          clearTimeout(endGraceRef.current);
+          endGraceRef.current = null;
+        }
         const w = data.winner;
         showWinner(w.winner, w.index, w);
         return;
@@ -429,6 +434,7 @@ export default function GamePage() {
         ? data.my_cards.some((c) => !!c)
         : false;
 
+      // Grace period: delay redirect by 5s so a winner event can arrive
       if (
         !data.started &&
         !winnerRef.current &&
@@ -437,9 +443,16 @@ export default function GamePage() {
         Number(playersNow) === 0 &&
         !hasAnyMyCard
       ) {
-        endedNoWinnerRedirectedRef.current = true;
-        setToastMessage("Round ended. Returning to lobby...");
-        router.push(`/play?stake=${STAKE}`);
+        if (!endGraceRef.current) {
+          endGraceRef.current = setTimeout(() => {
+            endGraceRef.current = null;
+            if (!winnerRef.current) {
+              endedNoWinnerRedirectedRef.current = true;
+              setToastMessage("Round ended. Returning to lobby...");
+              router.push(`/play?stake=${STAKE}`);
+            }
+          }, 5000);
+        }
         return;
       }
       if (
@@ -448,9 +461,16 @@ export default function GamePage() {
         !winnerRef.current &&
         !endedNoWinnerRedirectedRef.current
       ) {
-        endedNoWinnerRedirectedRef.current = true;
-        setToastMessage("Game ended. Returning to lobby...");
-        router.push(`/play?stake=${STAKE}`);
+        if (!endGraceRef.current) {
+          endGraceRef.current = setTimeout(() => {
+            endGraceRef.current = null;
+            if (!winnerRef.current) {
+              endedNoWinnerRedirectedRef.current = true;
+              setToastMessage("Game ended. Returning to lobby...");
+              router.push(`/play?stake=${STAKE}`);
+            }
+          }, 5000);
+        }
         return;
       }
       if (
@@ -459,9 +479,16 @@ export default function GamePage() {
         !endedNoWinnerRedirectedRef.current &&
         Number(acceptedCardsNow) === 0
       ) {
-        endedNoWinnerRedirectedRef.current = true;
-        setToastMessage("Game ended - no players left. Returning to lobby...");
-        router.push(`/play?stake=${STAKE}`);
+        if (!endGraceRef.current) {
+          endGraceRef.current = setTimeout(() => {
+            endGraceRef.current = null;
+            if (!winnerRef.current) {
+              endedNoWinnerRedirectedRef.current = true;
+              setToastMessage("Game ended - no players left. Returning to lobby...");
+              router.push(`/play?stake=${STAKE}`);
+            }
+          }, 5000);
+        }
         return;
       }
 
@@ -568,7 +595,7 @@ export default function GamePage() {
           Number.isFinite(callCountNum) &&
           callCountNum >= 75);
 
-      if (noWinner && !noWinnerRedirectedRef.current && reached75) {
+      if (noWinner && !noWinnerRedirectedRef.current && !endGraceRef.current && reached75) {
         noWinnerRedirectedRef.current = true;
         router.push(`/play?stake=${STAKE}`);
       }
@@ -612,6 +639,10 @@ export default function GamePage() {
       } else if (msg.type === "winner") {
         setSuppressCalls(true);
         setAudioOn(false);
+        if (endGraceRef.current) {
+          clearTimeout(endGraceRef.current);
+          endGraceRef.current = null;
+        }
         if (winnerSyncTimeoutRef.current) {
           clearTimeout(winnerSyncTimeoutRef.current);
           winnerSyncTimeoutRef.current = null;
@@ -854,11 +885,23 @@ export default function GamePage() {
 
   function isWinningCell(r, c, d) {
     if (!d) return false;
-    if (d.pattern === "row") return r === Number(d.row);
-    if (d.pattern === "col") return c === Number(d.col);
-    if (d.pattern === "diag_main") return r === c;
-    if (d.pattern === "diag_anti") return r + c === 4;
-    if (d.pattern === "four_corners")
+    let p = d.pattern;
+    // Fallback: map bias engine human-readable names to codes
+    if (p && typeof p === "string") {
+      const lower = p.toLowerCase();
+      if (lower.startsWith("row") && p !== "row") {
+        const match = p.match(/(\d)/);
+        d = { ...d, pattern: "row", row: match ? Number(match[1]) : d.row };
+        p = "row";
+      } else if (lower.includes("four corners")) { p = "four_corners"; }
+      else if (lower.includes("main diagonal")) { p = "diag_main"; }
+      else if (lower.includes("anti diagonal")) { p = "diag_anti"; }
+    }
+    if (p === "row") return r === Number(d.row);
+    if (p === "col") return c === Number(d.col);
+    if (p === "diag_main") return r === c;
+    if (p === "diag_anti") return r + c === 4;
+    if (p === "four_corners")
       return (
         (r === 0 && c === 0) ||
         (r === 0 && c === 4) ||
