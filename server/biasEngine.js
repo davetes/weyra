@@ -657,7 +657,9 @@ async function ensureBiasSelection(gameId, takenIndices = []) {
   const missing = Math.max(0, targetCount - existing.length);
   const lastCreateKey = K.gameCardLastCreate(gameId);
   const lastCreate = await cache.get(lastCreateKey);
-  const canCreateNow = !lastCreate || Date.now() - Number(lastCreate) >= 1000;
+  // Stagger card selections: random 3-6 second gap between each card
+  const gapMs = 3000 + Math.floor(Math.random() * 3000);
+  const canCreateNow = !lastCreate || Date.now() - Number(lastCreate) >= gapMs;
 
   for (let i = 0; i < missing; i += 1) {
     if (!canCreateNow) break;
@@ -675,6 +677,9 @@ async function ensureBiasSelection(gameId, takenIndices = []) {
     if (takenSet.has(cardIndex)) break;
     takenSet.add(cardIndex);
 
+    // Set timestamp BEFORE creating to prevent concurrent polls from bypassing
+    await cache.set(lastCreateKey, Date.now(), 1800);
+
     try {
       const sel = await prisma.selection.create({
         data: {
@@ -687,7 +692,6 @@ async function ensureBiasSelection(gameId, takenIndices = []) {
         },
       });
       created.push(sel);
-      await cache.set(lastCreateKey, Date.now(), 1800);
       break;
     } catch (err) {
       if (err?.code !== "P2002") {
