@@ -128,6 +128,7 @@ export default function PlayPage() {
   const countdownTimerRef = useRef(null);
   const pollRef = useRef(null);
   const pushedToGameRef = useRef(false);
+  const joinedGameIdRef = useRef(null); // track which game_id the player joined
   const firstLoad = useRef(true);
   const lastPlayState = useRef({});
   const lastTakenSigRef = useRef("");
@@ -147,6 +148,8 @@ export default function PlayPage() {
 
   async function acceptCard(index, slot) {
     if (!TID || !index) return;
+    // Track which game the player is joining
+    joinedGameIdRef.current = gameIdRef.current;
     if (roomStopped) {
       alert(roomStopMessage || "Temporarily stopped for maintenance");
       return;
@@ -265,8 +268,23 @@ export default function PlayPage() {
       }
       firstLoad.current = false;
 
+      const prevGameId = gameIdRef.current;
       const nextGameId = data.game_id ?? "-";
-      if (nextGameId !== gameIdRef.current) setGameId(nextGameId);
+      if (nextGameId !== prevGameId) setGameId(nextGameId);
+
+      // Detect if the game we joined has ended and a new game was created
+      // (we missed the started=true signal entirely)
+      if (
+        joinedGameIdRef.current &&
+        nextGameId !== "-" &&
+        joinedGameIdRef.current !== nextGameId &&
+        !pushedToGameRef.current
+      ) {
+        // The game we joined has ended — clear our local selections
+        joinedGameIdRef.current = null;
+        setSelectedA(null);
+        setSelectedB(null);
+      }
 
       const takenArr = (data.taken || []).map(String);
       takenArr.sort((a, b) => Number(a) - Number(b));
@@ -304,7 +322,9 @@ export default function PlayPage() {
         if (!data.started) setCountdown("-");
       }
 
-      if (!data.started) {
+      // Only reset the push guard when the game_id changes (truly a new game),
+      // not on every poll — prevents missing the started signal.
+      if (!data.started && nextGameId !== prevGameId) {
         pushedToGameRef.current = false;
       }
 
