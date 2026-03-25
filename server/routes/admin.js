@@ -1718,6 +1718,43 @@ router.get(
   async (req, res) => {
     try {
       const q = String(req.query.q || "").trim();
+      const status = String(req.query.status || "all").trim().toLowerCase();
+
+      function parseDecimalParam(v) {
+        const s = String(v || "").trim();
+        if (!s) return null;
+        try {
+          const d = new Decimal(s);
+          if (!d.isFinite() || d.lt(0)) return null;
+          return d;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function parseIntParam(v) {
+        const s = String(v || "").trim();
+        if (!s) return null;
+        const n = Number(s);
+        if (!Number.isFinite(n) || n < 0) return null;
+        return Math.floor(n);
+      }
+
+      const walletMin = parseDecimalParam(req.query.walletMin);
+      const walletMax = parseDecimalParam(req.query.walletMax);
+      const giftMin = parseDecimalParam(req.query.giftMin);
+      const giftMax = parseDecimalParam(req.query.giftMax);
+      const referralMin = parseDecimalParam(req.query.referralMin);
+      const referralMax = parseDecimalParam(req.query.referralMax);
+      const depositMin = parseDecimalParam(req.query.depositMin);
+      const depositMax = parseDecimalParam(req.query.depositMax);
+      const withdrawMin = parseDecimalParam(req.query.withdrawMin);
+      const withdrawMax = parseDecimalParam(req.query.withdrawMax);
+
+      const winsMin = parseIntParam(req.query.winsMin);
+      const winsMax = parseIntParam(req.query.winsMax);
+      const playsMin = parseIntParam(req.query.playsMin);
+      const playsMax = parseIntParam(req.query.playsMax);
 
       const page = Math.max(
         1,
@@ -1737,15 +1774,51 @@ router.get(
         }
       }
 
-      const where = q
-        ? {
-            OR: [
-              { username: { contains: q, mode: "insensitive" } },
-              { phone: { contains: q, mode: "insensitive" } },
-              ...(qTid != null ? [{ telegramId: qTid }] : []),
-            ],
-          }
-        : undefined;
+      const and = [];
+      if (q) {
+        and.push({
+          OR: [
+            { username: { contains: q, mode: "insensitive" } },
+            { phone: { contains: q, mode: "insensitive" } },
+            ...(qTid != null ? [{ telegramId: qTid }] : []),
+          ],
+        });
+      }
+
+      if (status === "banned") {
+        and.push({ bannedAt: { not: null } });
+      } else if (status === "active") {
+        and.push({ bannedAt: null });
+      }
+
+      if (walletMin || walletMax) {
+        and.push({
+          wallet: {
+            ...(walletMin ? { gte: walletMin.toNumber() } : {}),
+            ...(walletMax ? { lte: walletMax.toNumber() } : {}),
+          },
+        });
+      }
+
+      if (giftMin || giftMax) {
+        and.push({
+          gift: {
+            ...(giftMin ? { gte: giftMin.toNumber() } : {}),
+            ...(giftMax ? { lte: giftMax.toNumber() } : {}),
+          },
+        });
+      }
+
+      if (winsMin != null || winsMax != null) {
+        and.push({
+          wins: {
+            ...(winsMin != null ? { gte: winsMin } : {}),
+            ...(winsMax != null ? { lte: winsMax } : {}),
+          },
+        });
+      }
+
+      const where = and.length ? { AND: and } : undefined;
 
       const players = await prisma.player.findMany({
         where,
@@ -1769,17 +1842,84 @@ router.get(
         .map((p) => (p.telegramId != null ? String(p.telegramId) : null))
         .filter(Boolean);
       const seenKeys = tids.map((t) => `seen_${t}`);
-      const seenMap = await cache.mget(seenKeys);
-
       const ids = players.map((p) => p.id);
-      const lastStakes = await prisma.transaction.findMany({
-        where: { playerId: { in: ids }, kind: "stake" },
-        orderBy: { createdAt: "desc" },
-        distinct: ["playerId"],
-        select: { playerId: true, amount: true, createdAt: true },
-      });
+
+      const [
+        seenMap,
+        lastStakes,
+        referralRows,
+        playRows,
+        depositRows,
+        withdrawRows,
+      ] = await Promise.all([
+        cache.mget(seenKeys),
+        ids.length
+          ? prisma.transaction.findMany({
+              where: { playerId: { in: ids }, kind: "stake" },
+              orderBy: { createdAt: "desc" },
+              distinct: ["playerId"],
+              select: { playerId: true, amount: true, createdAt: true },
+            })
+          : Promise.resolve([]),
+        ids.length
+          ? prisma.transaction.groupBy({
+              by: ["playerId"],
+              where: { playerId: { in: ids }, kind: "referral_bonus" },
+              _sum: { amount: true },
+            })
+          : Promise.resolve([]),
+        ids.length
+          ? prisma.transaction.groupBy({
+              by: ["playerId"],
+              where: { playerId: { in: ids }, kind: "stake" },
+              _count: { _all: true },
+            })
+          : Promise.resolve([]),
+        ids.length
+          ? prisma.depositRequest.groupBy({
+              by: ["playerId"],
+              where: { playerId: { in: ids }, status: "approved" },
+              _sum: { amount: true },
+            })
+          : Promise.resolve([]),
+        ids.length
+          ? prisma.withdrawRequest.groupBy({
+              by: ["playerId"],
+              where: { playerId: { in: ids }, status: "approved" },
+              _sum: { amount: true },
+            })
+          : Promise.resolve([]),
+      ]);
       const lastStakeByPlayerId = new Map(
         lastStakes.map((t) => [t.playerId, t]),
+      );
+
+      const referralByPlayerId = new Map(
+        referralRows.map((r) => [
+          r.playerId,
+          r._sum.amount != null
+            ? new Decimal(r._sum.amount.toString())
+            : new Decimal(0),
+        ]),
+      );
+      const playsByPlayerId = new Map(
+        playRows.map((r) => [r.playerId, Number(r._count?._all || 0)]),
+      );
+      const depositByPlayerId = new Map(
+        depositRows.map((r) => [
+          r.playerId,
+          r._sum.amount != null
+            ? new Decimal(r._sum.amount.toString())
+            : new Decimal(0),
+        ]),
+      );
+      const withdrawByPlayerId = new Map(
+        withdrawRows.map((r) => [
+          r.playerId,
+          r._sum.amount != null
+            ? new Decimal(r._sum.amount.toString())
+            : new Decimal(0),
+        ]),
       );
 
       const out = players.map((p) => {
@@ -1787,6 +1927,10 @@ router.get(
         const tidStr = p.telegramId != null ? String(p.telegramId) : null;
         const lastSeen = tidStr ? seenMap[`seen_${tidStr}`] : null;
         const lastStake = lastStakeByPlayerId.get(p.id) || null;
+        const referralTotal = referralByPlayerId.get(p.id) || new Decimal(0);
+        const playsCount = playsByPlayerId.get(p.id) || 0;
+        const depositTotal = depositByPlayerId.get(p.id) || new Decimal(0);
+        const withdrawTotal = withdrawByPlayerId.get(p.id) || new Decimal(0);
         return {
           ...base,
           lastSeen: lastSeen != null ? Number(lastSeen) : null,
@@ -1797,10 +1941,35 @@ router.get(
                 createdAt: lastStake.createdAt,
               }
             : null,
+          referralTotal: referralTotal.toNumber(),
+          playsCount,
+          depositTotal: depositTotal.toNumber(),
+          withdrawTotal: withdrawTotal.toNumber(),
         };
       });
 
-      out.sort((a, b) => {
+      const filtered = out.filter((p) => {
+        if (referralMin || referralMax) {
+          const ref = new Decimal(String(p.referralTotal || 0));
+          if (referralMin && ref.lt(referralMin)) return false;
+          if (referralMax && ref.gt(referralMax)) return false;
+        }
+        if (playsMin != null && (p.playsCount || 0) < playsMin) return false;
+        if (playsMax != null && (p.playsCount || 0) > playsMax) return false;
+        if (depositMin || depositMax) {
+          const dep = new Decimal(String(p.depositTotal || 0));
+          if (depositMin && dep.lt(depositMin)) return false;
+          if (depositMax && dep.gt(depositMax)) return false;
+        }
+        if (withdrawMin || withdrawMax) {
+          const wd = new Decimal(String(p.withdrawTotal || 0));
+          if (withdrawMin && wd.lt(withdrawMin)) return false;
+          if (withdrawMax && wd.gt(withdrawMax)) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a, b) => {
         const as = a.lastSeen != null ? Number(a.lastSeen) : -1;
         const bs = b.lastSeen != null ? Number(b.lastSeen) : -1;
         if (as !== bs) return bs - as;
@@ -1809,9 +1978,9 @@ router.get(
         return bc - ac;
       });
 
-      const total = out.length;
+      const total = filtered.length;
       const start = (page - 1) * pageSize;
-      const pageRows = out.slice(start, start + pageSize);
+      const pageRows = filtered.slice(start, start + pageSize);
 
       return res.json({
         ok: true,

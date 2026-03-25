@@ -5,7 +5,7 @@ import Card from "../components/Card";
 import Modal from "../components/Modal";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
-import { SearchInput } from "../components/FormElements";
+import { Input, SearchInput, Select } from "../components/FormElements";
 import { apiFetch } from "../lib/api";
 import { saveToken } from "../lib/auth";
 import {
@@ -105,6 +105,34 @@ export default function PlayersPage() {
 
 function PlayersInner({ token, admin }) {
   const [q, setQ] = useState("");
+  const filterDefaults = {
+    status: "all",
+    walletRange: "",
+    giftRange: "",
+    winsRange: "",
+    referralRange: "",
+    playsRange: "",
+    depositRange: "",
+    withdrawRange: "",
+  };
+  const moneyRanges = [
+    { label: "Any", value: "" },
+    { label: "0 - 100", value: "0-100" },
+    { label: "100 - 500", value: "100-500" },
+    { label: "500 - 1,000", value: "500-1000" },
+    { label: "1,000 - 5,000", value: "1000-5000" },
+    { label: "5,000 - 10,000", value: "5000-10000" },
+    { label: "10,000+", value: "10000+" },
+  ];
+  const countRanges = [
+    { label: "Any", value: "" },
+    { label: "0 - 10", value: "0-10" },
+    { label: "10 - 50", value: "10-50" },
+    { label: "50 - 200", value: "50-200" },
+    { label: "200 - 500", value: "200-500" },
+    { label: "500+", value: "500+" },
+  ];
+  const [filters, setFilters] = useState(filterDefaults);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [players, setPlayers] = useState([]);
@@ -133,10 +161,48 @@ function PlayersInner({ token, admin }) {
     setError("");
     setActionError("");
     try {
-      const res = await apiFetch(
-        `/api/admin/players?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`,
-        { token },
-      );
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      if (filters.status && filters.status !== "all") {
+        params.set("status", filters.status);
+      }
+
+      function rangeToBounds(range) {
+        const s = String(range || "").trim();
+        if (!s) return null;
+        if (s.endsWith("+")) {
+          const min = Number(s.slice(0, -1));
+          if (!Number.isFinite(min)) return null;
+          return { min, max: null };
+        }
+        const parts = s.split("-");
+        if (parts.length !== 2) return null;
+        const min = Number(parts[0]);
+        const max = Number(parts[1]);
+        if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+        return { min, max };
+      }
+
+      function setRangeParams(range, minKey, maxKey) {
+        const bounds = rangeToBounds(range);
+        if (!bounds) return;
+        if (bounds.min != null) params.set(minKey, String(bounds.min));
+        if (bounds.max != null) params.set(maxKey, String(bounds.max));
+      }
+
+      setRangeParams(filters.walletRange, "walletMin", "walletMax");
+      setRangeParams(filters.giftRange, "giftMin", "giftMax");
+      setRangeParams(filters.winsRange, "winsMin", "winsMax");
+      setRangeParams(filters.referralRange, "referralMin", "referralMax");
+      setRangeParams(filters.playsRange, "playsMin", "playsMax");
+      setRangeParams(filters.depositRange, "depositMin", "depositMax");
+      setRangeParams(filters.withdrawRange, "withdrawMin", "withdrawMax");
+
+      const res = await apiFetch(`/api/admin/players?${params.toString()}`, {
+        token,
+      });
       const nextPlayers = res.players || [];
       setPlayers(nextPlayers);
       setTotal(Number(res.total || 0));
@@ -165,6 +231,14 @@ function PlayersInner({ token, admin }) {
   useEffect(() => {
     load();
   }, [page]);
+
+  useEffect(() => {
+    if (page !== 1) {
+      setPage(1);
+      return;
+    }
+    load();
+  }, [filters]);
 
   const canRead = useMemo(() => hasPerm(admin, "players.read"), [admin]);
   const canModerate = useMemo(() => hasPerm(admin, "players.ban"), [admin]);
@@ -274,6 +348,10 @@ function PlayersInner({ token, admin }) {
     e.preventDefault();
     setPage(1);
     if (page === 1) load();
+  }
+
+  function updateFilter(key, value) {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   }
 
   return (
@@ -672,6 +750,41 @@ function PlayersInner({ token, admin }) {
                     {selected.wins ?? 0}{" "}
                   </span>
                 </div>
+                <div className="text-slate-300">
+                  {" "}
+                  Deposit:{" "}
+                  <span className="font-semibold text-slate-100">
+                    {" "}
+                    {formatMoney(selected.depositTotal)}
+                    ETB{" "}
+                  </span>
+                </div>
+                <div className="text-slate-300">
+                  {" "}
+                  Withdraw:{" "}
+                  <span className="font-semibold text-slate-100">
+                    {" "}
+                    {formatMoney(selected.withdrawTotal)}
+                    ETB{" "}
+                  </span>
+                </div>
+                <div className="text-slate-300">
+                  {" "}
+                  Referral:{" "}
+                  <span className="font-semibold text-slate-100">
+                    {" "}
+                    {formatMoney(selected.referralTotal)}
+                    ETB{" "}
+                  </span>
+                </div>
+                <div className="text-slate-300">
+                  {" "}
+                  Plays:{" "}
+                  <span className="font-semibold text-slate-100">
+                    {" "}
+                    {selected.playsCount ?? 0}{" "}
+                  </span>
+                </div>
               </div>
               <div className="mt-2 text-xs text-muted">
                 {" "}
@@ -760,34 +873,124 @@ function PlayersInner({ token, admin }) {
         <Card title="Search Players" icon={IconSearch}>
           <form
             onSubmit={handleSearch}
-            className="flex flex-col md:flex-row md:items-end gap-3"
+            className="space-y-3"
           >
-            <div className="flex-1">
-              <SearchInput
-                placeholder="Search by username, phone, or telegram id..."
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />{" "}
-            </div>{" "}
-            <Button
-              variant="primary"
-              type="submit"
-              icon={IconSearch}
-              loading={loading}
-            >
-              Search{" "}
-            </Button>{" "}
-            <Button
-              variant="outline"
-              icon={IconRefresh}
-              onClick={() => {
-                setPage(1);
-                if (page === 1) load();
-              }}
-              loading={loading}
-            >
-              Refresh{" "}
-            </Button>{" "}
+            <div className="flex flex-col md:flex-row md:items-end gap-3">
+              <div className="flex-1">
+                <SearchInput
+                  placeholder="Search by username, phone, or telegram id..."
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />{" "}
+              </div>{" "}
+              <Button
+                variant="primary"
+                type="submit"
+                icon={IconSearch}
+                loading={loading}
+              >
+                Search{" "}
+              </Button>{" "}
+              <Button
+                variant="outline"
+                icon={IconRefresh}
+                onClick={() => {
+                  setPage(1);
+                  if (page === 1) load();
+                }}
+                loading={loading}
+              >
+                Refresh{" "}
+              </Button>{" "}
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setFilters(filterDefaults)}
+                disabled={loading}
+              >
+                Clear Filters{" "}
+              </Button>{" "}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              <Select
+                value={filters.walletRange}
+                onChange={(e) => updateFilter("walletRange", e.target.value)}
+              >
+                {moneyRanges.map((opt) => (
+                  <option key={`wallet-${opt.value}`} value={opt.value}>
+                    Wallet: {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filters.giftRange}
+                onChange={(e) => updateFilter("giftRange", e.target.value)}
+              >
+                {moneyRanges.map((opt) => (
+                  <option key={`gift-${opt.value}`} value={opt.value}>
+                    Gift: {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filters.winsRange}
+                onChange={(e) => updateFilter("winsRange", e.target.value)}
+              >
+                {countRanges.map((opt) => (
+                  <option key={`wins-${opt.value}`} value={opt.value}>
+                    Wins: {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filters.referralRange}
+                onChange={(e) => updateFilter("referralRange", e.target.value)}
+              >
+                {moneyRanges.map((opt) => (
+                  <option key={`ref-${opt.value}`} value={opt.value}>
+                    Referral: {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filters.playsRange}
+                onChange={(e) => updateFilter("playsRange", e.target.value)}
+              >
+                {countRanges.map((opt) => (
+                  <option key={`plays-${opt.value}`} value={opt.value}>
+                    Plays: {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filters.depositRange}
+                onChange={(e) => updateFilter("depositRange", e.target.value)}
+              >
+                {moneyRanges.map((opt) => (
+                  <option key={`dep-${opt.value}`} value={opt.value}>
+                    Deposit: {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filters.withdrawRange}
+                onChange={(e) => updateFilter("withdrawRange", e.target.value)}
+              >
+                {moneyRanges.map((opt) => (
+                  <option key={`wd-${opt.value}`} value={opt.value}>
+                    Withdraw: {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={filters.status}
+                onChange={(e) => updateFilter("status", e.target.value)}
+              >
+                <option value="all">Status: All</option>
+                <option value="active">Status: Active</option>
+                <option value="banned">Status: Banned</option>
+              </Select>
+            </div>
           </form>{" "}
           {error && (
             <div className="bg-danger-muted border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger mt-3">
@@ -843,6 +1046,10 @@ function PlayersInner({ token, admin }) {
                     <th className="pr-3 py-3"> Wallet </th>{" "}
                     <th className="pr-3 py-3"> Gift </th>{" "}
                     <th className="pr-3 py-3"> Wins </th>{" "}
+                    <th className="pr-3 py-3"> Deposit </th>{" "}
+                    <th className="pr-3 py-3"> Withdraw </th>{" "}
+                    <th className="pr-3 py-3"> Referral </th>{" "}
+                    <th className="pr-3 py-3"> Plays </th>{" "}
                     <th className="pr-3 py-3"> Last Seen </th>{" "}
                     <th className="pr-3 py-3"> Last Stake </th>{" "}
                     <th className="pr-3 py-3"> Status </th>{" "}
@@ -882,6 +1089,22 @@ function PlayersInner({ token, admin }) {
                         <td className="pr-3 py-3 text-slate-300">
                           {" "}
                           {p.wins ?? 0}{" "}
+                        </td>{" "}
+                        <td className="pr-3 py-3 text-slate-300">
+                          {" "}
+                          {formatMoney(p.depositTotal)}{" "}
+                        </td>{" "}
+                        <td className="pr-3 py-3 text-slate-300">
+                          {" "}
+                          {formatMoney(p.withdrawTotal)}{" "}
+                        </td>{" "}
+                        <td className="pr-3 py-3 text-slate-300">
+                          {" "}
+                          {formatMoney(p.referralTotal)}{" "}
+                        </td>{" "}
+                        <td className="pr-3 py-3 text-slate-300">
+                          {" "}
+                          {p.playsCount ?? 0}{" "}
                         </td>{" "}
                         <td className="pr-3 py-3 text-muted text-xs">
                           {formatSince(p.lastSeen)}
@@ -939,7 +1162,7 @@ function PlayersInner({ token, admin }) {
                   {players.length === 0 && !loading && (
                     <tr>
                       <td
-                        colSpan={11}
+                        colSpan={15}
                         className="text-center py-12 text-muted text-sm"
                       >
                         {" "}
