@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import RequireAuth from "../components/RequireAuth";
 import AdminShell from "../components/AdminShell";
 import Card from "../components/Card";
@@ -104,6 +104,7 @@ export default function PlayersPage() {
 }
 
 function PlayersInner({ token, admin }) {
+  const didAutoSelect = useRef(false);
   const [q, setQ] = useState("");
   const filterDefaults = {
     status: "all",
@@ -207,10 +208,13 @@ function PlayersInner({ token, admin }) {
       setPlayers(nextPlayers);
       setTotal(Number(res.total || 0));
 
-      const lastId = loadLastPlayerId();
-      if (lastId && !selected) {
-        const found = nextPlayers.find((p) => p.id === lastId);
-        if (found) setSelected(found);
+      if (!didAutoSelect.current) {
+        const lastId = loadLastPlayerId();
+        if (lastId && !selected) {
+          const found = nextPlayers.find((p) => p.id === lastId);
+          if (found) setSelected(found);
+        }
+        didAutoSelect.current = true;
       }
     } catch (err) {
       if (err && err.status === 401) {
