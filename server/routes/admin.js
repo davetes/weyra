@@ -2418,11 +2418,11 @@ router.delete(
           .status(400)
           .json({ ok: false, error: "Cannot delete super_admin" });
 
-      await prisma.adminSession.updateMany({
-        where: { adminId: id },
-        data: { revokedAt: new Date() },
-      });
-      await prisma.adminUser.delete({ where: { id } });
+      await prisma.$transaction([
+        prisma.adminSession.deleteMany({ where: { adminId: id } }),
+        prisma.adminAuditLog.deleteMany({ where: { adminId: id } }),
+        prisma.adminUser.delete({ where: { id } }),
+      ]);
 
       return res.json({ ok: true });
     } catch (err) {
