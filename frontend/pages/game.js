@@ -615,13 +615,13 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!router.isReady || !STAKE) return;
-    const socket = io(
-      typeof window !== "undefined" ? window.location.origin : "",
-      {
-        path: "/ws",
-        query: { stake: STAKE },
-      },
-    );
+    const socketOrigin =
+      process.env.NEXT_PUBLIC_BACKEND_ORIGIN ||
+      (typeof window !== "undefined" ? window.location.origin : "");
+    const socket = io(socketOrigin, {
+      path: "/ws",
+      query: { stake: STAKE },
+    });
     socketRef.current = socket;
 
     socket.on("message", (msg) => {
