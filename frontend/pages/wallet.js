@@ -42,9 +42,7 @@ export default function WalletPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await apiFetch(
-        `/api/game_state?stake=10`,
-      );
+      const res = await apiFetch(`/api/game_state?stake=10`);
       if (!res.ok) {
         setError("Failed to load wallet");
         return;
@@ -71,9 +69,7 @@ export default function WalletPage() {
       setHistoryLoading(true);
       setHistoryError("");
       try {
-        const res = await apiFetch(
-          `/api/wallet_requests`,
-        );
+        const res = await apiFetch(`/api/wallet_requests`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data?.ok) {
           if (!cancelled)
@@ -293,7 +289,7 @@ export default function WalletPage() {
             <div className="mt-8 space-y-4">
               <div className="rounded-none border border-white/10 bg-white/5 p-2">
                 <div className="grid grid-cols-2 gap-2">
-                  {/* <button
+                  <button
                     type="button"
                     onClick={() => {
                       setNotice("");
@@ -307,8 +303,8 @@ export default function WalletPage() {
                     className="h-11 font-black bg-emerald-500/15 border border-emerald-400/25 text-emerald-200 disabled:opacity-50"
                   >
                     Deposit
-                  </button> */}
-                  {/* <button
+                  </button>
+                  <button
                     type="button"
                     onClick={() => {
                       setNotice("");
@@ -322,7 +318,7 @@ export default function WalletPage() {
                     className="h-11 font-black bg-rose-500/15 border border-rose-400/25 text-rose-200 disabled:opacity-50"
                   >
                     Withdraw
-                  </button> */}
+                  </button>
                 </div>
 
                 {action === "deposit" && (
@@ -364,7 +360,9 @@ export default function WalletPage() {
                       onChange={(e) => setMethod(e.target.value)}
                       className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none appearance-none"
                     >
-                      <option value="" disabled>Select method</option>
+                      <option value="" disabled>
+                        Select method
+                      </option>
                       <option value="Telebirr">Telebirr</option>
                       <option value="CBE Birr">CBE Birr</option>
                     </select>
@@ -410,7 +408,9 @@ export default function WalletPage() {
                       onChange={(e) => setMethod(e.target.value)}
                       className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none appearance-none"
                     >
-                      <option value="" disabled>Select method</option>
+                      <option value="" disabled>
+                        Select method
+                      </option>
                       <option value="Telebirr">Telebirr</option>
                       <option value="CBE Birr">CBE Birr</option>
                     </select>
@@ -536,9 +536,7 @@ export default function WalletPage() {
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() =>
-                  router.push("/")
-                }
+                onClick={() => router.push("/")}
                 className="flex flex-col items-center justify-center py-2 text-white/70 hover:bg-white/5"
               >
                 <Gamepad2 className="w-5 h-5" />
@@ -547,9 +545,7 @@ export default function WalletPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  router.push("/history")
-                }
+                onClick={() => router.push("/history")}
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
                 <History className="w-5 h-5" />
@@ -558,9 +554,7 @@ export default function WalletPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  router.push("/wallet")
-                }
+                onClick={() => router.push("/wallet")}
                 className="flex flex-col items-center justify-center py-2 rounded-xl bg-sky-500/15 border border-sky-400/20 text-sky-200"
               >
                 <WalletIcon className="w-5 h-5" />
@@ -569,9 +563,7 @@ export default function WalletPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  router.push("/profile")
-                }
+                onClick={() => router.push("/profile")}
                 className="flex flex-col items-center justify-center py-2 rounded-xl text-white/70 hover:bg-white/5"
               >
                 <User className="w-5 h-5" />

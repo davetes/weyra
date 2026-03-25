@@ -49,11 +49,7 @@ function buildDepositMessage(data) {
       `💰 CBEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
       `📱 Target: ${phone}\n` +
       `🏷️ Account: ${name}\n\n` +
-      `✅ To Verify / ለማረጋገጥ፦\n\n` +
-      `Copy the Receipt SMS / የደረሰኝ መልዕክቱን ኮፒ ያድርጉ።\n\n` +
-      `Paste it here / እዚህ ይላኩት።\n\n` +
-      `Or send a Screenshot / ወይም ስክሪንሹት ይላኩ።\n\n` +
-      `🆘 Help / እርዳታ: ${support}`
+      `Help/እርዳታ ፡ ${support}`
     );
   }
 
@@ -64,11 +60,7 @@ function buildDepositMessage(data) {
       `💰 TELEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
       `📱 Target: ${phone}\n` +
       `🏷️ Account: ${name}\n\n` +
-      `✅ To Verify / ለማረጋገጥ፦\n\n` +
-      `Copy the Receipt SMS / የደረሰኝ መልዕክቱን ኮፒ ያድርጉ።\n\n` +
-      `Paste it here / እዚህ ይላኩት።\n\n` +
-      `Or send a Screenshot / ወይም ስክሪንሹት ይላኩ።\n\n` +
-      `🆘 Help / እርዳታ: ${support}`
+      `Help/እርዳታ ፡ ${support}`
     );
   }
 
