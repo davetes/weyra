@@ -63,6 +63,9 @@ function GamesInner({ token, admin }) {
   const [hideBots, setHideBots] = useState(true);
   const [sortKey, setSortKey] = useState("priority");
   const [sortDir, setSortDir] = useState("desc");
+  const [gameIdInput, setGameIdInput] = useState("");
+  const [gameIdFilter, setGameIdFilter] = useState(null);
+  const [gameIdError, setGameIdError] = useState("");
 
   async function loadGames(nextStake = stake) {
     if (!canRead) return;
@@ -146,24 +149,32 @@ function GamesInner({ token, admin }) {
     setSelectedGameId(null);
     setDetail(null);
     setPage(1);
+    setGameIdInput("");
+    setGameIdFilter(null);
+    setGameIdError("");
     loadGames(stake);
   }, [stake]);
 
+  const filteredGames = useMemo(() => {
+    if (gameIdFilter == null) return games;
+    return games.filter((g) => g.id === gameIdFilter);
+  }, [games, gameIdFilter]);
+
   const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(games.length / pageSize));
-  }, [games.length]);
+    return Math.max(1, Math.ceil(filteredGames.length / pageSize));
+  }, [filteredGames.length]);
 
   const pageGames = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return games.slice(start, start + pageSize);
-  }, [games, page]);
+    return filteredGames.slice(start, start + pageSize);
+  }, [filteredGames, page]);
 
   useEffect(() => {
     if (!pageGames.length) return;
     if (selectedGameId && pageGames.some((g) => g.id === selectedGameId))
       return;
     setSelectedGameId(pageGames[0].id);
-  }, [page, games.length]);
+  }, [page, filteredGames.length]);
 
   useEffect(() => {
     if (!selectedGameId) return;
@@ -191,6 +202,7 @@ function GamesInner({ token, admin }) {
           case "winRate": av = a.stats?.winRate ?? 0; bv = b.stats?.winRate ?? 0; break;
           case "totalDeposited": av = a.stats?.totalDeposited ?? 0; bv = b.stats?.totalDeposited ?? 0; break;
           case "wallet": av = a.stats?.wallet ?? 0; bv = b.stats?.wallet ?? 0; break;
+          case "giftWallet": av = a.stats?.giftWallet ?? 0; bv = b.stats?.giftWallet ?? 0; break;
           case "priority": av = a.stats?.priority ?? 0; bv = b.stats?.priority ?? 0; break;
           default: av = 0; bv = 0;
         }
@@ -287,7 +299,63 @@ function GamesInner({ token, admin }) {
               )}
             </Card>
 
-            <Card title={`Games (${games.length})`}>
+            <Card title={`Games (${filteredGames.length})`}>
+              <div className="space-y-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Game ID"
+                    value={gameIdInput}
+                    onChange={(e) => setGameIdInput(e.target.value)}
+                    className="w-full bg-bg-secondary border border-border rounded-xl text-sm text-slate-200 placeholder:text-muted transition-colors focus:border-accent/50 px-3 py-2"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const raw = gameIdInput.trim();
+                      if (!raw) {
+                        setGameIdError("");
+                        setGameIdFilter(null);
+                        return;
+                      }
+                      const id = parseInt(raw, 10);
+                      if (Number.isNaN(id) || id <= 0) {
+                        setGameIdError("Enter a valid game ID");
+                        return;
+                      }
+                      setGameIdError("");
+                      setGameIdFilter(id);
+                      setPage(1);
+                      const match = games.find((g) => g.id === id);
+                      if (match) {
+                        setSelectedGameId(match.id);
+                      } else {
+                        setSelectedGameId(id);
+                      }
+                    }}
+                  >
+                    Search
+                  </Button>
+                  {gameIdFilter != null && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setGameIdInput("");
+                        setGameIdFilter(null);
+                        setGameIdError("");
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {gameIdError && (
+                  <div className="text-xs text-danger">{gameIdError}</div>
+                )}
+              </div>
               <div className="space-y-2">
                 {pageGames.map((g) => {
                   const isActive = !!g.active;
@@ -323,7 +391,7 @@ function GamesInner({ token, admin }) {
                     </button>
                   );
                 })}
-                {games.length === 0 && !loading && (
+                {filteredGames.length === 0 && !loading && (
                   <div className="text-sm text-muted">No games found.</div>
                 )}
               </div>
@@ -478,6 +546,7 @@ function GamesInner({ token, admin }) {
                             <SortHeader label="Win%" field="winRate" />
                             <SortHeader label="Deposited" field="totalDeposited" />
                             <SortHeader label="Wallet" field="wallet" />
+                            <SortHeader label="Gift Wallet" field="giftWallet" />
                             <SortHeader label="Priority" field="priority" />
                             <th className="pr-3 py-3">Force Win</th>
                             <th className="pr-4 py-3">Auto</th>
@@ -522,6 +591,9 @@ function GamesInner({ token, admin }) {
                               </td>
                               <td className="pr-3 py-3 text-muted">
                                 {s.stats?.wallet != null ? `${s.stats.wallet}` : "-"}
+                              </td>
+                              <td className="pr-3 py-3 text-muted">
+                                {s.stats?.giftWallet != null ? `${s.stats.giftWallet}` : "-"}
                               </td>
                               <td className="pr-3 py-3">
                                 {s.stats?.isBiasBot ? (
@@ -570,7 +642,7 @@ function GamesInner({ token, admin }) {
                           {selections.length === 0 && (
                             <tr>
                               <td
-                                colSpan={12}
+                                colSpan={13}
                                 className="text-center py-10 text-muted text-sm"
                               >
                                 No selections

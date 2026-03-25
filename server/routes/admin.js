@@ -1607,6 +1607,9 @@ router.get(
         const walletBal = p
           ? parseFloat(new Decimal((p.wallet || 0).toString()).toFixed(2))
           : 0;
+        const giftBal = p
+          ? parseFloat(new Decimal((p.gift || 0).toString()).toFixed(2))
+          : 0;
         const gamesPlayed = gamesPlayedMap.get(s.playerId) || 0;
         const totalDeposited = depositsMap.get(s.playerId) || 0;
         const lastWinAt = lastWinMap.get(s.playerId) || null;
@@ -1652,6 +1655,7 @@ router.get(
             winRate,
             totalDeposited,
             wallet: walletBal,
+            giftWallet: giftBal,
             lastWinAt,
             priority,
             isBiasBot,
