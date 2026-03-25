@@ -1348,13 +1348,13 @@ export default function GamePage() {
           </div>
         </div>
         <div
-          className="px-2 pb-2"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+          className="px-2 pb-1"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6px)" }}
         >
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="w-full h-11 rounded-xl bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white font-black uppercase tracking-wider shadow-md shadow-red-500/30"
+            className="w-full h-9 rounded-xl bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white text-sm font-black uppercase tracking-wider shadow-md shadow-red-500/30"
           >
             Leave
           </button>
