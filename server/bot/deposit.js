@@ -47,7 +47,7 @@ function buildDepositMessage(data) {
     const name = process.env.CBE_BIRR_NAME || "kalestidike";
     return (
       `💰 CBEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
-      `📱 Target: ${phone}\n` +
+      `📱 Target: <code>${phone}</code>\n` +
       `🏷️ Account: ${name}\n\n` +
       `Help/እርዳታ ፡ ${support}`
     );
@@ -58,7 +58,7 @@ function buildDepositMessage(data) {
     const name = process.env.TELEBIRR_NAME || "kalestidike";
     return (
       `💰 TELEBIRR DEPOSIT — የቴሌብር ክፍያ\n\n` +
-      `📱 Target: ${phone}\n` +
+      `📱 Target: <code>${phone}</code>\n` +
       `🏷️ Account: ${name}\n\n` +
       `Help/እርዳታ ፡ ${support}`
     );

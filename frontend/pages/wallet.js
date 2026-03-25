@@ -138,6 +138,14 @@ export default function WalletPage() {
       setError("Enter a valid amount");
       return;
     }
+    if (!String(method || "").trim()) {
+      setError("Select a deposit method");
+      return;
+    }
+    if (!String(caption || "").trim()) {
+      setError("Receipt SMS is required");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await apiFetch("/api/deposit_request", {
@@ -329,13 +337,23 @@ export default function WalletPage() {
                         Accounts:
                       </div>
                       <div>
-                        Telebirr:{" "}
-                        {(depositAccounts?.telebirr?.phone || "—").trim()} —{" "}
+                        Telebirr Phone:{" "}
+                        <span className="select-all">
+                          {(depositAccounts?.telebirr?.phone || "—").trim()}
+                        </span>
+                      </div>
+                      <div>
+                        Telebirr Name:{" "}
                         {(depositAccounts?.telebirr?.name || "—").trim()}
                       </div>
                       <div>
-                        CBE Birr:{" "}
-                        {(depositAccounts?.cbeBirr?.phone || "—").trim()} —{" "}
+                        CBE Birr Phone:{" "}
+                        <span className="select-all">
+                          {(depositAccounts?.cbeBirr?.phone || "—").trim()}
+                        </span>
+                      </div>
+                      <div>
+                        CBE Birr Name:{" "}
                         {(depositAccounts?.cbeBirr?.name || "—").trim()}
                       </div>
                       <div className="h-2" />
@@ -343,10 +361,8 @@ export default function WalletPage() {
                         To Verify:
                       </div>
                       <div>1. Send the payment using Telebirr / CBE Birr.</div>
-                      <div>2. Copy the Receipt SMS (or take a screenshot).</div>
-                      <div>
-                        3. Paste the receipt text in the note field below.
-                      </div>
+                      <div>2. Copy the Receipt SMS.</div>
+                      <div>3. Paste the receipt text below (required).</div>
                     </div>
                     <input
                       value={amount}
@@ -369,7 +385,7 @@ export default function WalletPage() {
                     <input
                       value={caption}
                       onChange={(e) => setCaption(e.target.value)}
-                      placeholder="Receipt SMS / note (optional)"
+                      placeholder="Receipt SMS (required)"
                       className="w-full h-11 px-3 bg-white/5 border border-white/10 text-white outline-none"
                     />
                     <button
