@@ -2,7 +2,8 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const cache = require("../cache");
-const { getCard, generateGameId } = require("../utils");
+const { getCard } = require("../utils");
+const { createFreshGame } = require("../gameService");
 const biasEngine = require("../biasEngine");
 
 const prisma = new PrismaClient();
@@ -88,8 +89,11 @@ async function handleGameState(req, res, io) {
       orderBy: { createdAt: "desc" },
     });
     if (!game) {
-      game = await prisma.game.create({
-        data: { id: generateGameId(), stake },
+      game = await createFreshGame(prisma, stake);
+    } else {
+      await prisma.game.updateMany({
+        where: { stake, active: true, NOT: { id: game.id } },
+        data: { active: false, finished: true },
       });
     }
 
@@ -190,7 +194,7 @@ async function handleGameState(req, res, io) {
             data: { active: false, finished: true },
           });
           await prisma.selection.deleteMany({ where: { gameId: game.id } });
-          await prisma.game.create({ data: { id: generateGameId(), stake } });
+          await createFreshGame(prisma, stake);
           await cache.del(idleKey);
           io.to(`game_${stake}`).emit("message", { type: "restarted" });
           return handleGameState(req, res, io);
@@ -206,7 +210,7 @@ async function handleGameState(req, res, io) {
         where: { id: game.id },
         data: { active: false, finished: true },
       });
-      await prisma.game.create({ data: { id: generateGameId(), stake } });
+      await createFreshGame(prisma, stake);
       io.to(`game_${stake}`).emit("message", {
         type: "game_ended_no_winner",
         reason: "All players disqualified",
@@ -449,7 +453,7 @@ async function handleGameState(req, res, io) {
             data: { active: false, finished: true },
           });
           // Create new game
-          await prisma.game.create({ data: { id: generateGameId(), stake } });
+          await createFreshGame(prisma, stake);
           io.to(`game_${stake}`).emit("message", { type: "restarted" });
         }
       }
@@ -500,7 +504,8 @@ async function handleGameState(req, res, io) {
       ? game.chargedCount
       : acceptedCardsCount;
 
-    const recentWinner = (await cache.get(`winner_${stake}`)) || null;
+    let recentWinner = (await cache.get(`winner_${stake}`)) || null;
+    if (recentWinner && recentWinner.gameId !== game.id) recentWinner = null;
 
     return res.json({
       ok: true,

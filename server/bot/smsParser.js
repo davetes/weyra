@@ -71,7 +71,7 @@ function parseBankSms(text) {
 
   // --- Extract reference / transaction ID ---
   const refPatterns = [
-    /(?:ref(?:erence)?|txn\s*id|transaction\s*id|trans(?:action)?\s*(?:ref|no|number|#)|receipt\s*(?:no|number|#)|FT\d+)[:\s#]*([A-Za-z0-9]+)/gi,
+    /(?:ref(?:erence)?|txn\s*id|transaction\s*id|transaction\s*number\s*is|trans(?:action)?\s*(?:ref|no|number|#)|receipt\s*(?:no|number|#)|FT\d+)[:\s#]*([A-Za-z0-9]+)/gi,
     /\b(FT[A-Za-z0-9]{6,20})\b/gi,
     /\b(TRF[A-Za-z0-9]{6,20})\b/gi,
     /\b(CBE[A-Za-z0-9]{6,20})\b/gi,

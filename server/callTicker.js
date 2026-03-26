@@ -2,7 +2,8 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const cache = require("./cache");
-const { getCard, generateGameId } = require("./utils");
+const { getCard } = require("./utils");
+const { createFreshGame } = require("./gameService");
 const { checkAllPatterns } = require("./checker");
 const biasEngine = require("./biasEngine");
 
@@ -197,6 +198,7 @@ function startCallTicker(io) {
               await cache.set(
                 `winner_${game.stake}`,
                 {
+                  gameId: game.id,
                   winner: biasWin.fakeName,
                   index: biasWin.cardIndex,
                   pattern: biasCode.pattern,
@@ -209,9 +211,7 @@ function startCallTicker(io) {
               );
 
               await biasEngine.cleanupGame(game.id);
-              await prisma.game.create({
-                data: { id: generateGameId(), stake: game.stake },
-              });
+              await createFreshGame(prisma, game.stake);
             } catch (err) {
               console.error("biasEngine winner emit error:", err);
             }
@@ -373,6 +373,7 @@ function startCallTicker(io) {
         await cache.set(
           `winner_${game.stake}`,
           {
+            gameId: game.id,
             winner: winnerText,
             winners: allDisplayWinners,
             index: primary.index,
@@ -387,9 +388,7 @@ function startCallTicker(io) {
         );
 
         await biasEngine.cleanupGame(game.id);
-        await prisma.game.create({
-          data: { id: generateGameId(), stake: game.stake },
-        });
+        await createFreshGame(prisma, game.stake);
       }
     } catch (err) {
       console.error("callTicker error:", err);

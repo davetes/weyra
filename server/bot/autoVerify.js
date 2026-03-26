@@ -2,7 +2,11 @@
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
 const { parseBankSms, isBankSms } = require("./smsParser");
-const { notifyEntertainers, getEntertainerIds, isEntertainer } = require("./entertainer");
+const {
+  notifyEntertainers,
+  getEntertainerIds,
+  isEntertainer,
+} = require("./entertainer");
 
 const prisma = new PrismaClient();
 
@@ -14,7 +18,10 @@ const EXPIRY_CHECK_INTERVAL_MS = 5 * 60 * 1000; // check every 5 minutes
  */
 function normalizeRef(ref) {
   if (!ref) return "";
-  return ref.toUpperCase().replace(/[\s\-_]/g, "").trim();
+  return ref
+    .toUpperCase()
+    .replace(/[\s\-_]/g, "")
+    .trim();
 }
 
 /**
@@ -25,6 +32,20 @@ async function processIncomingSms(rawText, bot) {
   const parsed = parseBankSms(rawText);
   if (!parsed) {
     return { matched: false, error: "Could not parse SMS" };
+  }
+
+  const normalizedRef = normalizeRef(parsed.reference);
+  if (normalizedRef) {
+    const existingSms = await findExistingSmsByRef(normalizedRef);
+    if (existingSms) {
+      console.log(
+        `[AutoVerify] Duplicate SMS ignored for ref=${normalizedRef} (existing SMS #${existingSms.id}, status=${existingSms.status})`,
+      );
+      return {
+        matched: existingSms.status === "matched",
+        bankSmsId: existingSms.id,
+      };
+    }
   }
 
   // Store the bank SMS
@@ -39,12 +60,27 @@ async function processIncomingSms(rawText, bot) {
   });
 
   console.log(
-    `[AutoVerify] Bank SMS #${bankSms.id} stored: amount=${parsed.amount}, ref=${parsed.reference}, bank=${parsed.bank}`
+    `[AutoVerify] Bank SMS #${bankSms.id} stored: amount=${parsed.amount}, ref=${parsed.reference}, bank=${parsed.bank}`,
   );
 
   // Try to match with a pending deposit claim
   const result = await tryMatchSmsToDeposit(bankSms, bot);
   return result;
+}
+
+async function findExistingSmsByRef(normalizedRef) {
+  if (!normalizedRef) return null;
+  const recent = await prisma.bankSms.findMany({
+    where: {
+      reference: { not: "" },
+    },
+    orderBy: { receivedAt: "desc" },
+    take: 200,
+  });
+  for (const sms of recent) {
+    if (normalizeRef(sms.reference) === normalizedRef) return sms;
+  }
+  return null;
 }
 
 /**
@@ -55,7 +91,9 @@ async function tryMatchSmsToDeposit(bankSms, bot) {
   const normalizedRef = normalizeRef(bankSms.reference);
 
   if (!normalizedRef) {
-    console.log(`[AutoVerify] SMS #${bankSms.id} has no reference — cannot auto-match`);
+    console.log(
+      `[AutoVerify] SMS #${bankSms.id} has no reference — cannot auto-match`,
+    );
     return { matched: false, bankSmsId: bankSms.id };
   }
 
@@ -80,7 +118,7 @@ async function tryMatchSmsToDeposit(bankSms, bot) {
       // Allow 1 ETB tolerance for rounding
       if (smsAmount.minus(depositAmount).abs().gt(1)) {
         console.log(
-          `[AutoVerify] Ref match but amount mismatch: SMS=${smsAmount}, Deposit=${depositAmount}`
+          `[AutoVerify] Ref match but amount mismatch: SMS=${smsAmount}, Deposit=${depositAmount}`,
         );
         continue;
       }
@@ -88,10 +126,17 @@ async function tryMatchSmsToDeposit(bankSms, bot) {
 
     // MATCH FOUND — credit the player
     const creditResult = await creditPlayer(deposit, bankSms, bot);
-    return { matched: true, depositId: deposit.id, bankSmsId: bankSms.id, ...creditResult };
+    return {
+      matched: true,
+      depositId: deposit.id,
+      bankSmsId: bankSms.id,
+      ...creditResult,
+    };
   }
 
-  console.log(`[AutoVerify] No matching pending deposit for SMS #${bankSms.id} ref=${normalizedRef}`);
+  console.log(
+    `[AutoVerify] No matching pending deposit for SMS #${bankSms.id} ref=${normalizedRef}`,
+  );
   return { matched: false, bankSmsId: bankSms.id };
 }
 
@@ -150,7 +195,9 @@ async function creditPlayer(deposit, bankSms, bot) {
       : null;
 
   if (!amount || amount.lte(0)) {
-    console.error(`[AutoVerify] Cannot credit — no valid amount for deposit #${deposit.id}`);
+    console.error(
+      `[AutoVerify] Cannot credit — no valid amount for deposit #${deposit.id}`,
+    );
     return { credited: false };
   }
 
@@ -187,11 +234,13 @@ async function creditPlayer(deposit, bankSms, bot) {
     ]);
 
     console.log(
-      `[AutoVerify] ✅ Auto-credited ${amount.toFixed(2)} ETB to player #${player.id} (deposit #${deposit.id})`
+      `[AutoVerify] ✅ Auto-credited ${amount.toFixed(2)} ETB to player #${player.id} (deposit #${deposit.id})`,
     );
 
     // Get updated balance
-    const updated = await prisma.player.findUnique({ where: { id: player.id } });
+    const updated = await prisma.player.findUnique({
+      where: { id: player.id },
+    });
     const newBalance = updated
       ? new Decimal(updated.wallet.toString()).toFixed(2)
       : "N/A";
@@ -206,8 +255,7 @@ async function creditPlayer(deposit, bankSms, bot) {
             `💰 Amount: ${amount.toFixed(2)} ETB\n` +
             `📋 Reference: ${bankSms.reference || "N/A"}\n` +
             `💳 New Balance: ${newBalance} ETB\n` +
-            `━━━━━━━━━━━━━━━━━━\n` +
-            `Your deposit has been automatically verified! ✓`
+            `━━━━━━━━━━━━━━━━━━\n`,
         );
       }
     } catch (notifyErr) {
@@ -225,14 +273,17 @@ async function creditPlayer(deposit, bankSms, bot) {
             `Amount: ${amount.toFixed(2)} ETB\n` +
             `Reference: ${bankSms.reference || "N/A"}\n` +
             `Bank: ${bankSms.bank || "Unknown"}\n` +
-            `New Balance: ${newBalance} ETB`
+            `New Balance: ${newBalance} ETB`,
         );
       }
     } catch (_) {}
 
     return { credited: true, amount: amount.toNumber(), newBalance };
   } catch (err) {
-    console.error(`[AutoVerify] Credit failed for deposit #${deposit.id}:`, err);
+    console.error(
+      `[AutoVerify] Credit failed for deposit #${deposit.id}:`,
+      err,
+    );
     return { credited: false, error: err.message };
   }
 }
@@ -256,7 +307,9 @@ async function checkExpiredSms(bot) {
       data: { status: "expired" },
     });
 
-    console.log(`[AutoVerify] SMS #${sms.id} expired (no matching claim within 30 min)`);
+    console.log(
+      `[AutoVerify] SMS #${sms.id} expired (no matching claim within 30 min)`,
+    );
 
     // Notify admin
     try {
@@ -275,7 +328,7 @@ async function checkExpiredSms(bot) {
             `Received: ${sms.receivedAt.toISOString()}\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `No player claimed this deposit.\n` +
-            `Original SMS:\n${sms.rawText.substring(0, 200)}`
+            `Original SMS:\n${sms.rawText.substring(0, 200)}`,
         );
       }
     } catch (_) {}
@@ -301,7 +354,9 @@ function setupAutoVerify(bot) {
     // Check if it looks like a bank SMS
     if (!isBankSms(msg.text)) return;
 
-    console.log(`[AutoVerify] Received potential bank SMS from entertainer ${tid}`);
+    console.log(
+      `[AutoVerify] Received potential bank SMS from entertainer ${tid}`,
+    );
 
     const result = await processIncomingSms(msg.text, bot);
 
@@ -311,18 +366,18 @@ function setupAutoVerify(bot) {
         await bot.sendMessage(
           msg.chat.id,
           `✅ Bank SMS auto-matched!\n` +
-            `Deposit #${result.depositId} verified and credited.`
+            `Deposit #${result.depositId} verified and credited.`,
         );
       } else if (result.error) {
         await bot.sendMessage(
           msg.chat.id,
-          `⚠️ Could not parse bank SMS: ${result.error}`
+          `⚠️ Could not parse bank SMS: ${result.error}`,
         );
       } else {
         await bot.sendMessage(
           msg.chat.id,
           `📋 Bank SMS #${result.bankSmsId} stored.\n` +
-            `Waiting for player claim (30 min timeout).`
+            `Waiting for player claim (30 min timeout).`,
         );
       }
     } catch (_) {}
@@ -331,7 +386,7 @@ function setupAutoVerify(bot) {
   // Start periodic expiry checker
   setInterval(() => {
     checkExpiredSms(bot).catch((err) =>
-      console.error("[AutoVerify] Expiry check error:", err.message)
+      console.error("[AutoVerify] Expiry check error:", err.message),
     );
   }, EXPIRY_CHECK_INTERVAL_MS);
 

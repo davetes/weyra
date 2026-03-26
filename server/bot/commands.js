@@ -34,6 +34,26 @@ function parsePositiveAmount(raw) {
   }
 }
 
+function normalizeRef(ref) {
+  return String(ref || "")
+    .toUpperCase()
+    .replace(/[\s\-_]/g, "")
+    .trim();
+}
+
+async function hasDuplicateDepositRef(normalizedRef) {
+  if (!normalizedRef) return false;
+  const recent = await prisma.depositRequest.findMany({
+    where: {
+      status: { in: ["pending", "approved"] },
+      bankReference: { not: "" },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+  return recent.some((d) => normalizeRef(d.bankReference) === normalizedRef);
+}
+
 function clearUserState(uid) {
   userState.delete(uid);
 }
@@ -496,6 +516,18 @@ function setupCommands(bot) {
           // Store the reference
           state.bankReference = text;
 
+          const normalizedRef = normalizeRef(text);
+          if (await hasDuplicateDepositRef(normalizedRef)) {
+            await bot.sendMessage(
+              chatId,
+              "This transaction/reference was already submitted. Please wait for verification or contact support.",
+            );
+            state.lastDepositMethod = null;
+            state.depositAmount = null;
+            state.bankReference = null;
+            return;
+          }
+
           // Create deposit request with bank reference
           const player = await prisma.player.findUnique({
             where: { telegramId: BigInt(tid) },
@@ -525,24 +557,29 @@ function setupCommands(bot) {
               `━━━━━━━━━━━━━━━━━━\n` +
               `Amount: ${state.depositAmount} ETB\n` +
               `Reference: ${text}\n` +
-              `Status: Waiting for bank confirmation...\n` +
-              `━━━━━━━━━━━━━━━━━━\n` +
-              `Your deposit will be automatically verified when the bank confirms it.`,
+              `Status: Waiting for bank confirmation...\n`,
           );
 
           // Check if a matching bank SMS already arrived
           const matchResult = await tryMatchDepositToSms(
-            { ...depositReq, player, amount: amount ? amount.toNumber() : null },
+            {
+              ...depositReq,
+              player,
+              amount: amount ? amount.toNumber() : null,
+            },
             bot,
           );
 
           if (matchResult.matched) {
             // Already auto-credited — player was notified by autoVerify
-            console.log(`[Deposit] Auto-matched deposit #${depositReq.id} immediately`);
+            console.log(
+              `[Deposit] Auto-matched deposit #${depositReq.id} immediately`,
+            );
           } else {
             // Notify entertainers about the pending claim
             try {
-              await notifyEntertainers(bot,
+              await notifyEntertainers(
+                bot,
                 `💳 Deposit Claim #${depositReq.id} (auto-verify pending)\n` +
                   `━━━━━━━━━━━━━━━━━━\n` +
                   `User: @${player.username || "-"} (id: ${tid})\n` +
@@ -554,8 +591,14 @@ function setupCommands(bot) {
                   reply_markup: {
                     inline_keyboard: [
                       [
-                        { text: "✅ Approve", callback_data: `approve_deposit:${depositReq.id}` },
-                        { text: "❌ Reject", callback_data: `reject_deposit:${depositReq.id}` },
+                        {
+                          text: "✅ Approve",
+                          callback_data: `approve_deposit:${depositReq.id}`,
+                        },
+                        {
+                          text: "❌ Reject",
+                          callback_data: `reject_deposit:${depositReq.id}`,
+                        },
                       ],
                     ],
                   },
@@ -580,6 +623,18 @@ function setupCommands(bot) {
       if (tid && chatId) {
         const state = getUserState(tid);
         if (state && state.awaitingDepositReceipt) {
+          const normalizedRef = normalizeRef(state.bankReference);
+          if (await hasDuplicateDepositRef(normalizedRef)) {
+            await bot.sendMessage(
+              chatId,
+              "This transaction/reference was already submitted. Please wait for verification or contact support.",
+            );
+            state.lastDepositMethod = null;
+            state.depositAmount = null;
+            state.bankReference = null;
+            state.awaitingDepositReceipt = false;
+            return;
+          }
           await forwardReceipt(msg);
           return;
         }

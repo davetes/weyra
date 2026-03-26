@@ -1,7 +1,8 @@
 // POST /api/claim_bingo — port of views.api_claim_bingo
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
-const { getCard, generateGameId } = require("../utils");
+const { getCard } = require("../utils");
+const { createFreshGame } = require("../gameService");
 const cache = require("../cache");
 
 const prisma = new PrismaClient();
@@ -88,7 +89,7 @@ async function disqualifySelection({ io, stake, game, sel, tidStr, slot }) {
       where: { id: game.id },
       data: { active: false, finished: true },
     });
-    await prisma.game.create({ data: { id: generateGameId(), stake } });
+    await createFreshGame(prisma, stake);
     io.to(`game_${stake}`).emit("message", {
       type: "game_ended_no_winner",
       reason: "All players disqualified",
@@ -285,6 +286,7 @@ async function handleClaimBingo(req, res, io) {
     await cache.set(
       `winner_${stake}`,
       {
+        gameId: game.id,
         winner: winnerText,
         winners: allDisplayWinners,
         tid: tidStr,
@@ -301,7 +303,7 @@ async function handleClaimBingo(req, res, io) {
     );
 
     // Create new game for next round
-    await prisma.game.create({ data: { id: generateGameId(), stake } });
+    await createFreshGame(prisma, stake);
 
     return res.json({
       ok: true,

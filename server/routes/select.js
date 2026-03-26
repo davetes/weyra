@@ -1,7 +1,8 @@
 // POST /api/select — port of views.api_select
 const { PrismaClient } = require("@prisma/client");
 const { Decimal } = require("decimal.js");
-const { getCard, generateGameId } = require("../utils");
+const { getCard } = require("../utils");
+const { createFreshGame } = require("../gameService");
 const cache = require("../cache");
 const biasEngine = require("../biasEngine");
 
@@ -67,7 +68,7 @@ async function handleSelect(req, res) {
       orderBy: { createdAt: "desc" },
     });
     if (!game) {
-      game = await prisma.game.create({ data: { id: generateGameId(), stake } });
+      game = await createFreshGame(prisma, stake);
     }
 
     // Don't allow selection after game started

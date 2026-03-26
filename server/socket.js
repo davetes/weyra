@@ -1,6 +1,7 @@
 // Socket.IO handler — port of bingo/consumers.py (GameConsumer)
 const { PrismaClient } = require("@prisma/client");
-const { getCard, generateGameId } = require("./utils");
+const { getCard } = require("./utils");
+const { createFreshGame } = require("./gameService");
 const cache = require("./cache");
 
 const prisma = new PrismaClient();
@@ -41,7 +42,7 @@ async function disqualifySelection({ io, stake, game, sel, tidStr }) {
       where: { id: game.id },
       data: { active: false, finished: true },
     });
-    await prisma.game.create({ data: { id: generateGameId(), stake } });
+    await createFreshGame(prisma, stake);
     io.to(`game_${stake}`).emit("message", {
       type: "game_ended_no_winner",
       reason: "All players disqualified",
@@ -338,6 +339,7 @@ function setupSocket(io) {
         await cache.set(
           `winner_${stake}`,
           {
+            gameId: game.id,
             winner: winnerText,
             winners: allDisplayWinners,
             index: sel.index,
@@ -350,7 +352,7 @@ function setupSocket(io) {
           10,
         );
 
-        await prisma.game.create({ data: { id: generateGameId(), stake } });
+        await createFreshGame(prisma, stake);
       }
     });
   });

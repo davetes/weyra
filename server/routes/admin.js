@@ -8,7 +8,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const multer = require("multer");
 const { getBot } = require("../bot");
 const cache = require("../cache");
-const { generateGameId } = require("../utils");
+const { createFreshGame } = require("../gameService");
 const biasEngine = require("../biasEngine");
 
 const prisma = new PrismaClient();
@@ -1296,10 +1296,7 @@ router.post(
           data: { active: false, finished: true },
         });
         await tx.selection.deleteMany({ where: { gameId: game.id } });
-        const created = await tx.game.create({
-          data: { id: generateGameId(), stake },
-        });
-        return created;
+        return createFreshGame(tx, stake);
       });
 
       // Clear related cache keys
