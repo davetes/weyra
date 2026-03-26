@@ -139,6 +139,7 @@ model DepositRequest {
   amount            Decimal?  @db.Decimal(12, 2)
   status            String    @default("pending") @db.VarChar(16)
   caption           String    @default("") @db.Text
+  bankReference     String    @default("") @map("bank_reference") @db.VarChar(128)
   adminNote         String    @default("") @map("admin_note") @db.Text
   disputeStatus     String    @default("none") @map("dispute_status") @db.VarChar(16)
   telegramMessageId Int?      @map("telegram_message_id")
@@ -151,7 +152,23 @@ model DepositRequest {
 
   @@index([playerId])
   @@index([status])
+  @@index([bankReference])
   @@map("deposit_request")
+}
+
+model BankSms {
+  id               Int       @id @default(autoincrement())
+  rawText          String    @map("raw_text") @db.Text
+  amount           Decimal?  @db.Decimal(12, 2)
+  reference        String    @default("") @db.VarChar(128)
+  bank             String    @default("") @db.VarChar(32)
+  status           String    @default("unmatched") @db.VarChar(16)
+  matchedDepositId Int?      @map("matched_deposit_id")
+  receivedAt       DateTime  @default(now()) @map("received_at")
+
+  @@index([reference])
+  @@index([status])
+  @@map("bank_sms")
 }
 
 model WithdrawRequest {

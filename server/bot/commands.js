@@ -6,6 +6,7 @@ const { Decimal } = require("decimal.js");
 const { buildDepositKeyboard, handleDepositSelection } = require("./deposit");
 const { setupWithdraw } = require("./withdraw");
 const { setupInvite } = require("./invite");
+const { tryMatchDepositToSms } = require("./autoVerify");
 const { setupReport } = require("./report");
 const {
   notifyEntertainers,
@@ -44,6 +45,8 @@ function resetConversationState(uid) {
   state.lastDepositMethod = null;
   state.depositAmount = null;
   state.awaitingDepositAmount = false;
+  state.awaitingBankReference = false;
+  state.bankReference = null;
   state.awaitingDepositReceipt = false;
   // Clear withdraw flow
   state.withdrawStep = null;
@@ -458,14 +461,113 @@ function setupCommands(bot) {
 
           state.depositAmount = amt.toFixed(2);
           state.awaitingDepositAmount = false;
-          state.awaitingDepositReceipt = true;
+          state.awaitingBankReference = true;
           await bot.sendMessage(
             chatId,
-            `send your receipt screenshot/photo or SMS text.የደረሰኙን ስክሪንሹት ወይም ፎቶ ወይም መልዕክት ይላኩ።`,
+            `📋 Enter Bank Reference / Transaction ID — የባንክ ማጣቀሻ ቁጥር ያስገቡ\n\n` +
+              `Copy the reference/transaction ID from your bank SMS or receipt and paste it here.\n` +
+              `ከባንክ መልዕክት ወይም ደረሰኝ ላይ ያለውን ማጣቀሻ ቁጥር ኮፒ አድርገው እዚህ ይለጥፉ\n\n` +
+              `Type \"skip\" to send receipt manually instead.\n` +
+              `ለማለፍ \"skip\" ይጻፉ`,
             {
               reply_markup: { remove_keyboard: true },
             },
           );
+          return;
+        }
+
+        // Bank reference step
+        if (state && state.awaitingBankReference) {
+          const text = String(msg.text || "").trim();
+          state.awaitingBankReference = false;
+
+          if (text.toLowerCase() === "skip" || text === "") {
+            // Skip reference — fall back to manual receipt flow
+            state.bankReference = null;
+            state.awaitingDepositReceipt = true;
+            await bot.sendMessage(
+              chatId,
+              `📸 Send your receipt screenshot/photo or SMS text.\nየደረሰኙን ስክሪንሹት ወይም ፎቶ ወይም መልዕክት ይላኩ።`,
+              { reply_markup: { remove_keyboard: true } },
+            );
+            return;
+          }
+
+          // Store the reference
+          state.bankReference = text;
+
+          // Create deposit request with bank reference
+          const player = await prisma.player.findUnique({
+            where: { telegramId: BigInt(tid) },
+          });
+          if (!player) {
+            await bot.sendMessage(chatId, "Please /start first to register.");
+            return;
+          }
+
+          const amount = parsePositiveAmount(state.depositAmount);
+          const method = String(state.lastDepositMethod || "");
+
+          const depositReq = await prisma.depositRequest.create({
+            data: {
+              playerId: player.id,
+              telegramId: BigInt(tid),
+              method,
+              amount: amount ? amount.toNumber() : undefined,
+              bankReference: text,
+              status: "pending",
+            },
+          });
+
+          await bot.sendMessage(
+            chatId,
+            `⏳ Deposit claim received!\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `Amount: ${state.depositAmount} ETB\n` +
+              `Reference: ${text}\n` +
+              `Status: Waiting for bank confirmation...\n` +
+              `━━━━━━━━━━━━━━━━━━\n` +
+              `Your deposit will be automatically verified when the bank confirms it.`,
+          );
+
+          // Check if a matching bank SMS already arrived
+          const matchResult = await tryMatchDepositToSms(
+            { ...depositReq, player, amount: amount ? amount.toNumber() : null },
+            bot,
+          );
+
+          if (matchResult.matched) {
+            // Already auto-credited — player was notified by autoVerify
+            console.log(`[Deposit] Auto-matched deposit #${depositReq.id} immediately`);
+          } else {
+            // Notify entertainers about the pending claim
+            try {
+              await notifyEntertainers(bot,
+                `💳 Deposit Claim #${depositReq.id} (auto-verify pending)\n` +
+                  `━━━━━━━━━━━━━━━━━━\n` +
+                  `User: @${player.username || "-"} (id: ${tid})\n` +
+                  `Amount: ${state.depositAmount} ETB\n` +
+                  `Reference: ${text}\n` +
+                  `Method: ${method || "-"}\n` +
+                  `Waiting for bank SMS match...`,
+                {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        { text: "✅ Approve", callback_data: `approve_deposit:${depositReq.id}` },
+                        { text: "❌ Reject", callback_data: `reject_deposit:${depositReq.id}` },
+                      ],
+                    ],
+                  },
+                },
+              );
+            } catch (_) {}
+          }
+
+          // Clear deposit state
+          state.lastDepositMethod = null;
+          state.depositAmount = null;
+          state.bankReference = null;
           return;
         }
       }
@@ -759,6 +861,7 @@ function setupCommands(bot) {
             method,
             amount: amount ? amount.toNumber() : undefined,
             caption,
+            bankReference: state.bankReference || "",
             telegramMessageId: msg.message_id,
             status: "pending",
           },

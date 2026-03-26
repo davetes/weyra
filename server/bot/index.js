@@ -3,6 +3,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const { setupCommands } = require("./commands");
 const { setupAdmin } = require("./admin");
 const { setupEntertainer } = require("./entertainer");
+const { setupAutoVerify } = require("./autoVerify");
 
 let bot = null;
 let retryCount = 0;
@@ -40,6 +41,7 @@ function startBot() {
   setupCommands(bot);
   setupAdmin(bot);
   setupEntertainer(bot);
+  setupAutoVerify(bot);
 
   bot.on("polling_error", (err) => {
     const errorMsg = err.message || err.code || "Unknown error";
