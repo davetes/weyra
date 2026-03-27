@@ -183,14 +183,27 @@ function setupCommands(bot) {
     const refParam = (match[1] || "").trim();
 
     // Create or update player atomically to avoid unique race
-    const player = await prisma.player.upsert({
-      where: { telegramId: BigInt(tid) },
-      create: {
-        telegramId: BigInt(tid),
-        username,
-      },
-      update: username ? { username } : {},
-    });
+    let player;
+    try {
+      player = await prisma.player.upsert({
+        where: { telegramId: BigInt(tid) },
+        create: {
+          telegramId: BigInt(tid),
+          username,
+        },
+        update: username ? { username } : {},
+      });
+    } catch (err) {
+      if (err.code === "P2002") {
+        // A concurrent request already created the user, fallback to update
+        player = await prisma.player.update({
+          where: { telegramId: BigInt(tid) },
+          data: username ? { username } : {},
+        });
+      } else {
+        throw err;
+      }
+    }
 
     // Capture referral for first-time registration completion
     if (refParam.startsWith("ref_")) {
