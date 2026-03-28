@@ -584,6 +584,12 @@ function buildBiasedSequence(
   const afterWin = shuffleArray([...leftoverFillers, ...blocked]);
   sequence.push(...afterWin);
 
+  // Safety: ensure all 75 numbers are present (recover from any logic gaps)
+  const inSeq = new Set(sequence);
+  for (let i = 1; i <= 75; i++) {
+    if (!inSeq.has(i)) sequence.push(i);
+  }
+
   return { sequence, targetCall };
 }
 

@@ -107,6 +107,34 @@ function startCallTicker(io) {
       });
 
       for (const game of games) {
+        // ── Auto-heal: started game with no/empty sequence ──
+        let parsedSeq = [];
+        try { parsedSeq = JSON.parse(game.sequence || "[]"); } catch(_) {}
+        if (!parsedSeq.length) {
+          const healKey = `heal_seq_${game.id}`;
+          const healSince = await cache.get(healKey);
+          if (!healSince) {
+            await cache.set(healKey, Date.now(), 120);
+            continue;
+          }
+          if (Date.now() - Number(healSince) >= 15000) {
+            // Generate random sequence and save to unstick the game
+            const freshSeq = [];
+            for (let i = 1; i <= 75; i++) freshSeq.push(i);
+            for (let i = 74; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [freshSeq[i], freshSeq[j]] = [freshSeq[j], freshSeq[i]];
+            }
+            await prisma.game.update({
+              where: { id: game.id },
+              data: { sequence: JSON.stringify(freshSeq) },
+            });
+            await cache.del(healKey);
+            console.warn(`Auto-healed game ${game.id} with missing sequence`);
+          }
+          continue;
+        }
+
         const currentCall = await getCurrentCallWithPause(game);
         if (currentCall == null) continue;
         const lastCallKey = `call_${game.id}`;

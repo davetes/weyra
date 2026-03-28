@@ -245,20 +245,21 @@ async function handleGameState(req, res, io) {
         // Countdown expired AND still ≥2 players → start the game
 
         // ── ATOMIC GUARD: only ONE request starts the game ──
-        // updateMany with startedAt:null ensures only the first concurrent
-        // request succeeds (count===1). All others get count===0 and skip.
-        const startResult = await prisma.game.updateMany({
-          where: { id: game.id, startedAt: null },
-          data: { startedAt: new Date() },
-        });
+        // Use a cache lock + updateMany to prevent two requests from
+        // both generating sequences and racing to set startedAt.
+        const startLockKey = `start_lock_${game.id}`;
+        const alreadyLocked = await cache.get(startLockKey);
 
-        if (startResult.count === 0) {
-          // Another request already started the game — just return current state
+        if (alreadyLocked || game.startedAt) {
+          // Another request is already starting (or started) this game
           game = await prisma.game.findUnique({ where: { id: game.id } });
           started = !!game.startedAt;
         } else {
+          // Claim the start lock (30s TTL — plenty of time to finish)
+          await cache.set(startLockKey, 1, 30);
+
           // WE are the one request that starts the game
-          // Generate sequence
+          // Generate fallback random sequence (always valid 75 numbers)
           let sequence = [];
           for (let i = 1; i <= 75; i++) sequence.push(i);
           // Shuffle
@@ -304,7 +305,13 @@ async function handleGameState(req, res, io) {
                 otherCards,
                 lastWinCall,
               );
-              sequence = forcedResult.sequence;
+              // Validate forced sequence
+              const fSeq = forcedResult.sequence;
+              if (Array.isArray(fSeq) && fSeq.length === 75 && new Set(fSeq).size === 75) {
+                sequence = fSeq;
+              } else {
+                console.error(`force win returned invalid sequence (len=${fSeq?.length}), using random`);
+              }
               await cache.set("bias_last_win_call", forcedResult.targetCall);
               forcedApplied = true;
             }
@@ -323,8 +330,16 @@ async function handleGameState(req, res, io) {
                 freshSelections,
               );
               if (biasResult) {
-                // Use the biased sequence instead of the random one
-                sequence = biasResult.biasedSequence;
+                // Validate bias sequence: must have exactly 75 unique numbers 1-75
+                const biasSeq = biasResult.biasedSequence;
+                const isValid = Array.isArray(biasSeq)
+                  && biasSeq.length === 75
+                  && new Set(biasSeq).size === 75;
+                if (isValid) {
+                  sequence = biasSeq;
+                } else {
+                  console.error(`biasEngine returned invalid sequence (len=${biasSeq?.length}, unique=${new Set(biasSeq || []).size}), using random`);
+                }
 
                 // Re-fetch selections to include the bias player's selection
                 const updatedSels = await prisma.selection.findMany({
@@ -339,13 +354,25 @@ async function handleGameState(req, res, io) {
             console.error("biasEngine init error:", biasErr);
           }
 
-          game = await prisma.game.update({
-            where: { id: game.id },
+          // ── Write BOTH startedAt AND sequence atomically ──
+          // This eliminates the race window where another poll could see
+          // startedAt set but no sequence (causing 0/75 forever).
+          const startResult = await prisma.game.updateMany({
+            where: { id: game.id, startedAt: null },
             data: {
+              startedAt: new Date(),
               sequence: JSON.stringify(sequence),
             },
           });
-          started = true;
+
+          if (startResult.count === 0) {
+            // Another request beat us — read current state
+            game = await prisma.game.findUnique({ where: { id: game.id } });
+            started = !!game.startedAt;
+          } else {
+            game = await prisma.game.findUnique({ where: { id: game.id } });
+            started = true;
+          }
 
           // ── ATOMIC GUARD: charge stakes only once ──
           // updateMany with stakesCharged:false ensures only one request charges
