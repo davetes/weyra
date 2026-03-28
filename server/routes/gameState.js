@@ -534,6 +534,10 @@ async function handleGameState(req, res, io) {
     let recentWinner = (await cache.get(`winner_${stake}`)) || null;
     if (recentWinner && recentWinner.gameId !== game.id) recentWinner = null;
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     return res.json({
       ok: true,
       stake,
