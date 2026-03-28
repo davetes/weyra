@@ -98,6 +98,7 @@ export default function GamePage() {
   const audioRef = useRef(null);
   const audioCacheRef = useRef(new Map());
   const audioPlayingRef = useRef(false);
+  const audioQueueRef = useRef([]);
   const lastAudioCallRef = useRef(null);
   const lastToggleTimeRef = useRef(0); // Track last auto toggle to skip poll update
   const scheduledAudioRef = useRef(null);
@@ -130,6 +131,16 @@ export default function GamePage() {
   useEffect(() => {
     calledSetRef.current = calledSet;
   }, [calledSet]);
+
+  useEffect(() => {
+    if (suppressCalls || !audioOn) {
+      audioQueueRef.current = [];
+      if (audioRef.current && audioPlayingRef.current) {
+        audioRef.current.pause();
+        audioPlayingRef.current = false;
+      }
+    }
+  }, [suppressCalls, audioOn]);
 
   useEffect(() => {
     winnerRef.current = winner;
@@ -326,43 +337,69 @@ export default function GamePage() {
     });
   }
 
-  function playNumber(num) {
+  function processAudioQueue() {
     if (suppressCalls || !audioOn || audioPlayingRef.current) return;
-    num = Number(num);
-    if (!Number.isFinite(num) || num < 1 || num > 75) return;
+    if (audioQueueRef.current.length === 0) return;
+
+    const num = audioQueueRef.current.shift();
+    if (!Number.isFinite(num) || num < 1 || num > 75) {
+      processAudioQueue();
+      return;
+    }
+
     const cached = audioCacheRef.current.get(num);
     const audio = cached || audioRef.current;
-    if (!audio) return;
+    if (!audio) {
+      processAudioQueue();
+      return;
+    }
+
     audioPlayingRef.current = true;
-    lastAudioCallRef.current = String(num);
+    
     if (!cached) audio.src = `/static/audio/${num}.mp3`;
     audio.currentTime = 0;
-    audio.onended = () => {
+    
+    const onEnd = () => {
       audioPlayingRef.current = false;
+      audio.onended = null;
+      audio.onerror = null;
+      setTimeout(processAudioQueue, 50);
     };
-    audio.onerror = () => {
-      audioPlayingRef.current = false;
-    };
+
+    audio.onended = onEnd;
+    audio.onerror = onEnd;
     audio.play().catch(() => {
-      audioPlayingRef.current = false;
+      onEnd();
     });
+  }
+
+  function queueNumberAudio(num) {
+    if (suppressCalls || !audioOn) return;
+    num = Number(num);
+    if (!Number.isFinite(num)) return;
+    
+    const sNum = String(num);
+    if (lastAudioCallRef.current === sNum) return;
+    if (audioQueueRef.current[audioQueueRef.current.length - 1] === num) return;
+    
+    lastAudioCallRef.current = sNum;
+    audioQueueRef.current.push(num);
+    
+    if (!audioPlayingRef.current) {
+      setTimeout(processAudioQueue, 10);
+    }
   }
 
   function schedulePlayNumber(num, serverTime) {
     if (suppressCalls || !audioOn) return;
-    if (scheduledAudioRef.current) {
-      clearTimeout(scheduledAudioRef.current);
-      scheduledAudioRef.current = null;
-    }
     const offset = serverOffsetRef.current || 0;
     const baseServerTime = Number.isFinite(serverTime)
       ? serverTime
       : Date.now() + offset;
     const targetTime = baseServerTime + 350 - offset;
     const delay = Math.max(0, Math.min(1000, targetTime - Date.now()));
-    scheduledAudioRef.current = setTimeout(() => {
-      scheduledAudioRef.current = null;
-      playNumber(num);
+    setTimeout(() => {
+      queueNumberAudio(num);
     }, delay);
   }
 
@@ -531,7 +568,7 @@ export default function GamePage() {
         data.current_call != null &&
         String(data.current_call) !== lastAudioCallRef.current
       ) {
-        playNumber(data.current_call);
+        queueNumberAudio(data.current_call);
       }
       const nextCurrentCall = data.current_call;
       if (lastCurrentCallRef.current !== nextCurrentCall) {
